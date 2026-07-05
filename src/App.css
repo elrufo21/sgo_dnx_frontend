@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --app-shell-header-h: 4rem;
+  --app-shell-main-px: 1.5rem;
+  --app-shell-main-py: 1.25rem;
+  --app-shell-sidebar-open: 15rem;
+  --app-shell-sidebar-collapsed: 4.5rem;
+  --app-shell-content-max: 1760px;
+}
+
+@media (max-width: 1536px) {
+  :root {
+    --app-shell-main-px: 1.25rem;
+    --app-shell-main-py: 1rem;
+  }
+}
+
+/* Prioridad 1366x768 */
+@media (max-width: 1366px) and (min-width: 1024px) {
+  :root {
+    --app-shell-header-h: 3.5rem;
+    --app-shell-main-px: 1rem;
+    --app-shell-main-py: 0.875rem;
+    --app-shell-sidebar-open: 13.75rem;
+    --app-shell-sidebar-collapsed: 4rem;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --app-shell-header-h: 3.25rem;
+    --app-shell-main-px: 0.75rem;
+    --app-shell-main-py: 0.75rem;
+    --app-shell-sidebar-open: min(88vw, 19rem);
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --app-shell-header-h: 3rem;
+    --app-shell-main-px: 0.625rem;
+    --app-shell-main-py: 0.625rem;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f1f5f9;
+  color: #0f172a;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app-main-scroll {
+  scrollbar-gutter: stable both-edges;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}

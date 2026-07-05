@@ -1,0 +1,131 @@
+     public void calculaFechaReferencia()
+        {
+            xFechaRefencia = string.Empty;
+            xRangoNumeros = string.Empty;
+            string xdia = string.Empty;
+            string[] xD1;
+            string[] xD2;
+            string xinicial = string.Empty;
+            string xserie, xserieB = string.Empty;
+            int xn1 = 0;
+            int xn2 = 0;
+            int indiceUltimaFila = gvlista.Rows.Count - 1;
+            DateTime dia2;
+            for (int i = 0; i <= 0; i++)
+            {
+                xdia = Convert.ToString(gvlista.Rows[i].Cells[3].Value);
+                xinicial = Convert.ToString(gvlista.Rows[i].Cells[5].Value);
+            }
+            xD1 = xinicial.Split('-');
+            xserie = xD1[0].Replace("0", "");
+            xn1 = int.Parse(xD1[1]);
+            xRangoNumeros = xserie + "-" + xn1.ToString();
+            xD2 = gvlista.Rows[indiceUltimaFila].Cells[5].Value.ToString().Split('-');
+            xserieB = xD2[0].Replace("0", "");
+            xn2 = int.Parse(xD2[1]);
+            xRangoNumeros += " al " + xserieB + "-" + xn2.ToString();
+            dia2 = Convert.ToDateTime(xdia);
+            xFechaRefencia = dia2.ToString("yyyy-MM-dd");
+        }
+        public void enviarResumen()
+        {
+            limpiaResSunat();
+            calculaFechaReferencia();
+            traerFirma();
+            Stopwatch oReloj = new Stopwatch();
+            oReloj.Start();
+            xsecuencia = string.Empty;
+            AccesoDatos daSQL = new AccesoDatos("con");
+            string rpt = daSQL.ejecutarConsulta("select top 1 convert(varchar,Secuencia+1) " +
+                "from ResumenBoletas where CompaniaId ='1' order by Secuencia desc");
+            if (rpt != "")
+            {
+                xsecuencia = rpt;
+                objCPE.NRO_DOCUMENTO_EMPRESA = xRuc;
+                objCPE.RAZON_SOCIAL = xRazonSocial;
+                objCPE.TIPO_DOCUMENTO = "6"; // RUC'
+                objCPE.CODIGO = "RC"; // Resumen de Boletas
+                objCPE.SERIE = DateTime.Now.ToString("yyyyMMdd"); // fecha sin guines "20161029"
+                objCPE.SECUENCIA = xsecuencia;
+                objCPE.FECHA_REFERENCIA = xFechaRefencia.ToString();
+                objCPE.FECHA_DOCUMENTO =DateTime.Now.ToString("yyyy-MM-dd"); // declarar
+                objCPE.TIPO_PROCESO = NROPROCESO;//1=PRODUCCION, 3=BETA
+                objCPE.CONTRA_FIRMA = xPFXClave;
+                objCPE.USUARIO_SOL_EMPRESA = xUsuarioSol;
+                objCPE.PASS_SOL_EMPRESA = xClaveSol;
+                objCPE.RUTA_PFX = xPFX;
+                List<BusinessEntities.CPE_RESUMEN_BOLETA_DETALLE> OBJCPE_DETALLE_LIST = new List<BusinessEntities.CPE_RESUMEN_BOLETA_DETALLE>();
+                for (int i = 0; i <= gvlista.Rows.Count - 1; i++)
+                {
+                    objCPE_DETALLE = new BusinessEntities.CPE_RESUMEN_BOLETA_DETALLE();
+                    objCPE_DETALLE.ITEM = i + 1;
+                    objCPE_DETALLE.TIPO_COMPROBANTE = "03";
+                    objCPE_DETALLE.NRO_COMPROBANTE = Convert.ToString(gvlista.Rows[i].Cells[5].Value.ToString()); //"B001-12";
+                    objCPE_DETALLE.TIPO_DOCUMENTO = "1"; // dni
+                    if (Convert.ToString(gvlista.Rows[i].Cells[7].Value.ToString()) == "" || Convert.ToString(gvlista.Rows[i].Cells[7].Value.ToString()) == null)
+                        objCPE_DETALLE.NRO_DOCUMENTO = "00000000";
+                    else
+                        objCPE_DETALLE.NRO_DOCUMENTO = Convert.ToString(gvlista.Rows[i].Cells[7].Value.ToString());//nro del dni
+                    objCPE_DETALLE.TIPO_COMPROBANTE_REF = ""; // nota credito hacer una refeencia 07
+                    objCPE_DETALLE.NRO_COMPROBANTE_REF = ""; // nota creditp
+                    objCPE_DETALLE.STATU = "1"; // declarar exite '3' anulado anular 1 pendiente 
+                    objCPE_DETALLE.COD_MONEDA = "PEN";
+                    objCPE_DETALLE.TOTAL = Convert.ToDecimal(gvlista.Rows[i].Cells[11].Value.ToString());// 1693.39;
+                    objCPE_DETALLE.ICBPER = Convert.ToDecimal(gvlista.Rows[i].Cells[10].Value.ToString());
+                    objCPE_DETALLE.GRAVADA = Convert.ToDecimal(gvlista.Rows[i].Cells[8].Value.ToString()); //1435.08;
+                    objCPE_DETALLE.ISC = 0;
+                    objCPE_DETALLE.IGV = Convert.ToDecimal(gvlista.Rows[i].Cells[9].Value.ToString());
+                    objCPE_DETALLE.OTROS = 0;
+                    objCPE_DETALLE.CARGO_X_ASIGNACION = 1;
+                    objCPE_DETALLE.MONTO_CARGO_X_ASIG = 0;
+                    objCPE_DETALLE.EXONERADO = 0;
+                    objCPE_DETALLE.INAFECTO = 0;
+                    objCPE_DETALLE.EXPORTACION = 0;
+                    objCPE_DETALLE.GRATUITAS = 0;
+                    OBJCPE_DETALLE_LIST.Add(objCPE_DETALLE);
+                }
+                objCPE.detalle = OBJCPE_DETALLE_LIST;//objCPE.detalle = OBJCPE_DETALLE_LIST;
+                // ======================================RESPUESTA====================================
+                Dictionary<string, string> dictionaryEnv = new Dictionary<string, string>();
+                dictionaryEnv = objF.EnvioResumen(objCPE);
+                TXTCOD_SUNAT.Text = dictionaryEnv["cod_sunat"];
+                TXT_MSJ_SUNAT.Text = dictionaryEnv["msj_sunat"];
+                TXTHASHCPE.Text = dictionaryEnv["hash_cpe"];
+                TXTHASHCDR.Text = dictionaryEnv["hash_cdr"];
+                // ==============================
+                txtticket.Text = dictionaryEnv["msj_sunat"];
+                if (!Val.IsMatch(txtticket.Text))
+                {
+                    MessageBox.Show(TXTCOD_SUNAT.Text + "-" + TXT_MSJ_SUNAT.Text, "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    oReloj.Stop();
+                    this.Text = ".:.TIEMPO DE RESPUESTA:  " + oReloj.Elapsed.TotalMilliseconds.ToString("N2") + " MS";
+                }
+                else
+                {
+                    if (TXTCOD_SUNAT.Text == "0402" || TXTCOD_SUNAT.Text == "0111" ||
+                        TXTCOD_SUNAT.Text == "0133" || TXTCOD_SUNAT.Text == "135" ||
+                         TXTCOD_SUNAT.Text == "133" || TXTCOD_SUNAT.Text == "111" ||
+                         TXTCOD_SUNAT.Text == "402" || TXTCOD_SUNAT.Text == "109" ||
+                        TXTCOD_SUNAT.Text == "2018" || TXTCOD_SUNAT.Text == "100" ||
+                        TXTCOD_SUNAT.Text == "2223" || TXTCOD_SUNAT.Text == "0135" || 
+                        TXTCOD_SUNAT.Text == "200" || TXTCOD_SUNAT.Text == "2663" || 
+                        TXTCOD_SUNAT.Text == "0109" || TXTCOD_SUNAT.Text == "2220")
+                    {
+                        MessageBox.Show(TXTCOD_SUNAT.Text + "-" + TXT_MSJ_SUNAT.Text, "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        oReloj.Stop();
+                        this.Text = ".:.TIEMPO DE RESPUESTA:  " + oReloj.Elapsed.TotalMilliseconds.ToString("N2") + " MS";
+                    }
+                    else
+                    {
+                        guardarResumen();
+                        oReloj.Stop();
+                        this.Text = ".:.TIEMPO DE RESPUESTA:  " + oReloj.Elapsed.TotalMilliseconds.ToString("N2") + " MS";
+                    }
+                }
+            }
+            else
+            {
+                oReloj.Stop();
+                MessageBox.Show("Error al Traer la secuencia de Resumen de Boletas", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
