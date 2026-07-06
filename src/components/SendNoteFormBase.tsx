@@ -67,7 +67,8 @@ export default function SendNoteFormBase({
 }: SendNoteFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { products, fetchProducts } = useProductsStore();
-  const { clients, fetchClients, addClient } = useClientsStore();
+  const { clients, fetchClients, searchClients, addClient } = useClientsStore();
+  const clientSearchTimerRef = useRef<number | null>(null);
   const [isEditable, setIsEditable] = useState(!readOnly);
   const openDialog = useDialogStore((s) => s.openDialog);
   const closeDialog = useDialogStore((s) => s.closeDialog);
@@ -130,6 +131,29 @@ export default function SendNoteFormBase({
     watch,
     formState: { isSubmitting },
   } = formMethods;
+
+  const queueClientSearch = useCallback(
+    (value: string) => {
+      const term = (value ?? "").trim();
+      if (clientSearchTimerRef.current) {
+        window.clearTimeout(clientSearchTimerRef.current);
+      }
+      if (term.length < 2) return;
+      clientSearchTimerRef.current = window.setTimeout(() => {
+        void searchClients(term);
+      }, 300);
+    },
+    [searchClients],
+  );
+
+  useEffect(
+    () => () => {
+      if (clientSearchTimerRef.current) {
+        window.clearTimeout(clientSearchTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const [tableData, setTableData] = useState<SendNoteItem[]>(defaults.items);
   const [movilidad, setMovilidad] = useState<number>(0);
@@ -794,6 +818,7 @@ export default function SendNoteFormBase({
                         label=""
                         options={clientOptions}
                         placeholder="Seleccionar cliente"
+                        onInputValueChange={queueClientSearch}
                         onOptionSelected={(opt: any) => {
                           if (opt) {
                             fillClientFields(opt as Client, {
@@ -810,6 +835,7 @@ export default function SendNoteFormBase({
                       label="R.U.C"
                       options={rucOptions}
                       placeholder="RUC"
+                      onInputValueChange={queueClientSearch}
                       onOptionSelected={(opt: any) => {
                         if (opt) {
                           fillClientFields(opt as Client, {
@@ -824,6 +850,7 @@ export default function SendNoteFormBase({
                       label="D.N.I"
                       options={dniOptions}
                       placeholder="DNI"
+                      onInputValueChange={queueClientSearch}
                       onOptionSelected={(opt: any) => {
                         if (opt) {
                           fillClientFields(opt as Client, {

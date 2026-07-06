@@ -238,7 +238,8 @@ export default function ServiceInvoiceCreate() {
   const user = useAuthStore((state) => state.user);
   const openDialog = useDialogStore((state) => state.openDialog);
   const { config, fetchConfig } = useBillingConfigStore();
-  const { clients, fetchClients } = useClientsStore();
+  const { clients, fetchClients, searchClients } = useClientsStore();
+  const clientSearchTimerRef = useRef<number | null>(null);
   const {
     sendInvoice,
     sendCreditNote,
@@ -299,6 +300,29 @@ export default function ServiceInvoiceCreate() {
   useEffect(() => {
     void fetchClients("ACTIVO");
   }, [fetchClients]);
+
+  const queueClientSearch = useCallback(
+    (value: string) => {
+      const term = safeText(value);
+      if (clientSearchTimerRef.current) {
+        window.clearTimeout(clientSearchTimerRef.current);
+      }
+      if (term.length < 2) return;
+      clientSearchTimerRef.current = window.setTimeout(() => {
+        void searchClients(term);
+      }, 300);
+    },
+    [searchClients],
+  );
+
+  useEffect(
+    () => () => {
+      if (clientSearchTimerRef.current) {
+        window.clearTimeout(clientSearchTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!config) void fetchConfig();
@@ -1412,6 +1436,7 @@ export default function ServiceInvoiceCreate() {
                     options={clientOptions}
                     placeholder="Razon social"
                     syncInputToValue
+                    onInputValueChange={queueClientSearch}
                     disabled={!canEdit}
                     rules={{ required: "La razon social es obligatoria" }}
                     onOptionSelected={(option) => {
@@ -1434,6 +1459,7 @@ export default function ServiceInvoiceCreate() {
                     options={rucOptions}
                     placeholder="20522109178"
                     syncInputToValue
+                    onInputValueChange={queueClientSearch}
                     disabled={!canEdit}
                     rules={{ required: "El RUC es obligatorio" }}
                     onOptionSelected={(option) => {

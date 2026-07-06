@@ -3,10 +3,27 @@ import { apiRequest } from "@/shared/helpers/apiRequest";
 import type { ApiClient, Client } from "@/types/customer";
 import { create } from "zustand";
 
+type FetchClientsParams =
+  | ("ACTIVO" | "INACTIVO" | "")
+  | {
+      estado?: "ACTIVO" | "INACTIVO" | "";
+      search?: string;
+      page?: number;
+      pageSize?: number;
+    };
+
 interface ClientsState {
   clients: Client[];
+  totalClients: number;
   loading: boolean;
-  fetchClients: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
+  fetchClients: (params?: FetchClientsParams) => Promise<void>;
+  searchClients: (
+    search: string,
+    estado?: "ACTIVO" | "INACTIVO" | "",
+    pageSize?: number,
+  ) => Promise<Client[]>;
+  fetchClientById: (id: number) => Promise<Client | null>;
+  fetchClientByCodigo: (codigo: string) => Promise<Client | null>;
   addClient: (
     client: Omit<Client, "id">,
   ) => Promise<{ ok: boolean; error?: string }>;
@@ -160,28 +177,108 @@ const parseExistsMessage = (payload: unknown): string | null => {
   return null;
 };
 
+const parseParams = (params: FetchClientsParams = "ACTIVO") =>
+  typeof params === "string"
+    ? { estado: params, search: "", page: 1, pageSize: 50 }
+    : {
+        estado: params.estado ?? "ACTIVO",
+        search: params.search ?? "",
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 50,
+      };
+
+const buildClientListUrl = (params: FetchClientsParams = "ACTIVO") => {
+  const parsed = parseParams(params);
+  const query = new URLSearchParams();
+  if (parsed.estado) query.set("estado", parsed.estado);
+  if (parsed.search.trim()) query.set("search", parsed.search.trim());
+  query.set("page", String(parsed.page));
+  query.set("pageSize", String(parsed.pageSize));
+  return `${API_BASE_URL}/Cliente/list?${query.toString()}`;
+};
+
+const parseClientListResponse = (response: unknown) => {
+  const payload = (response ?? {}) as Record<string, unknown>;
+  const items = Array.isArray(response)
+    ? response
+    : Array.isArray(payload.items)
+      ? payload.items
+      : Array.isArray(payload.Items)
+        ? payload.Items
+        : [];
+  const total = Array.isArray(response)
+    ? response.length
+    : Number(payload.total ?? payload.Total ?? items.length);
+
+  return {
+    items: items.map(mapApiToClient),
+    total: Number.isFinite(total) ? total : items.length,
+  };
+};
+
+const mergeClients = (current: Client[], incoming: Client[]) => {
+  const map = new Map<number, Client>();
+  current.forEach((client) => map.set(client.id, client));
+  incoming.forEach((client) => map.set(client.id, client));
+  return Array.from(map.values());
+};
+
 export const useClientsStore = create<ClientsState>((set) => ({
   clients: [],
+  totalClients: 0,
   loading: false,
 
-  fetchClients: async (estado = "ACTIVO") => {
+  fetchClients: async (params = "ACTIVO") => {
     set({ loading: true });
     try {
-      const query =
-        estado && estado.trim() !== ""
-          ? `?estado=${encodeURIComponent(estado)}`
-          : "";
-      const response = await apiRequest<ApiClient[]>({
-        url: `${API_BASE_URL}/Cliente/list${query}`,
+      const response = await apiRequest<unknown>({
+        url: buildClientListUrl(params),
         method: "GET",
         fallback: [],
       });
-      const data = Array.isArray(response) ? response : [];
-      set({ clients: data.map(mapApiToClient), loading: false });
+      const { items, total } = parseClientListResponse(response);
+      set({ clients: items, totalClients: total, loading: false });
     } catch (error) {
       console.error("Error loading clients", error);
       set({ loading: false });
     }
+  },
+
+  searchClients: async (search, estado = "ACTIVO", pageSize = 20) => {
+    const term = search.trim();
+    if (term.length < 2) return [];
+    const response = await apiRequest<unknown>({
+      url: buildClientListUrl({ estado, search: term, page: 1, pageSize }),
+      method: "GET",
+      fallback: [],
+    });
+    const { items: found } = parseClientListResponse(response);
+    set((state) => ({ clients: mergeClients(state.clients, found) }));
+    return found;
+  },
+
+  fetchClientById: async (id) => {
+    const response = await apiRequest<ApiClient | null>({
+      url: `${API_BASE_URL}/Cliente/${id}`,
+      method: "GET",
+      fallback: null,
+    });
+    const client = response ? mapApiToClient(response) : null;
+    if (client) set((state) => ({ clients: mergeClients(state.clients, [client]) }));
+    return client;
+  },
+
+  fetchClientByCodigo: async (codigo) => {
+    const normalized = codigo.trim();
+    if (!normalized) return null;
+    const response = await apiRequest<ApiClient | null>({
+      url: `${API_BASE_URL}/Cliente/by-codigo/${encodeURIComponent(normalized)}`,
+      method: "GET",
+      fallback: null,
+    });
+    const client = response ? mapApiToClient(response) : null;
+    if (client) set((state) => ({ clients: mergeClients(state.clients, [client]) }));
+    return client;
   },
 
   addClient: async (client) => {

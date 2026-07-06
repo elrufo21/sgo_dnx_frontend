@@ -9,10 +9,10 @@ const CustomerEdit = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { clients, fetchClients, updateClient, deleteClient } =
-    useClientsStore();
+  const { fetchClientById, updateClient, deleteClient } = useClientsStore();
 
   const [form, setForm] = useState<Omit<any, "id">>({
+    clienteCodigo: "",
     nombreRazon: "",
     ruc: "",
     dni: "",
@@ -26,18 +26,13 @@ const CustomerEdit = () => {
   });
 
   useEffect(() => {
-    if (clients.length === 0) {
-      fetchClients();
-    }
-  }, [clients, fetchClients]);
-
-  useEffect(() => {
-    const client = clients.find((c) => c.id === Number(id));
-    if (client) {
-      const { id, ...rest } = client;
+    if (!id) return;
+    void fetchClientById(Number(id)).then((client) => {
+      if (!client) return;
+      const { id: _id, ...rest } = client;
       setForm(rest);
-    }
-  }, [clients, id]);
+    });
+  }, [fetchClientById, id]);
 
   if (!form) return <div>Cargando cliente...</div>;
 

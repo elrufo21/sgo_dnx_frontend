@@ -46,6 +46,7 @@ interface HookFormAutocompleteProps<
   getOptionLabel?: (option: TOption) => string;
   isOptionEqualToValue?: (option: TOption, value: TOption) => boolean;
   onOptionSelected?: (option: TOption | null) => void;
+  onInputValueChange?: (value: string) => void;
   onInputBlur?: (params: {
     inputValue: string;
     selectedOption: TOption | null;
@@ -84,6 +85,7 @@ export function HookFormAutocomplete<
   getOptionLabel,
   isOptionEqualToValue,
   onOptionSelected,
+  onInputValueChange,
   onInputBlur,
   disableClearable = false,
   className,
@@ -341,6 +343,7 @@ export function HookFormAutocomplete<
 
                 if (reason === "input" && syncInputToValue) {
                   field.onChange(newInputValue);
+                  onInputValueChange?.(newInputValue);
                   return;
                 }
 
@@ -350,6 +353,8 @@ export function HookFormAutocomplete<
                     field.onChange(null);
                   }
                 }
+
+                if (reason === "input") onInputValueChange?.(newInputValue);
               }}
               onChange={(event, option) => {
                 const moveToNext = () => {

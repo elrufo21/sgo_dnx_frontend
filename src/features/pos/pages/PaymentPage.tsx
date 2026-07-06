@@ -207,7 +207,7 @@ const PaymentPage = () => {
   const clearEditingNota = usePosStore((s) => s.clearEditingNota);
   const clearCart = usePosStore((s) => s.clearCart);
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { clients, fetchClients, addClient } = useClientsStore();
+  const { clients, fetchClients, searchClients, addClient } = useClientsStore();
   const { fetchProducts: refetchProducts } = useProductsStore();
   const fetchBoletaSummaryDocuments = useBoletasSummaryStore(
     (s) => s.fetchDocuments,
@@ -558,6 +558,7 @@ const PaymentPage = () => {
   const prevApplyDiscountRef = useRef(false);
   const hasMountedApplyDiscountRef = useRef(false);
   const hasInvalidCustomerSelectionRef = useRef(false);
+  const clientSearchTimerRef = useRef<number | null>(null);
   const isConfirmedRef = useRef(false);
   const isOrderNotesFlowRef = useRef(false);
   const clearCartRef = useRef(clearCart);
@@ -1125,6 +1126,29 @@ const PaymentPage = () => {
     control,
     formState: { isSubmitting, dirtyFields },
   } = formMethods;
+
+  const queueClientSearch = useCallback(
+    (value: string) => {
+      const term = safeTrim(value);
+      if (clientSearchTimerRef.current) {
+        window.clearTimeout(clientSearchTimerRef.current);
+      }
+      if (term.length < 2) return;
+      clientSearchTimerRef.current = window.setTimeout(() => {
+        void searchClients(term);
+      }, 300);
+    },
+    [searchClients],
+  );
+
+  useEffect(
+    () => () => {
+      if (clientSearchTimerRef.current) {
+        window.clearTimeout(clientSearchTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const docTypeCode = watch("docTypeCode");
   const paymentMethod = watch("paymentMethod");
@@ -2193,6 +2217,7 @@ const PaymentPage = () => {
       onConfirm: async (rawData) => {
         const data = (rawData ?? {}) as Partial<Client>;
         const payload: Omit<Client, "id"> = {
+          clienteCodigo: safeTrim(data.clienteCodigo),
           nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
           ruc: safeTrim(data.ruc),
           dni: safeTrim(data.dni),
@@ -2216,11 +2241,14 @@ const PaymentPage = () => {
           return false;
         }
 
-        await fetchClients();
-        const refreshedClients = useClientsStore.getState().clients;
         const normalizedName = safeTrim(payload.nombreRazon).toLowerCase();
         const normalizedRuc = safeTrim(payload.ruc);
         const normalizedDni = safeTrim(payload.dni);
+        const refreshedClients = await searchClients(
+          normalizedRuc || normalizedDni || normalizedName,
+          "ACTIVO",
+          10,
+        );
 
         const createdClient =
           refreshedClients.find((client) => {
@@ -2264,6 +2292,7 @@ const PaymentPage = () => {
     formLocked,
     openDialog,
     resolvedNotaUsuario,
+    searchClients,
     setClienteIdFromOption,
     setValue,
   ]);
@@ -5331,6 +5360,7 @@ const PaymentPage = () => {
             },
           }}
           syncInputToValue
+          onInputValueChange={queueClientSearch}
           disableClearable={formLocked}
           disabled={formLocked}
           onInputBlur={({ inputValue }) => {
@@ -5364,6 +5394,7 @@ const PaymentPage = () => {
             disabled={formLocked}
             allowCreate
             createLabel={(value: string) => `Usar RUC: ${value}`}
+            onInputValueChange={queueClientSearch}
             filterOptions={documentFilterOptions as any}
             isOptionEqualToValue={(option: any, value: any) =>
               String(option?.value) === String((value as any)?.value ?? value)
@@ -5400,6 +5431,7 @@ const PaymentPage = () => {
             disabled={formLocked}
             allowCreate
             createLabel={(value: string) => `Usar DNI: ${value}`}
+            onInputValueChange={queueClientSearch}
             filterOptions={documentFilterOptions as any}
             isOptionEqualToValue={(option: any, value: any) =>
               String(option?.value) === String((value as any)?.value ?? value)

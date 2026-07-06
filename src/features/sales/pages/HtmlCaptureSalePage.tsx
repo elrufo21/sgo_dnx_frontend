@@ -209,7 +209,7 @@ export default function HtmlCaptureSalePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const externalCaptureKeyRef = useRef("");
   const { products, fetchProducts, loading } = useProductsStore();
-  const { clients, fetchClients } = useClientsStore();
+  const { clients, searchClients, fetchClientByCodigo } = useClientsStore();
   const [capture, setCapture] = useState<CaptureData | null>(null);
   const [pendingExternalCapture, setPendingExternalCapture] =
     useState<CaptureData | null>(null);
@@ -222,8 +222,7 @@ export default function HtmlCaptureSalePage() {
 
   useEffect(() => {
     if (!products.length) void fetchProducts();
-    if (!clients.length) void fetchClients();
-  }, [clients.length, fetchClients, fetchProducts, products.length]);
+  }, [fetchProducts, products.length]);
 
   const productByCode = useMemo(() => {
     const map = new Map<string, Product>();
@@ -324,7 +323,7 @@ export default function HtmlCaptureSalePage() {
   );
 
   const applyCaptureData = useCallback(
-    (data: CaptureData) => {
+    async (data: CaptureData) => {
       const docValue =
         data.ruc
           .replace(/FACTURA|BOLETA|RUC|DNI|DOCUMENTO|:/gi, " ")
@@ -339,7 +338,10 @@ export default function HtmlCaptureSalePage() {
       const matchedClient =
         clientOptions.find(
           (opt) => opt.code && opt.code === safeTrim(data.memberCode),
-        )?.client ?? null;
+        )?.client ??
+        (data.memberCode
+          ? await fetchClientByCodigo(safeTrim(data.memberCode))
+          : null);
       formMethods.setValue("docTypeCode", nextDocTypeCode, {
         shouldDirty: true,
       });
@@ -370,7 +372,7 @@ export default function HtmlCaptureSalePage() {
       setLastDocument("");
       toast.success(`Capturados ${nextRows.length} productos.`);
     },
-    [applyClient, buildRows, clientOptions, formMethods],
+    [applyClient, buildRows, clientOptions, fetchClientByCodigo, formMethods],
   );
 
   const totals = useMemo(() => {
@@ -440,7 +442,7 @@ export default function HtmlCaptureSalePage() {
       return;
     }
 
-    applyCaptureData(data);
+    void applyCaptureData(data);
   };
 
   useEffect(() => {
@@ -477,7 +479,7 @@ export default function HtmlCaptureSalePage() {
 
   useEffect(() => {
     if (!pendingExternalCapture || !products.length) return;
-    applyCaptureData(pendingExternalCapture);
+    void applyCaptureData(pendingExternalCapture);
     setPendingExternalCapture(null);
   }, [applyCaptureData, pendingExternalCapture, products.length]);
 
@@ -672,6 +674,9 @@ export default function HtmlCaptureSalePage() {
               clientOptions={clientOptions}
               disabled={isSaving}
               onClientSelected={applyClient}
+              onSearchClients={(search) => {
+                void searchClients(search);
+              }}
             />
           </div>
         </HookForm>

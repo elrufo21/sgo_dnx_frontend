@@ -9,6 +9,7 @@ const CustomerCreate = () => {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
+    clienteCodigo: "",
     nombreRazon: "",
     ruc: "",
     dni: "",
@@ -27,6 +28,7 @@ const CustomerCreate = () => {
       toast.success("Cliente creado correctamente");
       navigate("/customers/create");
       setForm({
+        clienteCodigo: "",
         nombreRazon: "",
         ruc: "",
         dni: "",
@@ -46,6 +48,7 @@ const CustomerCreate = () => {
 
   const handleNew = () => {
     setForm({
+      clienteCodigo: "",
       nombreRazon: "",
       ruc: "",
       dni: "",

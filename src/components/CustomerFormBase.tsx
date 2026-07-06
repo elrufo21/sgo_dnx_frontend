@@ -39,6 +39,7 @@ const buildDefaults = (
   data?: Partial<Client>,
   registradoPor?: string | null,
 ): CustomerFormValues => ({
+  clienteCodigo: data?.clienteCodigo ?? "",
   nombreRazon: data?.nombreRazon ?? "",
   ruc: data?.ruc ?? "",
   dni: data?.dni ?? "",
@@ -191,6 +192,7 @@ export default function CustomerFormBase({
   const handleSave = async (values: CustomerFormValues) => {
     const nombreRazonUpper = values.nombreRazon?.toUpperCase() ?? "";
     const payload: Omit<Client, "id"> = {
+      clienteCodigo: values.clienteCodigo,
       nombreRazon: nombreRazonUpper,
       ruc: values.ruc,
       dni: values.dni,
@@ -464,6 +466,12 @@ export default function CustomerFormBase({
                       rules={{ required: "El nombre es obligatorio" }}
                     />
                   </div>
+
+                  <HookFormInput<CustomerFormValues>
+                    name="clienteCodigo"
+                    label="Codigo cliente"
+                    placeholder="Codigo de membresia"
+                  />
 
                   <HookFormInput<CustomerFormValues>
                     name="ruc"

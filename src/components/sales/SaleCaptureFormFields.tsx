@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { HookFormAutocomplete } from "@/components/forms/HookFormAutocomplete";
 import { HookFormInput } from "@/components/forms/HookFormInput";
@@ -30,6 +30,7 @@ interface SaleCaptureFormFieldsProps {
   clientOptions: ClientOption[];
   disabled?: boolean;
   onClientSelected?: (client: Client | null) => void;
+  onSearchClients?: (search: string) => void;
 }
 
 const safeTrim = (value: unknown) => String(value ?? "").trim();
@@ -40,6 +41,7 @@ export function SaleCaptureFormFields({
   clientOptions,
   disabled = false,
   onClientSelected,
+  onSearchClients,
 }: SaleCaptureFormFieldsProps) {
   const methods = useFormContext<SaleCaptureFormValues>();
   const values = useWatch({
@@ -47,6 +49,26 @@ export function SaleCaptureFormFields({
   }) as SaleCaptureFormValues;
   const paymentMethod = values.paymentMethod ?? "EFECTIVO";
   const docTypeCode = values.docTypeCode ?? "03";
+  const searchTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+    },
+    [],
+  );
+
+  const queueClientSearch = useCallback(
+    (value: string) => {
+      const search = safeTrim(value);
+      if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+      if (search.length < 2) return;
+      searchTimerRef.current = window.setTimeout(() => {
+        onSearchClients?.(search);
+      }, 300);
+    },
+    [onSearchClients],
+  );
 
   const customerNameOptions = useMemo(() => {
     const baseOptions = clientOptions
@@ -191,6 +213,7 @@ export function SaleCaptureFormFields({
           allowCreate
           createLabel={(value) => `Usar código: ${value}`}
           syncInputToValue
+          onInputValueChange={queueClientSearch}
           filterOptions={(options, state) =>
             filterByClientData(options, state.inputValue)
           }
@@ -211,6 +234,7 @@ export function SaleCaptureFormFields({
             `Usar ${docTypeCode === "01" ? "RUC" : "DNI"}: ${value}`
           }
           syncInputToValue
+          onInputValueChange={queueClientSearch}
           filterOptions={(options, state) =>
             filterByClientData(options, state.inputValue)
           }
@@ -235,6 +259,7 @@ export function SaleCaptureFormFields({
           options={customerNameOptions}
           disabled={disabled}
           syncInputToValue
+          onInputValueChange={queueClientSearch}
           filterOptions={(options, state) =>
             filterByClientData(options, state.inputValue)
           }
