@@ -21,6 +21,12 @@ type TicketDocumentProps = {
   totals?: PosTotals;
   documentNumber?: string;
   noteId?: number | string | null;
+  condition?: string;
+  bankEntity?: string;
+  operationNumber?: string;
+  memberCode?: string;
+  transactionNumber?: string;
+  saleType?: string;
   companyName?: string;
   companyRuc?: string;
   companyAddress?: string;
@@ -207,12 +213,14 @@ const numberToWords = (amount: number, currencyLabel = "SOLES") => {
 const styles = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
-    padding: "15px",
+    padding: "6px",
     fontFamily: "Helvetica",
-    fontSize: 9,
+    fontSize: 10,
     display: "flex",
     flexDirection: "column",
     width: "80mm",
+    borderWidth: 1,
+    borderColor: "#000",
   },
   header: {
     marginBottom: 8,
@@ -225,9 +233,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logo: {
-    width: 60,
-    height: 60,
-    marginBottom: 6,
+    width: 92,
+    height: 78,
+    marginBottom: 4,
     alignSelf: "center",
     objectFit: "contain",
   },
@@ -237,24 +245,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   companyBox: {
-    borderWidth: 1,
-    borderColor: "#000",
-    borderRadius: 3,
-    padding: 6,
-    marginBottom: 8,
+    padding: 2,
+    marginBottom: 6,
     fontWeight: "bold",
     //  backgroundColor: "#fffbeb",
   },
   companyText: {
-    fontSize: 8,
+    fontSize: 10,
     textAlign: "center",
     marginBottom: 2,
   },
   sectionTitle: {
     fontSize: 10,
     fontWeight: "bold",
-    marginTop: 10,
-    marginBottom: 8,
+    marginTop: 4,
+    marginBottom: 6,
     textAlign: "center",
   },
   ticketNumber: {
@@ -265,21 +270,21 @@ const styles = StyleSheet.create({
   },
   divider: {
     borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-    marginVertical: 8,
+    borderBottomColor: "#000",
+    marginVertical: 6,
   },
   infoRow: {
     flexDirection: "row",
-    marginBottom: 4,
-    fontSize: 8,
+    marginBottom: 3,
+    fontSize: 9,
     textTransform: "uppercase",
   },
   infoLabel: {
-    width: "35%",
+    width: "34%",
     fontWeight: "bold",
   },
   infoValue: {
-    width: "65%",
+    width: "66%",
   },
   tableHeader: {
     flexDirection: "row",
@@ -294,10 +299,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   colCant: {
-    width: "15%",
+    width: "18%",
   },
   colDesc: {
-    width: "45%",
+    width: "44%",
   },
   colPUni: {
     width: "20%",
@@ -308,9 +313,15 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   tableRow: {
-    flexDirection: "row",
     marginBottom: 6,
-    fontSize: 8,
+    fontSize: 9,
+  },
+  productMainRow: {
+    flexDirection: "row",
+  },
+  productMeta: {
+    marginLeft: "18%",
+    fontSize: 9,
   },
   itemsCount: {
     fontSize: 8,
@@ -326,6 +337,12 @@ const styles = StyleSheet.create({
   summaryLabel: {
     width: "55%",
     fontWeight: "bold",
+  },
+  companyTitle: {
+    fontSize: 11,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 3,
   },
   summaryCurrency: {
     width: "10%",
@@ -394,6 +411,12 @@ const TicketDocument = ({
   totals,
   documentNumber,
   noteId,
+  condition,
+  bankEntity,
+  operationNumber,
+  memberCode,
+  transactionNumber,
+  saleType,
   companyName,
   companyRuc,
   companyAddress,
@@ -470,7 +493,7 @@ const TicketDocument = ({
     return {
       isFactura: docType === "factura",
       isProforma: docType === "proforma",
-      logo: "/LogoManuel.png",
+      logo: "/LogoDXN.png",
       qrData,
       companyName: companyName?.trim() || "CONSORCIO FERRETERO ROSITA E.I.R.L.",
       ruc: companyRuc?.trim() || "20601070155",
@@ -481,7 +504,7 @@ const TicketDocument = ({
         "Telef: 607-1883 / 943-296-081 / 944-284-915",
       documentType:
         docType === "factura"
-          ? "FACTURA ELECTRONICA"
+          ? "FACTURA DE VENTA ELECTRONICA"
           : docType === "proforma"
             ? "PROFORMA DE VENTA"
             : "BOLETA DE VENTA ELECTRONICA",
@@ -489,6 +512,12 @@ const TicketDocument = ({
       emissionDate,
       currency: "SOLES",
       paymentMethod: paymentMethod ?? "AL CONTADO",
+      condition: condition || "AL CONTADO",
+      bankEntity: bankEntity || "-",
+      operationNumber: operationNumber || "",
+      memberCode: memberCode || "",
+      transactionNumber: transactionNumber || "",
+      saleType: saleType || "CASH BILL",
       clientName: clientName || "Ultimo cliente",
       clientAddress: clientAddress?.trim() || "-",
       clientDNI: clientDoc,
@@ -501,6 +530,8 @@ const TicketDocument = ({
             unitMeasure: item.unidadMedida ?? "",
             unitPrice: Number(item.precio ?? 0),
             total: Number(item.precio ?? 0) * Number(item.cantidad ?? 0),
+            pv: Number(item.pv ?? 0),
+            sv: Number(item.sv ?? 0),
           }))
         : [
             {
@@ -509,6 +540,8 @@ const TicketDocument = ({
               unitMeasure: "",
               unitPrice: 79.0,
               total: 790.0,
+              pv: 0,
+              sv: 0,
             },
           ],
       operacionGravada: safeOperacionGravada,
@@ -531,6 +564,12 @@ const TicketDocument = ({
     docType,
     documentNumber,
     noteId,
+    condition,
+    bankEntity,
+    operationNumber,
+    memberCode,
+    transactionNumber,
+    saleType,
     items,
     paymentMethod,
     totals,
@@ -571,11 +610,13 @@ const TicketDocument = ({
         </View>
 
         <View style={styles.companyBox}>
-          <Text style={styles.companyText}>{ticketData.companyName}</Text>
-          <Text style={styles.companyText}>{ticketData.ruc}</Text>
+          <Text style={styles.companyTitle}>“ {ticketData.companyName} ”</Text>
+          <Text style={styles.companyText}>R.U.C {ticketData.ruc}</Text>
           <Text style={styles.companyText}>{ticketData.address}</Text>
           <Text style={styles.companyText}>{ticketData.district}</Text>
-          <Text style={styles.companyText}>{ticketData.phones}</Text>
+          {ticketData.phones ? (
+            <Text style={styles.companyText}>{ticketData.phones}</Text>
+          ) : null}
         </View>
 
         <Text style={styles.sectionTitle}>{ticketData.documentType}</Text>
@@ -588,15 +629,35 @@ const TicketDocument = ({
           <Text style={styles.infoValue}>: {ticketData.emissionDate}</Text>
         </View>
         <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>F-Vencimiento</Text>
+          <Text style={styles.infoValue}>: {ticketData.emissionDate}</Text>
+        </View>
+        <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Tipo Moneda</Text>
           <Text style={styles.infoValue}>: {ticketData.currency}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Condicion</Text>
+          <Text style={styles.infoValue}>: {ticketData.condition}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Forma Pago</Text>
           <Text style={styles.infoValue}>: {ticketData.paymentMethod}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Cliente</Text>
+          <Text style={styles.infoLabel}>Entidad Ban.</Text>
+          <Text style={styles.infoValue}>: {ticketData.bankEntity}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Nro OPR</Text>
+          <Text style={styles.infoValue}>: {ticketData.operationNumber}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Codigo</Text>
+          <Text style={styles.infoValue}>: {ticketData.memberCode}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Señor(a)</Text>
           <Text style={styles.infoValue}>: {ticketData.clientName}</Text>
         </View>
 
@@ -604,12 +665,22 @@ const TicketDocument = ({
           <Text style={styles.infoLabel}>{ticketData.clientDocLabel}</Text>
           <Text style={styles.infoValue}>: {ticketData.clientDNI}</Text>
         </View>
-        {ticketData.isFactura && (
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>DIRECCION</Text>
-            <Text style={styles.infoValue}>: {ticketData.clientAddress}</Text>
-          </View>
-        )}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Direccion</Text>
+          <Text style={styles.infoValue}>: {ticketData.clientAddress}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Guia Remision</Text>
+          <Text style={styles.infoValue}>: </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Tipo de Venta</Text>
+          <Text style={styles.infoValue}>: {ticketData.saleType}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Nro Transacción</Text>
+          <Text style={styles.infoValue}>: {ticketData.transactionNumber}</Text>
+        </View>
 
         <View style={styles.divider} />
 
@@ -626,12 +697,17 @@ const TicketDocument = ({
 
         {ticketData.items.map((item, index) => (
           <View key={index} style={styles.tableRow}>
-            <Text style={styles.colCant}>{item.quantity.toFixed(2)}</Text>
-            <Text style={styles.colDesc}>
-              {`${formatUnitPrefix(item.unitMeasure)}${item.description}`}
+            <View style={styles.productMainRow}>
+              <Text style={styles.colCant}>{item.quantity.toFixed(0)}</Text>
+              <Text style={styles.colDesc}>
+                {`${formatUnitPrefix(item.unitMeasure)}${item.description}`}
+              </Text>
+              <Text style={styles.colPUni}>{item.unitPrice.toFixed(2)}</Text>
+              <Text style={styles.colImporte}>{item.total.toFixed(2)}</Text>
+            </View>
+            <Text style={styles.productMeta}>
+              {`|***|PV:${Number(item.pv ?? 0).toFixed(2)} |***|SV:${Number(item.sv ?? 0).toFixed(2)}`}
             </Text>
-            <Text style={styles.colPUni}>{item.unitPrice.toFixed(2)}</Text>
-            <Text style={styles.colImporte}>{item.total.toFixed(2)}</Text>
           </View>
         ))}
 

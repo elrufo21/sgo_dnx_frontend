@@ -10,6 +10,7 @@ import PurchanseCreate from "@/features/purchanses/pages/purchanseCreate";
 import PurchanseEdit from "@/features/purchanses/pages/purchanseEdit";
 import SmallCashPage from "./pages/SmallCashPage";
 import HtmlCaptureSalePage from "./pages/HtmlCaptureSalePage";
+import { Navigate } from "react-router";
 
 export default [
   {
@@ -67,6 +68,20 @@ export default [
   },
   {
     path: "sales/html_capture",
+    element: <Navigate to="/sales/html_capture/new" replace />,
+  },
+  {
+    path: "sales/html_capture/new",
+    element: <HtmlCaptureSalePage />,
+    handle: {
+      breadcrumb: [
+        { label: "Ventas", to: "/sales" },
+        { label: "Captura HTML" },
+      ],
+    },
+  },
+  {
+    path: "sales/html_capture/:id",
     element: <HtmlCaptureSalePage />,
     handle: {
       breadcrumb: [

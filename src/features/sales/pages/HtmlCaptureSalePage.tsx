@@ -1,5 +1,5 @@
-import { pdf } from "@react-pdf/renderer";
-import { CheckCircle2, FileDown, FileUp, RotateCcw } from "lucide-react";
+import { PDFViewer, pdf } from "@react-pdf/renderer";
+import { CheckCircle2, FileDown, FileUp, Printer, RotateCcw } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -9,6 +9,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate, useParams } from "react-router";
 import TicketDocument from "@/components/Ticket";
 import { HookForm } from "@/components/forms/HookForm";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
@@ -57,6 +58,14 @@ type SaleForm = {
   memberCode: string;
   transactionNumber: string;
 };
+type LastTicket = { documentNumber: string; noteId: number } | null;
+type StoredTicket = {
+  capture: CaptureData | null;
+  documentNumber: string;
+  form: SaleForm;
+  noteId: number;
+  rows: SaleRow[];
+};
 
 const DOC_CONFIG = {
   "03": { docu: "BOLETA", serie: "BA01", ticket: "boleta" as const },
@@ -76,6 +85,8 @@ const defaultForm: SaleForm = {
   memberCode: "",
   transactionNumber: "",
 };
+const ticketStorageKey = (noteId: number | string) =>
+  `sgo:html-capture-ticket:${noteId}`;
 
 const safeTrim = (value: unknown) => String(value ?? "").trim();
 const normalizeCode = (value: unknown) => safeTrim(value).toUpperCase();
@@ -206,6 +217,10 @@ const readSession = () => {
 };
 
 export default function HtmlCaptureSalePage() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const routeNoteId = Number(id ?? 0);
+  const isExistingRoute = Number.isFinite(routeNoteId) && routeNoteId > 0;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const externalCaptureKeyRef = useRef("");
   const appliedCaptureKeyRef = useRef("");
@@ -216,10 +231,40 @@ export default function HtmlCaptureSalePage() {
     useState<CaptureData | null>(null);
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastDocument, setLastDocument] = useState("");
+  const [lastTicket, setLastTicket] = useState<LastTicket>(null);
+  const [activeTab, setActiveTab] = useState<"sale" | "ticket">(
+    isExistingRoute ? "ticket" : "sale",
+  );
   const session = useMemo(readSession, []);
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
+
+  useEffect(() => {
+    if (!isExistingRoute) {
+      setActiveTab("sale");
+      return;
+    }
+
+    try {
+      const stored = localStorage.getItem(ticketStorageKey(routeNoteId));
+      if (!stored) {
+        setActiveTab("ticket");
+        return;
+      }
+
+      const ticket = JSON.parse(stored) as StoredTicket;
+      formMethods.reset(ticket.form);
+      setCapture(ticket.capture);
+      setRows(ticket.rows);
+      setLastTicket({
+        documentNumber: ticket.documentNumber,
+        noteId: ticket.noteId,
+      });
+      setActiveTab("ticket");
+    } catch {
+      toast.error("No se pudo cargar el ticket guardado.");
+    }
+  }, [formMethods, isExistingRoute, routeNoteId]);
 
   useEffect(() => {
     if (!products.length) void fetchProducts();
@@ -374,10 +419,20 @@ export default function HtmlCaptureSalePage() {
         data.transactionNumber || formMethods.getValues("transactionNumber"),
         { shouldDirty: true },
       );
-      setLastDocument("");
+      setLastTicket(null);
+      setActiveTab("sale");
+      if (isExistingRoute) navigate("/sales/html_capture/new", { replace: true });
       toast.success(`Capturados ${nextRows.length} productos.`);
     },
-    [applyClient, buildRows, clientOptions, fetchClientByCodigo, formMethods],
+    [
+      applyClient,
+      buildRows,
+      clientOptions,
+      fetchClientByCodigo,
+      formMethods,
+      isExistingRoute,
+      navigate,
+    ],
   );
 
   const totals = useMemo(() => {
@@ -494,7 +549,9 @@ export default function HtmlCaptureSalePage() {
     setCapture(null);
     setRows([]);
     formMethods.reset(defaultForm);
-    setLastDocument("");
+    setLastTicket(null);
+    setActiveTab("sale");
+    if (isExistingRoute) navigate("/sales/html_capture/new", { replace: true });
   };
 
   const validate = () => {
@@ -515,7 +572,48 @@ export default function HtmlCaptureSalePage() {
     return "";
   };
 
-  const downloadTicket = async (documentNumber: string, noteId: number) => {
+  const renderTicketDocument = (
+    documentNumber: string,
+    noteId: number,
+    preGeneratedQrBase64?: string,
+  ) => (
+    <TicketDocument
+      clientName={form.customerName || "VARIOS"}
+      clientId={form.customerDoc}
+      clientAddress={form.address}
+      docType={DOC_CONFIG[form.docTypeCode].ticket}
+      paymentMethod={form.paymentMethod}
+      condition={form.condition}
+      bankEntity={form.bankEntity}
+      operationNumber={form.operationNumber}
+      memberCode={form.memberCode}
+      transactionNumber={form.transactionNumber}
+      saleType="CASH BILL"
+      items={cartItems}
+      totals={{
+        subTotal: totals.subtotal,
+        total: totals.total,
+        itemCount: rows.length,
+      }}
+      documentNumber={documentNumber}
+      noteId={noteId}
+      companyName={session.companyName}
+      companyRuc={session.companyRuc}
+      companyAddress={session.companyAddress}
+      companyDistrict={session.companyDistrict}
+      summary={{
+        operacionGravada: totals.base,
+        descuento: totals.discount,
+        showDiscount: totals.discount > 0,
+        subtotal: totals.base,
+        igv: totals.igv,
+        total: totals.total,
+      }}
+      preGeneratedQrBase64={preGeneratedQrBase64}
+    />
+  );
+
+  const buildTicketBlob = async (documentNumber: string, noteId: number) => {
     const qrData = [
       session.companyRuc || "20601070155",
       form.docTypeCode,
@@ -528,36 +626,13 @@ export default function HtmlCaptureSalePage() {
         (form.docTypeCode === "01" ? "00000000000" : "00000000"),
     ].join("|");
     const preGeneratedQrBase64 = await generateTicketQrBase64(qrData);
-    const blob = await pdf(
-      <TicketDocument
-        clientName={form.customerName || "VARIOS"}
-        clientId={form.customerDoc}
-        clientAddress={form.address}
-        docType={DOC_CONFIG[form.docTypeCode].ticket}
-        paymentMethod={form.paymentMethod}
-        items={cartItems}
-        totals={{
-          subTotal: totals.subtotal,
-          total: totals.total,
-          itemCount: rows.length,
-        }}
-        documentNumber={documentNumber}
-        noteId={noteId}
-        companyName={session.companyName}
-        companyRuc={session.companyRuc}
-        companyAddress={session.companyAddress}
-        companyDistrict={session.companyDistrict}
-        summary={{
-          operacionGravada: totals.base,
-          descuento: totals.discount,
-          showDiscount: totals.discount > 0,
-          subtotal: totals.base,
-          igv: totals.igv,
-          total: totals.total,
-        }}
-        preGeneratedQrBase64={preGeneratedQrBase64}
-      />,
+    return await pdf(
+      renderTicketDocument(documentNumber, noteId, preGeneratedQrBase64),
     ).toBlob();
+  };
+
+  const downloadTicket = async (documentNumber: string, noteId: number) => {
+    const blob = await buildTicketBlob(documentNumber, noteId);
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -566,6 +641,20 @@ export default function HtmlCaptureSalePage() {
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+  };
+
+  const printTicket = async () => {
+    if (!lastTicket) return;
+    const blob = await buildTicketBlob(lastTicket.documentNumber, lastTicket.noteId);
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    if (!win) {
+      toast.error("No se pudo abrir la ventana de impresión.");
+      URL.revokeObjectURL(url);
+      return;
+    }
+    win.addEventListener("load", () => win.print(), { once: true });
+    window.setTimeout(() => URL.revokeObjectURL(url), 30000);
   };
 
   const registerSale = async () => {
@@ -655,7 +744,19 @@ export default function HtmlCaptureSalePage() {
         return;
       }
 
-      setLastDocument(documentNumber);
+      setLastTicket({ documentNumber, noteId: parsed.noteId });
+      localStorage.setItem(
+        ticketStorageKey(parsed.noteId),
+        JSON.stringify({
+          capture,
+          documentNumber,
+          form: formMethods.getValues(),
+          noteId: parsed.noteId,
+          rows,
+        } satisfies StoredTicket),
+      );
+      setActiveTab("ticket");
+      navigate(`/sales/html_capture/${parsed.noteId}`, { replace: true });
       await downloadTicket(documentNumber, parsed.noteId);
       toast.success(`${doc.docu} registrada: ${documentNumber}`);
     } catch (err) {
@@ -666,8 +767,82 @@ export default function HtmlCaptureSalePage() {
     }
   };
 
+  const TicketPreview = (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
+        <h2 className="mr-auto text-sm font-semibold text-slate-700">
+          Ticket {lastTicket ? lastTicket.documentNumber : ""}
+        </h2>
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={printTicket}
+          disabled={!lastTicket}
+        >
+          <Printer className="h-4 w-4" />
+          Imprimir ticket
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() =>
+            lastTicket && downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
+          }
+          disabled={!lastTicket}
+        >
+          <FileDown className="h-4 w-4" />
+          Descargar
+        </button>
+      </div>
+      {lastTicket ? (
+        <div className="h-[72vh] min-h-[420px] bg-slate-100 sm:h-[680px]">
+          <PDFViewer
+            key={`${lastTicket.noteId}-${lastTicket.documentNumber}`}
+            style={{ width: "100%", height: "100%" }}
+            showToolbar={false}
+          >
+            {renderTicketDocument(lastTicket.documentNumber, lastTicket.noteId)}
+          </PDFViewer>
+        </div>
+      ) : (
+        <div className="px-5 py-16 text-center text-sm text-slate-400">
+          Registra la venta para habilitar el ticket.
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <div className="mx-auto max-w-[1760px] space-y-4">
+      <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
+        <button
+          type="button"
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+            activeTab === "sale"
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+          onClick={() => setActiveTab("sale")}
+        >
+          Venta
+        </button>
+        <button
+          type="button"
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+            activeTab === "ticket"
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+          }`}
+          onClick={() => setActiveTab("ticket")}
+          disabled={!lastTicket && !isExistingRoute}
+        >
+          Ticket
+        </button>
+      </div>
+      {activeTab === "ticket" ? (
+        TicketPreview
+      ) : (
+        <>
       {/* Datos de la venta */}
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="border-b border-slate-100 px-4 py-2">
@@ -680,6 +855,11 @@ export default function HtmlCaptureSalePage() {
             <SaleCaptureFormFields
               clientOptions={clientOptions}
               disabled={isSaving}
+              summary={{
+                pvs: totals.pv,
+                saleTotal: totals.total,
+                monthTotal: totals.sv,
+              }}
               onClientSelected={applyClient}
               onSearchClients={(search) => {
                 void searchClients(search);
@@ -742,6 +922,16 @@ export default function HtmlCaptureSalePage() {
             )}
             {isSaving ? "Registrando..." : "Registrar y descargar ticket"}
           </button>
+          {lastTicket ? (
+            <button
+              type="button"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              onClick={printTicket}
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir ticket
+            </button>
+          ) : null}
         </div>
 
         <div className="max-h-[46vh] overflow-auto">
@@ -835,6 +1025,8 @@ export default function HtmlCaptureSalePage() {
           </div>
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }

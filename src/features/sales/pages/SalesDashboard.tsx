@@ -21,7 +21,7 @@ const cards = [
     title: "Captura HTML",
     desc: "Carga la venta desde el comprobante HTML de DXN.",
     icon: <FileInput className="w-10 h-10 text-sky-600" />,
-    route: "/sales/html_capture",
+    route: "/sales/html_capture/new",
   },
   {
     title: "Lista pedidos",

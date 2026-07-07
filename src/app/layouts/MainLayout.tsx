@@ -438,7 +438,7 @@ export default function MainLayout() {
       },
       {
         label: "Ventas Form",
-        to: "/sales/html_capture",
+        to: "/sales/html_capture/new",
         icon: <FileInput size={18} />,
       },
       {

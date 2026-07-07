@@ -29,6 +29,11 @@ type ClientOption = {
 interface SaleCaptureFormFieldsProps {
   clientOptions: ClientOption[];
   disabled?: boolean;
+  summary?: {
+    pvs: number;
+    saleTotal: number;
+    monthTotal: number;
+  };
   onClientSelected?: (client: Client | null) => void;
   onSearchClients?: (search: string) => void;
 }
@@ -36,10 +41,16 @@ interface SaleCaptureFormFieldsProps {
 const safeTrim = (value: unknown) => String(value ?? "").trim();
 const getClientCode = (client: Client | null | undefined) =>
   safeTrim(client?.clienteCodigo);
+const formatNumber = (value: number) =>
+  Number(value || 0).toLocaleString("es-PE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 export function SaleCaptureFormFields({
   clientOptions,
   disabled = false,
+  summary,
   onClientSelected,
   onSearchClients,
 }: SaleCaptureFormFieldsProps) {
@@ -336,6 +347,31 @@ export function SaleCaptureFormFields({
           disabled={disabled || paymentMethod === "EFECTIVO"}
           placeholder="Número de operación"
         />
+      </div>
+
+      <div className="hidden content-start gap-3 rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-sm xl:grid">
+        <div className="flex items-center justify-between text-slate-500">
+          <span className="font-semibold">PVS</span>
+          <span className="font-semibold text-slate-700">
+            {formatNumber(summary?.pvs ?? 0)}
+          </span>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase text-slate-400">
+            Total de venta
+          </p>
+          <p className="text-right text-xl font-bold text-slate-800">
+            {formatNumber(summary?.saleTotal ?? 0)}
+          </p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase text-blue-600">
+            Total del mes
+          </p>
+          <p className="text-right text-xl font-bold text-slate-800">
+            {formatNumber(summary?.monthTotal ?? 0)}
+          </p>
+        </div>
       </div>
     </div>
   );
