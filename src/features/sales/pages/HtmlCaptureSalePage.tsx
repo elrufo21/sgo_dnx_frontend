@@ -17,6 +17,7 @@ import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
+import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { useProductsStore } from "@/store/products/products.store";
 import type { Client } from "@/types/customer";
@@ -236,6 +237,7 @@ export default function HtmlCaptureSalePage() {
     isExistingRoute ? "ticket" : "sale",
   );
   const session = useMemo(readSession, []);
+  const openDialog = useDialogStore((state) => state.openDialog);
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
 
@@ -608,6 +610,8 @@ export default function HtmlCaptureSalePage() {
         subtotal: totals.base,
         igv: totals.igv,
         total: totals.total,
+        pvsTotalVenta: totals.pv,
+        pvsTotalMes: totals.sv,
       }}
       preGeneratedQrBase64={preGeneratedQrBase64}
     />
@@ -658,6 +662,21 @@ export default function HtmlCaptureSalePage() {
   };
 
   const registerSale = async () => {
+    if (rows.some((row) => !row.matched)) {
+      openDialog({
+        title: "Producto no registrado",
+        content: (
+          <p className="text-sm text-slate-600">
+            Hay un producto que no está registrado, verifique la grilla.
+          </p>
+        ),
+        confirmText: "Aceptar",
+        hideCancelButton: true,
+        maxWidth: "xs",
+      });
+      return;
+    }
+
     const error = validate();
     if (error) {
       toast.error(error);

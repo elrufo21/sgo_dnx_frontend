@@ -38,6 +38,8 @@ type TicketDocumentProps = {
     subtotal?: number;
     igv?: number;
     total?: number;
+    pvsTotalVenta?: number;
+    pvsTotalMes?: number;
   };
   preGeneratedQrBase64?: string;
 };
@@ -328,6 +330,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 6,
   },
+  tbRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  tbLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    width: 36,
+  },
+  tbValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
   summaryRow: {
     flexDirection: "row",
     marginBottom: 3,
@@ -386,6 +402,26 @@ const styles = StyleSheet.create({
   footerText: {
     marginBottom: 3,
   },
+  pointsBox: {
+    marginTop: 7,
+    marginBottom: 7,
+  },
+  pointsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  pointsLabel: {
+    width: "68%",
+    fontSize: 9,
+    fontWeight: "bold",
+  },
+  pointsAmount: {
+    width: "32%",
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "left",
+  },
   qrPlaceholder: {
     width: 80,
     height: 80,
@@ -443,6 +479,8 @@ const TicketDocument = ({
     const subtotalValue = Number(summary?.subtotal);
     const igvValue = Number(summary?.igv);
     const totalValue = Number(summary?.total);
+    const pvsTotalVentaValue = Number(summary?.pvsTotalVenta);
+    const pvsTotalMesValue = Number(summary?.pvsTotalMes);
 
     const safeOperacionGravada = Number.isFinite(operacionGravadaValue)
       ? Math.max(0, operacionGravadaValue)
@@ -489,6 +527,39 @@ const TicketDocument = ({
         : docType === "boleta"
           ? "Boleta"
           : "Comprobante";
+    const normalizedItems = hasItems
+      ? (items ?? []).map((item) => ({
+          quantity: Number(item.cantidad ?? 0),
+          description: item.nombre ?? "Producto",
+          unitMeasure: item.unidadMedida ?? "",
+          unitPrice: Number(item.precio ?? 0),
+          total: Number(item.precio ?? 0) * Number(item.cantidad ?? 0),
+          pv: Number(item.pv ?? 0),
+          sv: Number(item.sv ?? 0),
+        }))
+      : [
+          {
+            quantity: 10.0,
+            description: "UNI CHAPA CLASICA 250 CANTOL",
+            unitMeasure: "",
+            unitPrice: 79.0,
+            total: 790.0,
+            pv: 0,
+            sv: 0,
+          },
+        ];
+    const totalBags = normalizedItems.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0,
+    );
+    const fallbackPvsTotalVenta = normalizedItems.reduce(
+      (sum, item) => sum + Number(item.pv || 0) * Number(item.quantity || 0),
+      0,
+    );
+    const fallbackPvsTotalMes = normalizedItems.reduce(
+      (sum, item) => sum + Number(item.sv || 0) * Number(item.quantity || 0),
+      0,
+    );
 
     return {
       isFactura: docType === "factura",
@@ -523,27 +594,14 @@ const TicketDocument = ({
       clientDNI: clientDoc,
       clientDocLabel: docLabel,
       seller: "ANDRE",
-      items: hasItems
-        ? (items ?? []).map((item) => ({
-            quantity: Number(item.cantidad ?? 0),
-            description: item.nombre ?? "Producto",
-            unitMeasure: item.unidadMedida ?? "",
-            unitPrice: Number(item.precio ?? 0),
-            total: Number(item.precio ?? 0) * Number(item.cantidad ?? 0),
-            pv: Number(item.pv ?? 0),
-            sv: Number(item.sv ?? 0),
-          }))
-        : [
-            {
-              quantity: 10.0,
-              description: "UNI CHAPA CLASICA 250 CANTOL",
-              unitMeasure: "",
-              unitPrice: 79.0,
-              total: 790.0,
-              pv: 0,
-              sv: 0,
-            },
-          ],
+      items: normalizedItems,
+      totalBags,
+      pvsTotalVenta: Number.isFinite(pvsTotalVentaValue)
+        ? Math.max(0, pvsTotalVentaValue)
+        : fallbackPvsTotalVenta,
+      pvsTotalMes: Number.isFinite(pvsTotalMesValue)
+        ? Math.max(0, pvsTotalMesValue)
+        : fallbackPvsTotalMes,
       operacionGravada: safeOperacionGravada,
       descuento: safeDescuento,
       showDiscount,
@@ -602,7 +660,7 @@ const TicketDocument = ({
 
   return (
     <Document>
-      <Page size={[226, 700]} style={styles.page}>
+      <Page size={[226, 760]} style={styles.page}>
         <View style={styles.header}>
           {ticketData.logo && (
             <Image src={ticketData.logo} style={styles.logo} />
@@ -715,6 +773,11 @@ const TicketDocument = ({
 
         <View style={styles.divider} />
 
+        <View style={styles.tbRow}>
+          <Text style={styles.tbLabel}>TB:</Text>
+          <Text style={styles.tbValue}>{ticketData.totalBags.toFixed(0)}</Text>
+        </View>
+
         {!ticketData.isProforma && (
           <>
             <View style={styles.summaryRow}>
@@ -758,6 +821,24 @@ const TicketDocument = ({
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>SON: {ticketData.son}</Text>
+        </View>
+
+        <View style={styles.pointsBox}>
+          <View style={styles.pointsRow}>
+            <Text style={styles.pointsLabel}>PVS TOTAL DE VENTA -----&gt;</Text>
+            <Text style={styles.pointsAmount}>
+              {ticketData.pvsTotalVenta.toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.pointsRow}>
+            <Text style={styles.pointsLabel}>PVS TOTAL DEL MES -----&gt;</Text>
+            <Text style={styles.pointsAmount}>
+              {ticketData.pvsTotalMes.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.footer}>
           {ticketData.authorization ? (
             <Text style={styles.footerText}>{ticketData.authorization}</Text>
           ) : null}

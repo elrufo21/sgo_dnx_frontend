@@ -358,10 +358,10 @@ export function SaleCaptureFormFields({
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
           <p className="text-[11px] font-semibold uppercase text-slate-400">
-            Total de venta
+            Total de PVS
           </p>
           <p className="text-right text-xl font-bold text-slate-800">
-            {formatNumber(summary?.saleTotal ?? 0)}
+            {formatNumber(summary?.pvs ?? 0)}
           </p>
         </div>
         <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
