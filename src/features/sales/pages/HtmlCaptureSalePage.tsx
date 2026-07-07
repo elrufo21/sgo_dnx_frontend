@@ -208,6 +208,7 @@ const readSession = () => {
 export default function HtmlCaptureSalePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const externalCaptureKeyRef = useRef("");
+  const appliedCaptureKeyRef = useRef("");
   const { products, fetchProducts, loading } = useProductsStore();
   const { clients, searchClients, fetchClientByCodigo } = useClientsStore();
   const [capture, setCapture] = useState<CaptureData | null>(null);
@@ -324,6 +325,10 @@ export default function HtmlCaptureSalePage() {
 
   const applyCaptureData = useCallback(
     async (data: CaptureData) => {
+      const captureKey = JSON.stringify(data);
+      if (appliedCaptureKeyRef.current === captureKey) return;
+      appliedCaptureKeyRef.current = captureKey;
+
       const docValue =
         data.ruc
           .replace(/FACTURA|BOLETA|RUC|DNI|DOCUMENTO|:/gi, " ")
@@ -484,6 +489,8 @@ export default function HtmlCaptureSalePage() {
   }, [applyCaptureData, pendingExternalCapture, products.length]);
 
   const clearForm = () => {
+    externalCaptureKeyRef.current = "";
+    appliedCaptureKeyRef.current = "";
     setCapture(null);
     setRows([]);
     formMethods.reset(defaultForm);
@@ -738,24 +745,22 @@ export default function HtmlCaptureSalePage() {
         </div>
 
         <div className="max-h-[46vh] overflow-auto">
-          <table className="w-full min-w-[980px] border-collapse text-sm">
+          <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
               <tr>
                 {[
-                  "Codigo",
                   "Descripcion",
                   "Cantidad",
                   "Precio",
-                  "Stock",
                   "PV Unit.",
                   "PV Total",
-                  "SV",
+                  "SV Total",
                   "Importe",
                 ].map((header, i) => (
                   <th
                     key={header}
                     className={`border-b border-slate-100 px-4 py-2 font-medium ${
-                      i > 1 ? "text-right" : "text-left"
+                      i > 0 ? "text-right" : "text-left"
                     }`}
                   >
                     {header}
@@ -767,7 +772,7 @@ export default function HtmlCaptureSalePage() {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-5 py-14 text-center text-sm text-slate-400"
                   >
                     Carga un archivo HTML para ver productos.
@@ -779,9 +784,9 @@ export default function HtmlCaptureSalePage() {
                     key={row.code}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
                   >
-                    <td className="px-4 py-2 font-medium text-slate-700">
+                    <td className="px-4 py-2 text-slate-600">
                       <span className="flex items-center gap-2">
-                        {row.code}
+                        {row.description}
                         {!row.matched && (
                           <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                             no encontrado
@@ -789,21 +794,11 @@ export default function HtmlCaptureSalePage() {
                         )}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-slate-600">
-                      {row.description}
-                    </td>
                     <td className="px-4 py-2 text-right text-slate-600">
                       {row.quantity}
                     </td>
                     <td className="px-4 py-2 text-right text-slate-600">
                       {money(row.price)}
-                    </td>
-                    <td
-                      className={`px-4 py-2 text-right font-medium ${
-                        row.stock < 0 ? "text-red-600" : "text-slate-600"
-                      }`}
-                    >
-                      {money(row.stock)}
                     </td>
                     <td className="px-4 py-2 text-right text-slate-500">
                       {money(row.pv)}
