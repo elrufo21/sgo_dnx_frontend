@@ -1308,7 +1308,11 @@ export default function HtmlCaptureSalePage() {
       const parsed = parseNotaResult(result);
       const documentNumber = `${doc.serie}-${parsed.number}`;
       if (!parsed.noteId) {
-        toast.error(parsed.raw || "No se pudo registrar la venta.");
+        toast.error(
+          parsed.raw.toLowerCase().includes("existe")
+            ? "El Numero de transacción que ingreso ya existe"
+            : parsed.raw || "No se pudo registrar la venta.",
+        );
         return;
       }
 
