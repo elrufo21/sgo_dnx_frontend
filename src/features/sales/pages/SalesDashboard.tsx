@@ -4,11 +4,8 @@ import {
   FileInput,
   LucideDollarSign,
   NotebookPen,
-  ReceiptText,
 } from "lucide-react";
-import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import { useAuthStore } from "@/store/auth/auth.store";
 
 const cards = [
   {
@@ -35,23 +32,10 @@ const cards = [
     icon: <DollarSign className="w-10 h-10 text-blue-600" />,
     route: "/sales/small_cash",
   },
-  {
-    title: "Resumen de boletas",
-    desc: "Visualiza y exporta boletas por rango de fechas.",
-    icon: <ReceiptText className="w-10 h-10 text-violet-600" />,
-    route: "/sales/boletas_summary",
-  },
 ];
 
 export default function SalesDashboard() {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
-  const visibleCards = useMemo(() => {
-    if (user?.boletaPorLote === false) {
-      return cards.filter((card) => card.route !== "/sales/boletas_summary");
-    }
-    return cards;
-  }, [user?.boletaPorLote]);
 
   return (
     <div className="space-y-4 px-2 py-2 sm:px-1">
@@ -65,7 +49,7 @@ export default function SalesDashboard() {
       </section>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-3">
-        {visibleCards.map((card) => (
+        {cards.map((card) => (
           <button
             type="button"
             key={card.title}

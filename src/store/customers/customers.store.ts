@@ -24,9 +24,10 @@ interface ClientsState {
   ) => Promise<Client[]>;
   fetchClientById: (id: number) => Promise<Client | null>;
   fetchClientByCodigo: (codigo: string) => Promise<Client | null>;
+  fetchClientMonthlyPvs: (id: number) => Promise<number>;
   addClient: (
     client: Omit<Client, "id">,
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; client?: Client }>;
   updateClient: (
     id: number,
     data: Partial<Client>,
@@ -177,6 +178,13 @@ const parseExistsMessage = (payload: unknown): string | null => {
   return null;
 };
 
+const isApiError = (value: unknown) =>
+  Boolean(
+    value &&
+      typeof value === "object" &&
+      ("isAxiosError" in value || ("response" in value && "config" in value)),
+  );
+
 const parseParams = (params: FetchClientsParams = "ACTIVO") =>
   typeof params === "string"
     ? { estado: params, search: "", page: 1, pageSize: 50 }
@@ -277,8 +285,23 @@ export const useClientsStore = create<ClientsState>((set) => ({
       fallback: null,
     });
     const client = response ? mapApiToClient(response) : null;
+    if (!client?.id && !client?.clienteCodigo && !client?.nombreRazon) {
+      return null;
+    }
     if (client) set((state) => ({ clients: mergeClients(state.clients, [client]) }));
     return client;
+  },
+
+  fetchClientMonthlyPvs: async (id) => {
+    if (!id) return 0;
+    const response = await apiRequest<unknown>({
+      url: `${API_BASE_URL}/Cliente/${id}/pvs-mes`,
+      method: "GET",
+      fallback: { total: 0 },
+    });
+    const payload = (response ?? {}) as Record<string, unknown>;
+    const total = Number(payload.total ?? payload.Total ?? response ?? 0);
+    return Number.isFinite(total) ? total : 0;
   },
 
   addClient: async (client) => {
@@ -295,8 +318,11 @@ export const useClientsStore = create<ClientsState>((set) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: payload,
       });
+
+      if (!created || isApiError(created)) {
+        return { ok: false, error: "No se pudo crear el cliente." };
+      }
 
       if (
         typeof created === "string" &&
@@ -306,10 +332,14 @@ export const useClientsStore = create<ClientsState>((set) => ({
       }
 
       const parsedClient = parseClientRegisterResponse(created, payload);
+      const createdClient = mapApiToClient(parsedClient);
+      if (!createdClient.id) {
+        return { ok: false, error: "No se pudo crear el cliente." };
+      }
       set((state) => ({
-        clients: [...state.clients, mapApiToClient(parsedClient)],
+        clients: [...state.clients, createdClient],
       }));
-      return { ok: true };
+      return { ok: true, client: createdClient };
     } catch (error) {
       console.error("Error creating client", error);
       return { ok: false, error: "No se pudo crear el cliente." };
@@ -332,8 +362,11 @@ export const useClientsStore = create<ClientsState>((set) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: payload,
       });
+
+      if (!updated || isApiError(updated)) {
+        return { ok: false, error: "No se pudo actualizar el cliente." };
+      }
 
       if (
         typeof updated === "string" &&

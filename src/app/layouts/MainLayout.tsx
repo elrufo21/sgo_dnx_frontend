@@ -2,7 +2,6 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import {
   Package,
   UserCheck,
-  DollarSign,
   Menu,
   X,
   Settings2,
@@ -424,20 +423,14 @@ export default function MainLayout() {
   }, [userMenuOpen]);
 
   const navItems = useMemo(() => {
-    const boletasSummaryItem = {
-      label: "Resumen de boletas",
-      to: "/sales/boletas_summary",
-      icon: <CopySlashIcon size={18} />,
-    };
-
     const items = [
-      {
+      /*  {
         label: "Ventas",
         to: "/sales/pos",
         icon: <DollarSign size={18} />,
       },
-      {
-        label: "Ventas Form",
+      */ {
+        label: "Ventas",
         to: "/sales/html_capture/new",
         icon: <FileInput size={18} />,
       },
@@ -477,11 +470,8 @@ export default function MainLayout() {
       },
     ];
 
-    if (user?.boletaPorLote !== false) {
-      items.splice(2, 0, boletasSummaryItem);
-    }
     return items;
-  }, [user?.boletaPorLote]);
+  }, []);
 
   const filteredItems = navItems.filter((item) =>
     item.label.toUpperCase().includes(search.toUpperCase()),

@@ -1,17 +1,33 @@
-import { ArrowRight, FileSpreadsheet } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, ReceiptText } from "lucide-react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 export default function AccountingDashboard() {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
 
-  const items = [
-    {
-      title: "PDT Empresa",
-      desc: "Administra datos base para reportes PDT de empresa.",
-      icon: <FileSpreadsheet className="h-10 w-10 text-emerald-600" />,
-      route: "/accounting/pdt-company",
-    },
-  ];
+  const items = useMemo(() => {
+    const baseItems = [
+      {
+        title: "PDT Empresa",
+        desc: "Administra datos base para reportes PDT de empresa.",
+        icon: <FileSpreadsheet className="h-10 w-10 text-emerald-600" />,
+        route: "/accounting/pdt-company",
+      },
+    ];
+
+    if (user?.boletaPorLote !== false) {
+      baseItems.push({
+        title: "Resumen de boletas",
+        desc: "Envia y consulta resumenes de boletas.",
+        icon: <ReceiptText className="h-10 w-10 text-violet-600" />,
+        route: "/accounting/boletas_summary",
+      });
+    }
+
+    return baseItems;
+  }, [user?.boletaPorLote]);
 
   return (
     <div className="space-y-4 px-2 py-2 sm:px-1">

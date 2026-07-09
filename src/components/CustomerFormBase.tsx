@@ -180,6 +180,7 @@ export default function CustomerFormBase({
 
   useEffect(() => {
     if (variant !== "modal") return;
+    setDialogData(defaults);
     const subscription = formMethods.watch((values) => {
       setDialogData({
         ...values,
@@ -187,7 +188,7 @@ export default function CustomerFormBase({
       });
     });
     return () => subscription.unsubscribe();
-  }, [variant, formMethods, setDialogData]);
+  }, [variant, formMethods, setDialogData, defaults]);
 
   const handleSave = async (values: CustomerFormValues) => {
     const nombreRazonUpper = values.nombreRazon?.toUpperCase() ?? "";

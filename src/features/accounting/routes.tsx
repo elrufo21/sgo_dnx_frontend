@@ -1,4 +1,5 @@
 import AccountingDashboard from "./pages/AccountingDashboard";
+import BoletasSummaryPage from "@/features/boletasSummary/pages/BoletasSummaryPage";
 import PdtCompanyPage from "./pages/PdtCompanyPage";
 
 export default [
@@ -16,6 +17,16 @@ export default [
       breadcrumb: [
         { label: "Contabilidad", to: "/accounting" },
         { label: "PDT Empresa" },
+      ],
+    },
+  },
+  {
+    path: "accounting/boletas_summary",
+    element: <BoletasSummaryPage />,
+    handle: {
+      breadcrumb: [
+        { label: "Contabilidad", to: "/accounting" },
+        { label: "Resumen de boletas" },
       ],
     },
   },

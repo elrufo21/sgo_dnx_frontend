@@ -1,5 +1,14 @@
 import { PDFViewer, pdf } from "@react-pdf/renderer";
-import { CheckCircle2, FileDown, FileUp, Printer, RotateCcw } from "lucide-react";
+import {
+  CheckCircle2,
+  FileDown,
+  FileUp,
+  Plus,
+  Printer,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -9,7 +18,8 @@ import {
   type ChangeEvent,
 } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
+import CustomerFormBase from "@/components/CustomerFormBase";
 import TicketDocument from "@/components/Ticket";
 import { HookForm } from "@/components/forms/HookForm";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
@@ -29,6 +39,7 @@ type CaptureData = {
   transactionNumber: string;
   memberCode: string;
   customerName: string;
+  customerEmail: string;
   ruc: string;
   date: string;
   discount: number;
@@ -47,40 +58,75 @@ type SaleRow = {
   matched: boolean;
 };
 type SaleForm = {
+  concept: "MERCADERIA" | "SERVICIO";
   docTypeCode: "03" | "01";
+  correlativeDisplay: string;
   condition: "ALCONTADO" | "CREDITO";
   delivery: "INMEDIATA" | "POR ENTREGAR";
-  paymentMethod: "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "YAPE" | "DEPOSITO";
+  emissionDate: string;
+  paymentMethod:
+    | "(SELECCIONE)"
+    | "EFECTIVO"
+    | "DEPOSITO"
+    | "TARJETA"
+    | "YAPE"
+    | "EFECTIVO/DEPOSITO"
+    | "TARJETA/EFECTIVO"
+    | "YAPE/EFECTIVO"
+    | "YAPE/DEPOSITO"
+    | "TARJETA/DEPOSITO"
+    | "-";
   bankEntity: string;
   operationNumber: string;
   customerName: string;
+  customerEmail: string;
   customerDoc: string;
   address: string;
   memberCode: string;
   transactionNumber: string;
 };
 type LastTicket = { documentNumber: string; noteId: number } | null;
+type Correlative = {
+  numero: string;
+  nroComprobante: string;
+  serie: string;
+} | null;
 type StoredTicket = {
   capture: CaptureData | null;
   documentNumber: string;
   form: SaleForm;
+  monthlyPvs: number;
   noteId: number;
   rows: SaleRow[];
+};
+type SaleListItem = {
+  noteId: number;
+  document: string;
+  date: string;
+  customer: string;
+  paymentMethod: string;
+  pvs: number;
+  total: number;
+  state: string;
 };
 
 const DOC_CONFIG = {
   "03": { docu: "BOLETA", serie: "BA01", ticket: "boleta" as const },
-  "01": { docu: "FACTURA", serie: "FA01", ticket: "factura" as const },
+  "01": { docu: "FACTURA", serie: "F001", ticket: "factura" as const },
 };
 
 const defaultForm: SaleForm = {
+  concept: "MERCADERIA",
   docTypeCode: "03",
+  correlativeDisplay: "",
   condition: "ALCONTADO",
   delivery: "INMEDIATA",
-  paymentMethod: "EFECTIVO",
+  emissionDate: "",
+  paymentMethod: "(SELECCIONE)",
   bankEntity: "-",
   operationNumber: "",
   customerName: "",
+  customerEmail: "",
   customerDoc: "",
   address: "",
   memberCode: "",
@@ -93,6 +139,60 @@ const safeTrim = (value: unknown) => String(value ?? "").trim();
 const normalizeCode = (value: unknown) => safeTrim(value).toUpperCase();
 const readText = (root: ParentNode, selector: string) =>
   root.querySelector(selector)?.textContent?.trim() ?? "";
+const normalizeCaptureText = (value: unknown) =>
+  String(value ?? "").replace(/\s+/g, " ").trim();
+const normalizeLabelText = (value: unknown) =>
+  normalizeCaptureText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+const isCustomerLabel = (value: unknown) =>
+  /^(senores|senor\(a\)|cliente)\s*:?/.test(normalizeLabelText(value));
+const cleanCustomerName = (value: unknown) =>
+  normalizeCaptureText(value)
+    .replace(/^(Señores|Senores|Señor\(a\)|Senor\(a\)|Cliente)\s*:?\s*/i, "")
+    .replace(/\b(Fecha|Domicilio|Direcci[oó]n|Email|R\.?\s*U\.?\s*C|DNI)\s*:.*$/i, "")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
+    .replace(/\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b/g, "")
+    .trim();
+const readValueAfterCustomerLabel = (section: Element | null) => {
+  const nodes = Array.from(
+    section?.querySelectorAll("label,span,td,div,p") ?? [],
+  );
+  for (let index = 0; index < nodes.length; index += 1) {
+    if (!isCustomerLabel(nodes[index].textContent)) continue;
+    for (let next = index + 1; next < Math.min(nodes.length, index + 5); next += 1) {
+      const candidate = cleanCustomerName(nodes[next].textContent);
+      if (candidate && !isCustomerLabel(candidate)) return candidate;
+    }
+  }
+  return "";
+};
+const readCustomerName = (root: ParentNode) => {
+  const direct = cleanCustomerName(readText(root, "#section-2 span.fleft"));
+  if (direct) return direct;
+
+  const sections = ["#section-2", "#section-3", "#section-4", "#section-5"]
+    .map((selector) => root.querySelector(selector))
+    .filter(Boolean);
+
+  for (const section of sections) {
+    const name = readValueAfterCustomerLabel(section);
+    if (name) return name;
+  }
+
+  for (const section of sections) {
+    const match = normalizeCaptureText(section.textContent).match(
+      /(?:Se(?:ñ|n)ores|Se(?:ñ|n)or\(a\)|Cliente)\s*:?\s*(.+?)(?:\s+(?:Fecha|Domicilio|Direcci[oó]n|Email|R\.?\s*U\.?\s*C|DNI)\s*:|$)/i,
+    );
+    const name = cleanCustomerName(match?.[1] ?? "");
+    if (name) return name;
+  }
+
+  return "";
+};
+const readEmail = (root: ParentNode) =>
+  root.textContent?.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? "";
 const getClientCode = (client: Client | null | undefined) =>
   safeTrim(client?.clienteCodigo);
 const money = (value: number) =>
@@ -136,7 +236,7 @@ const parseNotaResult = (result: unknown) => {
 const parseCapture = (html: string): CaptureData => {
   const document = new DOMParser().parseFromString(html, "text/html");
   const table = document.querySelector("table");
-  const ruc = readText(document, "#section-1 .medium-font.center-align");
+  const ruc = `${readText(document, "#section-1 .medium-font.center-align")} ${readText(document, "#section-4")}`.trim();
   const sectionText = readText(document, "#section-6");
   const memberCode =
     sectionText.match(/No\.\s*de\s*Membres[ií]a\s*:?\s*([A-Z0-9-]+)/i)?.[1] ??
@@ -166,9 +266,8 @@ const parseCapture = (html: string): CaptureData => {
   return {
     transactionNumber: readText(document, "#section-6 .center.medium-font"),
     memberCode: safeTrim(memberCode),
-    customerName:
-      readText(document, "#section-2 .fleft") ||
-      readText(document, "#section-3 .fleft"),
+    customerName: readCustomerName(document),
+    customerEmail: readEmail(document),
     ruc,
     date: readText(
       document,
@@ -179,6 +278,75 @@ const parseCapture = (html: string): CaptureData => {
     discount: parseNumber(discountText),
     lines,
   };
+};
+const productToRow = (
+  product: Product,
+  quantity: number,
+  matched = true,
+): SaleRow => ({
+  product,
+  code: product.codigo,
+  description: product.nombre,
+  quantity,
+  price: Number(product.preVenta ?? product.preVentaB ?? 0),
+  cost: Number(product.preCosto ?? 0),
+  stock: Number(product.cantidad ?? 0),
+  pv: Number(product.pv ?? 0),
+  sv: Number(product.sv ?? 0),
+  matched,
+});
+const pickValue = (source: unknown, ...keys: string[]) => {
+  const record = (source ?? {}) as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null && safeTrim(value)) return value;
+  }
+  return "";
+};
+const parseApiNumber = (value: unknown) => {
+  const parsed = Number(String(value ?? "").replace(/[^\d,.-]/g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+const formatListDate = (value: unknown) => {
+  const raw = safeTrim(value);
+  if (!raw) return "-";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleDateString("es-PE");
+};
+const parseSaleListResponse = (payload: unknown): SaleListItem[] => {
+  const items = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as any)?.items)
+      ? (payload as any).items
+      : [];
+
+  return items
+    .map((item): SaleListItem | null => {
+      const noteId = Number(pickValue(item, "notaId", "NotaId"));
+      if (!Number.isFinite(noteId) || noteId <= 0) return null;
+      const serie = safeTrim(pickValue(item, "notaSerie", "NotaSerie"));
+      const numero = safeTrim(pickValue(item, "notaNumero", "NotaNumero"));
+      const doc = safeTrim(pickValue(item, "notaDocu", "NotaDocu"));
+      return {
+        noteId,
+        document: [doc, [serie, numero].filter(Boolean).join("-")]
+          .filter(Boolean)
+          .join(" "),
+        date: formatListDate(pickValue(item, "notaFecha", "NotaFecha")),
+        customer:
+          safeTrim(pickValue(item, "miembro", "Miembro")) ||
+          `Cliente #${safeTrim(pickValue(item, "clienteId", "ClienteId")) || "-"}`,
+        paymentMethod:
+          safeTrim(pickValue(item, "notaFormaPago", "NotaFormaPago")) || "-",
+        pvs: parseApiNumber(pickValue(item, "pv", "PV")),
+        total: parseApiNumber(pickValue(item, "notaTotal", "NotaTotal")),
+        state:
+          safeTrim(pickValue(item, "estadoOBS", "EstadoOBS", "notaEstado", "NotaEstado")) ||
+          "-",
+      };
+    })
+    .filter((item): item is SaleListItem => Boolean(item));
 };
 const readSession = () => {
   if (typeof window === "undefined") {
@@ -219,31 +387,76 @@ const readSession = () => {
 
 export default function HtmlCaptureSalePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
+  const isNewRoute = location.pathname.replace(/\/+$/, "").endsWith("/sales/html_capture/new");
   const routeNoteId = Number(id ?? 0);
-  const isExistingRoute = Number.isFinite(routeNoteId) && routeNoteId > 0;
+  const isExistingRoute = !isNewRoute && Number.isFinite(routeNoteId) && routeNoteId > 0;
+  const routeKey = isExistingRoute ? `id:${routeNoteId}` : "new";
+  const isReadOnly = isExistingRoute;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const manualProductInputRef = useRef<HTMLInputElement | null>(null);
   const externalCaptureKeyRef = useRef("");
   const appliedCaptureKeyRef = useRef("");
+  const loadedRouteKeyRef = useRef("");
   const { products, fetchProducts, loading } = useProductsStore();
-  const { clients, searchClients, fetchClientByCodigo } = useClientsStore();
+  const {
+    clients,
+    searchClients,
+    fetchClientByCodigo,
+    addClient,
+    fetchClientMonthlyPvs,
+  } = useClientsStore();
   const [capture, setCapture] = useState<CaptureData | null>(null);
   const [pendingExternalCapture, setPendingExternalCapture] =
     useState<CaptureData | null>(null);
   const [rows, setRows] = useState<SaleRow[]>([]);
+  const [manualProductSearch, setManualProductSearch] = useState("");
+  const [manualProductSearchFocused, setManualProductSearchFocused] =
+    useState(false);
+  const [manualQuantity, setManualQuantity] = useState(1);
+  const [monthlyPvs, setMonthlyPvs] = useState(0);
+  const [correlative, setCorrelative] = useState<Correlative>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
-  const [activeTab, setActiveTab] = useState<"sale" | "ticket">(
+  const [activeTab, setActiveTab] = useState<"sale" | "ticket" | "list">(
     isExistingRoute ? "ticket" : "sale",
   );
+  const [listRows, setListRows] = useState<SaleListItem[]>([]);
+  const [isListLoading, setIsListLoading] = useState(false);
+  const [listFrom, setListFrom] = useState(localDate());
+  const [listTo, setListTo] = useState(localDate());
   const session = useMemo(readSession, []);
   const openDialog = useDialogStore((state) => state.openDialog);
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
 
+  const resetDraft = useCallback(() => {
+    externalCaptureKeyRef.current = "";
+    appliedCaptureKeyRef.current = "";
+    setCapture(null);
+    setPendingExternalCapture(null);
+    setRows([]);
+    setManualProductSearch("");
+    if (manualProductInputRef.current) manualProductInputRef.current.value = "";
+    setManualQuantity(1);
+    setMonthlyPvs(0);
+    setLastTicket(null);
+    setActiveTab("sale");
+    formMethods.reset(defaultForm);
+  }, [formMethods]);
+
+  const openNewRecord = useCallback(() => {
+    resetDraft();
+    navigate("/sales/html_capture/new", { replace: true });
+  }, [navigate, resetDraft]);
+
   useEffect(() => {
+    if (loadedRouteKeyRef.current === routeKey) return;
+    loadedRouteKeyRef.current = routeKey;
+
     if (!isExistingRoute) {
-      setActiveTab("sale");
+      resetDraft();
       return;
     }
 
@@ -255,9 +468,10 @@ export default function HtmlCaptureSalePage() {
       }
 
       const ticket = JSON.parse(stored) as StoredTicket;
-      formMethods.reset(ticket.form);
+      formMethods.reset({ ...defaultForm, ...ticket.form });
       setCapture(ticket.capture);
       setRows(ticket.rows);
+      setMonthlyPvs(ticket.monthlyPvs ?? 0);
       setLastTicket({
         documentNumber: ticket.documentNumber,
         noteId: ticket.noteId,
@@ -266,11 +480,84 @@ export default function HtmlCaptureSalePage() {
     } catch {
       toast.error("No se pudo cargar el ticket guardado.");
     }
-  }, [formMethods, isExistingRoute, routeNoteId]);
+  }, [formMethods, isExistingRoute, resetDraft, routeKey, routeNoteId]);
 
   useEffect(() => {
-    if (!products.length) void fetchProducts();
+    if (!products.length) void fetchProducts("");
   }, [fetchProducts, products.length]);
+
+  useEffect(() => {
+    const doc = DOC_CONFIG[form.docTypeCode];
+    let active = true;
+    setCorrelative(null);
+
+    const query = new URLSearchParams({
+      companiaId: String(session.companyId),
+      serie: doc.serie,
+    });
+
+    apiRequest<{
+      ok?: boolean;
+      nroComprobante?: string;
+      numero?: string;
+      serie?: string;
+    }>({
+      url: buildApiUrl(`/Nota/correlativo?${query.toString()}`),
+      method: "GET",
+      fallback: null,
+    })
+      .then((response) => {
+        if (!active || !response?.ok) return;
+        const serie = safeTrim(response.serie) || doc.serie;
+        const numero = safeTrim(response.numero) || "00000000";
+        setCorrelative({
+          serie,
+          numero,
+          nroComprobante:
+            safeTrim(response.nroComprobante) || `${serie}-${numero}`,
+        });
+      })
+      .catch(() => {
+        if (active) setCorrelative(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form.docTypeCode, session.companyId]);
+
+  const fetchListRows = useCallback(async () => {
+    if (listFrom && listTo && listFrom > listTo) {
+      toast.error("La fecha inicio no puede ser mayor que la fecha fin.");
+      return;
+    }
+
+    const query = new URLSearchParams({
+      page: "1",
+      pageSize: "50",
+    });
+    if (listFrom) query.set("fechaInicio", listFrom);
+    if (listTo) query.set("fechaFin", listTo);
+
+    setIsListLoading(true);
+    try {
+      const response = await apiRequest<unknown>({
+        url: buildApiUrl(`/Nota/crud?${query.toString()}`),
+        method: "GET",
+        fallback: [],
+      });
+      setListRows(parseSaleListResponse(response));
+    } catch (error) {
+      console.error("No se pudo cargar el listado de ventas", error);
+      toast.error("No se pudo cargar el listado.");
+    } finally {
+      setIsListLoading(false);
+    }
+  }, [listFrom, listTo]);
+
+  useEffect(() => {
+    if (activeTab === "list") void fetchListRows();
+  }, [activeTab, fetchListRows]);
 
   const productByCode = useMemo(() => {
     const map = new Map<string, Product>();
@@ -280,6 +567,19 @@ export default function HtmlCaptureSalePage() {
     });
     return map;
   }, [products]);
+  const filteredManualProducts = useMemo(() => {
+    const query = normalizeLabelText(manualProductSearch);
+    return products
+      .filter((product) => product.estado !== "INACTIVO")
+      .filter((product) => {
+        if (!query) return true;
+        return (
+          normalizeLabelText(product.codigo).includes(query) ||
+          normalizeLabelText(product.nombre).includes(query)
+        );
+      })
+      .slice(0, 20);
+  }, [manualProductSearch, products]);
 
   const clientOptions = useMemo(
     () =>
@@ -302,10 +602,33 @@ export default function HtmlCaptureSalePage() {
     [clientOptions, form.customerDoc, form.customerName, form.memberCode],
   );
 
+  useEffect(() => {
+    const clientId = Number(selectedClient?.id ?? 0);
+    if (!clientId) {
+      setMonthlyPvs(0);
+      return;
+    }
+
+    let active = true;
+    fetchClientMonthlyPvs(clientId)
+      .then((total) => {
+        if (active) setMonthlyPvs(total);
+      })
+      .catch(() => {
+        if (active) setMonthlyPvs(0);
+      });
+    return () => {
+      active = false;
+    };
+  }, [fetchClientMonthlyPvs, selectedClient?.id]);
+
   const applyClient = useCallback(
     (client: Client | null) => {
       if (!client) return;
       formMethods.setValue("customerName", client.nombreRazon ?? "", {
+        shouldDirty: true,
+      });
+      formMethods.setValue("customerEmail", client.email ?? "", {
         shouldDirty: true,
       });
       formMethods.setValue("customerDoc", client.ruc || client.dni || "", {
@@ -325,6 +648,159 @@ export default function HtmlCaptureSalePage() {
     },
     [form.docTypeCode, formMethods],
   );
+
+  const handleAddManualProduct = async () => {
+    if (isReadOnly) {
+      toast.error("Este registro solo se puede visualizar.");
+      return;
+    }
+    const query = safeTrim(manualProductInputRef.current?.value);
+    const quantity = Number(manualQuantity);
+    if (!query) {
+      toast.error("Seleccione un producto.");
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast.error("La cantidad debe ser mayor a 0.");
+      return;
+    }
+
+    let source = products;
+    if (!source.length) {
+      await fetchProducts("");
+      source = useProductsStore.getState().products;
+    }
+
+    const queryCode = normalizeCode(query.split(" - ")[0]);
+    const queryText = normalizeLabelText(query);
+    const product =
+      productByCode.get(queryCode) ??
+      source.find(
+        (item) => {
+          const code = normalizeCode(item.codigo);
+          const name = normalizeLabelText(item.nombre);
+          return (
+            code === normalizeCode(query) ||
+            code.includes(queryCode) ||
+            name.includes(queryText)
+          );
+        },
+      ) ??
+      null;
+
+    if (!product) {
+      toast.error("Producto no encontrado.");
+      return;
+    }
+
+    setRows((current) => {
+      const existing = current.findIndex((row) => row.code === product.codigo);
+      if (existing < 0) return [...current, productToRow(product, quantity)];
+      return current.map((row, index) =>
+        index === existing
+          ? { ...row, quantity: row.quantity + quantity }
+          : row,
+      );
+    });
+    setManualProductSearch("");
+    if (manualProductInputRef.current) manualProductInputRef.current.value = "";
+    setManualQuantity(1);
+    setLastTicket(null);
+    setActiveTab("sale");
+  };
+
+  const handleRemoveRow = (code: string) => {
+    if (isReadOnly) return;
+    setRows((current) => current.filter((row) => row.code !== code));
+    setLastTicket(null);
+  };
+
+  const handleOpenCreateClientModal = useCallback(() => {
+    if (isReadOnly) {
+      toast.error("Este registro solo se puede visualizar.");
+      return;
+    }
+    openDialog({
+      title: "Registrar cliente",
+      maxWidth: "lg",
+      fullWidth: true,
+      confirmText: "Guardar",
+      cancelText: "Cancelar",
+      content: (
+        <CustomerFormBase
+          mode="create"
+          variant="modal"
+          initialData={{
+            clienteCodigo: safeTrim(form.memberCode),
+            nombreRazon: safeTrim(form.customerName),
+            email: safeTrim(form.customerEmail),
+            dni: form.docTypeCode === "03" ? safeTrim(form.customerDoc) : "",
+            ruc: form.docTypeCode === "01" ? safeTrim(form.customerDoc) : "",
+            direccionFiscal: safeTrim(form.address),
+            direccionDespacho: safeTrim(form.address),
+          }}
+          onSave={async () => false}
+          onNew={() => {}}
+        />
+      ),
+      onConfirm: async (rawData) => {
+        const data = (rawData ?? {}) as Partial<Client>;
+        const payload: Omit<Client, "id"> = {
+          clienteCodigo: safeTrim(data.clienteCodigo),
+          nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
+          ruc: safeTrim(data.ruc),
+          dni: safeTrim(data.dni),
+          direccionFiscal: safeTrim(data.direccionFiscal) || "-",
+          direccionDespacho: safeTrim(data.direccionDespacho),
+          telefonoMovil: safeTrim(data.telefonoMovil),
+          email: safeTrim(data.email),
+          registradoPor: safeTrim(data.registradoPor) || session.username,
+          estado: safeTrim(data.estado) || "ACTIVO",
+          fecha: data.fecha ?? null,
+        };
+
+        if (!payload.nombreRazon) {
+          toast.error("El nombre o razon social es obligatorio.");
+          return false;
+        }
+
+        const result = await addClient(payload);
+        if (!result.ok) {
+          toast.error(result.error ?? "No se pudo crear el cliente.");
+          return false;
+        }
+
+        const created =
+          result.client ??
+          (
+            await searchClients(
+              payload.ruc || payload.dni || payload.clienteCodigo || payload.nombreRazon,
+              "ACTIVO",
+              10,
+            )
+          )[0] ??
+          null;
+
+        if (created) applyClient(created);
+        setMonthlyPvs(0);
+        toast.success("Cliente creado correctamente.");
+        return true;
+      },
+    });
+  }, [
+    addClient,
+    applyClient,
+    form.address,
+    form.customerDoc,
+    form.customerName,
+    form.customerEmail,
+    form.docTypeCode,
+    form.memberCode,
+    isReadOnly,
+    openDialog,
+    searchClients,
+    session.username,
+  ]);
 
   useEffect(() => {
     const code = safeTrim(form.memberCode);
@@ -354,51 +830,56 @@ export default function HtmlCaptureSalePage() {
           estado: "ACTIVO",
         };
 
-        return {
-          product,
-          code: product.codigo,
-          description: product.nombre,
-          quantity: line.quantity,
-          price: Number(product.preVenta ?? product.preVentaB ?? 0),
-          cost: Number(product.preCosto ?? 0),
-          stock: Number(product.cantidad ?? 0),
-          pv: Number(product.pv ?? 0),
-          sv: Number(product.sv ?? 0),
-          matched: Boolean(found),
-        };
+        return productToRow(product, line.quantity, Boolean(found));
       }),
     [productByCode],
   );
 
   const applyCaptureData = useCallback(
     async (data: CaptureData) => {
+      if (isReadOnly) {
+        toast.error("Este registro solo se puede visualizar.");
+        return;
+      }
       const captureKey = JSON.stringify(data);
       if (appliedCaptureKeyRef.current === captureKey) return;
       appliedCaptureKeyRef.current = captureKey;
 
-      const docValue =
+      const docMatches =
         data.ruc
           .replace(/FACTURA|BOLETA|RUC|DNI|DOCUMENTO|:/gi, " ")
-          .match(/\d{8,11}/)?.[0] ?? "";
+          .match(/\d{8,11}/g) ?? [];
+      const docValue = docMatches.at(-1) ?? "";
       const nextRows = buildRows(data);
       setCapture(data);
       setRows(nextRows);
-      const nextDocTypeCode =
-        data.ruc.toUpperCase().includes("FACTURA") || docValue.length === 11
-          ? "01"
-          : "03";
-      const matchedClient =
+      const docTypeText = data.ruc.toUpperCase();
+      const nextDocTypeCode = docTypeText.includes("FACTURA")
+        ? "01"
+        : docTypeText.includes("BOLETA")
+          ? "03"
+          : docValue.length === 11
+            ? "01"
+            : "03";
+      const localClient =
         clientOptions.find(
           (opt) => opt.code && opt.code === safeTrim(data.memberCode),
-        )?.client ??
+        )?.client ?? null;
+      const matchedClient =
+        localClient ??
         (data.memberCode
-          ? await fetchClientByCodigo(safeTrim(data.memberCode))
+          ? await fetchClientByCodigo(safeTrim(data.memberCode)).catch(() => null)
           : null);
       formMethods.setValue("docTypeCode", nextDocTypeCode, {
         shouldDirty: true,
       });
       if (matchedClient) {
         applyClient(matchedClient);
+        if (data.customerEmail) {
+          formMethods.setValue("customerEmail", data.customerEmail, {
+            shouldDirty: true,
+          });
+        }
       } else {
         formMethods.setValue(
           "customerName",
@@ -408,6 +889,11 @@ export default function HtmlCaptureSalePage() {
         formMethods.setValue(
           "customerDoc",
           docValue || formMethods.getValues("customerDoc"),
+          { shouldDirty: true },
+        );
+        formMethods.setValue(
+          "customerEmail",
+          data.customerEmail || formMethods.getValues("customerEmail"),
           { shouldDirty: true },
         );
       }
@@ -423,7 +909,6 @@ export default function HtmlCaptureSalePage() {
       );
       setLastTicket(null);
       setActiveTab("sale");
-      if (isExistingRoute) navigate("/sales/html_capture/new", { replace: true });
       toast.success(`Capturados ${nextRows.length} productos.`);
     },
     [
@@ -432,8 +917,7 @@ export default function HtmlCaptureSalePage() {
       clientOptions,
       fetchClientByCodigo,
       formMethods,
-      isExistingRoute,
-      navigate,
+      isReadOnly,
     ],
   );
 
@@ -476,6 +960,10 @@ export default function HtmlCaptureSalePage() {
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
+    if (isReadOnly) {
+      toast.error("Este registro solo se puede visualizar.");
+      return;
+    }
     if (!files.length) return;
 
     const firstHtml = await files[0].text();
@@ -546,18 +1034,15 @@ export default function HtmlCaptureSalePage() {
   }, [applyCaptureData, pendingExternalCapture, products.length]);
 
   const clearForm = () => {
-    externalCaptureKeyRef.current = "";
-    appliedCaptureKeyRef.current = "";
-    setCapture(null);
-    setRows([]);
-    formMethods.reset(defaultForm);
-    setLastTicket(null);
-    setActiveTab("sale");
-    if (isExistingRoute) navigate("/sales/html_capture/new", { replace: true });
+    if (isReadOnly) {
+      toast.error("Este registro solo se puede visualizar.");
+      return;
+    }
+    resetDraft();
   };
 
   const validate = () => {
-    if (!rows.length) return "Carga un HTML antes de vender.";
+    if (!rows.length) return "Agrega productos o captura un HTML antes de vender.";
     const missing = rows.filter((row) => !row.matched);
     if (missing.length) {
       return `Productos no encontrados: ${missing
@@ -568,7 +1053,13 @@ export default function HtmlCaptureSalePage() {
     if (form.docTypeCode === "01" && safeTrim(form.customerDoc).length !== 11) {
       return "Factura requiere RUC de 11 digitos.";
     }
-    if (form.paymentMethod !== "EFECTIVO" && !safeTrim(form.operationNumber)) {
+    if (form.paymentMethod === "(SELECCIONE)") {
+      return "Seleccione forma de pago.";
+    }
+    if (
+      !["EFECTIVO", "-"].includes(form.paymentMethod) &&
+      !safeTrim(form.operationNumber)
+    ) {
       return "Ingresa el numero de operacion.";
     }
     return "";
@@ -611,7 +1102,7 @@ export default function HtmlCaptureSalePage() {
         igv: totals.igv,
         total: totals.total,
         pvsTotalVenta: totals.pv,
-        pvsTotalMes: totals.sv,
+        pvsTotalMes: monthlyPvs,
       }}
       preGeneratedQrBase64={preGeneratedQrBase64}
     />
@@ -662,6 +1153,10 @@ export default function HtmlCaptureSalePage() {
   };
 
   const registerSale = async () => {
+    if (isReadOnly) {
+      toast.error("Este registro solo se puede visualizar.");
+      return;
+    }
     if (rows.some((row) => !row.matched)) {
       openDialog({
         title: "Producto no registrado",
@@ -684,10 +1179,48 @@ export default function HtmlCaptureSalePage() {
     }
 
     const doc = DOC_CONFIG[form.docTypeCode];
+    const notaSerie = correlative?.serie || doc.serie;
+    const notaNumero = correlative?.numero || "00000000";
     const total = Number(totals.total.toFixed(2));
     const efectivo = form.paymentMethod === "EFECTIVO" ? total : 0;
     const deposito = form.paymentMethod === "EFECTIVO" ? 0 : total;
-    const clienteId = Number(selectedClient?.id ?? 1) || 1;
+    let saleClient = selectedClient;
+    const hasCapturedClientData = Boolean(
+        safeTrim(form.customerName) ||
+        safeTrim(form.customerDoc) ||
+        safeTrim(form.customerEmail) ||
+        safeTrim(form.memberCode),
+    );
+
+    if (!saleClient && form.docTypeCode === "03" && hasCapturedClientData) {
+      const customerDoc = safeTrim(form.customerDoc);
+      const created = await addClient({
+        clienteCodigo: safeTrim(form.memberCode),
+        nombreRazon: safeTrim(form.customerName) || "VARIOS",
+        ruc: "",
+        dni: customerDoc.length === 8 ? customerDoc : "",
+        direccionFiscal: safeTrim(form.address) || "-",
+        direccionDespacho: safeTrim(form.address),
+        telefonoMovil: "",
+        email: safeTrim(form.customerEmail),
+        registradoPor: session.username,
+        estado: "ACTIVO",
+        fecha: null,
+      });
+
+      if (!created.ok) {
+        toast.error(created.error ?? "No se pudo crear el cliente.");
+        return;
+      }
+
+      saleClient =
+        created.client ??
+        (safeTrim(form.memberCode)
+          ? await fetchClientByCodigo(safeTrim(form.memberCode))
+          : null);
+    }
+
+    const clienteId = Number(saleClient?.id ?? 1) || 1;
 
     setIsSaving(true);
     try {
@@ -717,9 +1250,9 @@ export default function HtmlCaptureSalePage() {
             notaEstado: "CANCELADO",
             companiaId: session.companyId,
             notaEntrega: form.delivery,
-            notaConcepto: "MERCADERIA",
-            notaSerie: doc.serie,
-            notaNumero: "00000000",
+            notaConcepto: form.concept || "MERCADERIA",
+            notaSerie,
+            notaNumero,
             notaGanancia: 0,
             icbper: 0,
             entidadBancaria: form.bankEntity || "-",
@@ -770,6 +1303,7 @@ export default function HtmlCaptureSalePage() {
           capture,
           documentNumber,
           form: formMethods.getValues(),
+          monthlyPvs,
           noteId: parsed.noteId,
           rows,
         } satisfies StoredTicket),
@@ -831,55 +1365,211 @@ export default function HtmlCaptureSalePage() {
     </section>
   );
 
+  const ListPanel = (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
+        <div className="mr-auto">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Listado de ventas
+          </h2>
+          <p className="text-xs text-slate-400">
+            {listRows.length} registros encontrados.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-3">
+        <label className="grid gap-1 text-xs font-medium text-slate-500">
+          Fecha inicio
+          <input
+            type="date"
+            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition-colors focus:border-slate-400"
+            value={listFrom}
+            onChange={(event) => setListFrom(event.target.value)}
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-slate-500">
+          Fecha fin
+          <input
+            type="date"
+            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition-colors focus:border-slate-400"
+            value={listTo}
+            onChange={(event) => setListTo(event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={fetchListRows}
+          disabled={isListLoading}
+        >
+          <Search className={`h-4 w-4 ${isListLoading ? "animate-pulse" : ""}`} />
+          Buscar
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => {
+            const today = localDate();
+            setListFrom(today);
+            setListTo(today);
+          }}
+          disabled={isListLoading}
+        >
+          <RotateCcw className="h-4 w-4" />
+          Hoy
+        </button>
+      </div>
+      <div className="overflow-auto">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400">
+            <tr>
+              {[
+                "Fecha",
+                "Documento",
+                "Cliente",
+                "Forma pago",
+                "PVS",
+                "Total",
+                "Estado",
+                "",
+              ].map((header, index) => (
+                <th
+                  key={header || "acciones"}
+                  className={`border-b border-slate-100 px-4 py-2 font-medium ${
+                    index >= 4 ? "text-right" : "text-left"
+                  }`}
+                >
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {isListLoading ? (
+              <tr>
+                <td colSpan={8} className="px-5 py-14 text-center text-sm text-slate-400">
+                  Cargando listado...
+                </td>
+              </tr>
+            ) : listRows.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-5 py-14 text-center text-sm text-slate-400">
+                  No hay ventas para mostrar.
+                </td>
+              </tr>
+            ) : (
+              listRows.map((row) => (
+                <tr
+                  key={row.noteId}
+                  className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                >
+                  <td className="px-4 py-2 text-slate-500">{row.date}</td>
+                  <td className="px-4 py-2 font-medium text-slate-700">
+                    {row.document || `Nota #${row.noteId}`}
+                  </td>
+                  <td className="px-4 py-2 text-slate-600">{row.customer}</td>
+                  <td className="px-4 py-2 text-slate-500">{row.paymentMethod}</td>
+                  <td className="px-4 py-2 text-right font-medium text-slate-700">
+                    {money(row.pvs)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-semibold text-slate-800">
+                    S/ {money(row.total)}
+                  </td>
+                  <td className="px-4 py-2 text-right text-slate-500">
+                    {row.state}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      type="button"
+                      className="inline-flex h-8 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                      onClick={() => navigate(`/sales/html_capture/${row.noteId}`)}
+                    >
+                      Abrir
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
   return (
     <div className="mx-auto max-w-[1760px] space-y-4">
-      <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
-        <button
-          type="button"
-          className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-            activeTab === "sale"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-50"
-          }`}
-          onClick={() => setActiveTab("sale")}
-        >
-          Venta
-        </button>
-        <button
-          type="button"
-          className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-            activeTab === "ticket"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
-          }`}
-          onClick={() => setActiveTab("ticket")}
-          disabled={!lastTicket && !isExistingRoute}
-        >
-          Ticket
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
+          <button
+            type="button"
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+              activeTab === "sale"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+            onClick={() => setActiveTab("sale")}
+          >
+            Venta
+          </button>
+          <button
+            type="button"
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+              activeTab === "ticket"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+            }`}
+            onClick={() => setActiveTab("ticket")}
+            disabled={!lastTicket && !isExistingRoute}
+          >
+            Ticket
+          </button>
+          <button
+            type="button"
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
+              activeTab === "list"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+            onClick={() => setActiveTab("list")}
+          >
+            Listado
+          </button>
+        </div>
+        {isExistingRoute ? (
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+            onClick={openNewRecord}
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo registro
+          </button>
+        ) : null}
       </div>
       {activeTab === "ticket" ? (
         TicketPreview
+      ) : activeTab === "list" ? (
+        ListPanel
       ) : (
         <>
       {/* Datos de la venta */}
       <section className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-4 py-2">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Datos de la venta
-          </h2>
-        </div>
         <HookForm methods={formMethods} onSubmit={() => undefined}>
           <div className="px-5 py-3">
             <SaleCaptureFormFields
               clientOptions={clientOptions}
-              disabled={isSaving}
+              disabled={isSaving || isReadOnly}
               summary={{
                 pvs: totals.pv,
                 saleTotal: totals.total,
-                monthTotal: totals.sv,
+                monthTotal: monthlyPvs,
               }}
+              correlative={
+                correlative?.nroComprobante ||
+                `${DOC_CONFIG[form.docTypeCode].serie}-00000000`
+              }
               onClientSelected={applyClient}
+              onCreateClient={isReadOnly ? undefined : handleOpenCreateClientModal}
               onSearchClients={(search) => {
                 void searchClients(search);
               }}
@@ -892,7 +1582,7 @@ export default function HtmlCaptureSalePage() {
       <section className="rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
           <h2 className="mr-auto text-sm font-semibold text-slate-700">
-            Productos capturados
+            Productos de venta
             {rows.length > 0 && (
               <span className="ml-2 font-normal text-slate-400">
                 ({rows.length})
@@ -912,7 +1602,7 @@ export default function HtmlCaptureSalePage() {
             type="button"
             className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => fileInputRef.current?.click()}
-            disabled={loading || isSaving}
+            disabled={loading || isSaving || isReadOnly}
           >
             <FileUp className="h-4 w-4" />
             Capturar datos
@@ -921,7 +1611,7 @@ export default function HtmlCaptureSalePage() {
             type="button"
             className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={clearForm}
-            disabled={isSaving}
+            disabled={isSaving || isReadOnly}
           >
             <RotateCcw className="h-4 w-4" />
             Limpiar
@@ -931,7 +1621,10 @@ export default function HtmlCaptureSalePage() {
             className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
             onClick={registerSale}
             disabled={
-              isSaving || !rows.length || rows.some((row) => !row.matched)
+              isSaving ||
+              isReadOnly ||
+              !rows.length ||
+              rows.some((row) => !row.matched)
             }
           >
             {isSaving ? (
@@ -953,6 +1646,87 @@ export default function HtmlCaptureSalePage() {
           ) : null}
         </div>
 
+        <div className="grid gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[1fr_120px_auto]">
+          <div className="relative">
+            <input
+              ref={manualProductInputRef}
+              type="text"
+              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+              placeholder="Buscar producto por código o nombre"
+              onChange={(event) => {
+                setManualProductSearch(event.currentTarget.value);
+                setManualProductSearchFocused(true);
+              }}
+              onFocus={() => setManualProductSearchFocused(true)}
+              onBlur={() =>
+                window.setTimeout(() => setManualProductSearchFocused(false), 120)
+              }
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                void handleAddManualProduct();
+              }}
+              disabled={loading || isSaving || isReadOnly}
+            />
+            {manualProductSearchFocused ? (
+              <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                {filteredManualProducts.length ? (
+                  filteredManualProducts.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        const value = `${product.codigo} - ${product.nombre}`;
+                        if (manualProductInputRef.current) {
+                          manualProductInputRef.current.value = value;
+                        }
+                        setManualProductSearch(value);
+                        setManualProductSearchFocused(false);
+                      }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-slate-700">
+                          {product.nombre}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {product.codigo}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-semibold text-slate-700">
+                        S/ {money(Number(product.preVenta ?? product.preVentaB ?? 0))}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-slate-400">
+                    {loading ? "Cargando productos..." : "Sin coincidencias"}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+            value={manualQuantity}
+            onChange={(event) => setManualQuantity(Number(event.target.value))}
+            disabled={loading || isSaving || isReadOnly}
+          />
+          <button
+            type="button"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={handleAddManualProduct}
+            disabled={loading || isSaving || isReadOnly}
+          >
+            <Plus className="h-4 w-4" />
+            Agregar
+          </button>
+        </div>
+
         <div className="max-h-[46vh] overflow-auto">
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
@@ -965,6 +1739,7 @@ export default function HtmlCaptureSalePage() {
                   "PV Total",
                   "SV Total",
                   "Importe",
+                  "",
                 ].map((header, i) => (
                   <th
                     key={header}
@@ -981,10 +1756,10 @@ export default function HtmlCaptureSalePage() {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-5 py-14 text-center text-sm text-slate-400"
                   >
-                    Carga un archivo HTML para ver productos.
+                    Captura un HTML o agrega productos para venta libre.
                   </td>
                 </tr>
               ) : (
@@ -1020,6 +1795,17 @@ export default function HtmlCaptureSalePage() {
                     </td>
                     <td className="px-4 py-2 text-right font-semibold text-slate-800">
                       {money(row.price * row.quantity)}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50"
+                        onClick={() => handleRemoveRow(row.code)}
+                        disabled={isSaving || isReadOnly}
+                        title="Quitar"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))

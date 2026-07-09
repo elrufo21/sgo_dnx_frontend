@@ -288,6 +288,10 @@ const styles = StyleSheet.create({
   infoValue: {
     width: "66%",
   },
+  infoValueBold: {
+    width: "66%",
+    fontWeight: "bold",
+  },
   tableHeader: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -303,8 +307,18 @@ const styles = StyleSheet.create({
   colCant: {
     width: "18%",
   },
+  colCantBold: {
+    width: "18%",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
   colDesc: {
     width: "44%",
+  },
+  colDescBold: {
+    width: "44%",
+    fontWeight: "bold",
+    fontSize: 10,
   },
   colPUni: {
     width: "20%",
@@ -684,7 +698,7 @@ const TicketDocument = ({
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Fecha Emision</Text>
-          <Text style={styles.infoValue}>: {ticketData.emissionDate}</Text>
+          <Text style={styles.infoValueBold}>: {ticketData.emissionDate}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>F-Vencimiento</Text>
@@ -716,7 +730,7 @@ const TicketDocument = ({
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Señor(a)</Text>
-          <Text style={styles.infoValue}>: {ticketData.clientName}</Text>
+          <Text style={styles.infoValueBold}>: {ticketData.clientName}</Text>
         </View>
 
         <View style={styles.infoRow}>
@@ -737,7 +751,7 @@ const TicketDocument = ({
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Nro Transacción</Text>
-          <Text style={styles.infoValue}>: {ticketData.transactionNumber}</Text>
+          <Text style={styles.infoValueBold}>: {ticketData.transactionNumber}</Text>
         </View>
 
         <View style={styles.divider} />
@@ -756,8 +770,8 @@ const TicketDocument = ({
         {ticketData.items.map((item, index) => (
           <View key={index} style={styles.tableRow}>
             <View style={styles.productMainRow}>
-              <Text style={styles.colCant}>{item.quantity.toFixed(0)}</Text>
-              <Text style={styles.colDesc}>
+              <Text style={styles.colCantBold}>{item.quantity.toFixed(0)}</Text>
+              <Text style={styles.colDescBold}>
                 {`${formatUnitPrefix(item.unitMeasure)}${item.description}`}
               </Text>
               <Text style={styles.colPUni}>{item.unitPrice.toFixed(2)}</Text>
