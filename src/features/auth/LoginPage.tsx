@@ -20,7 +20,7 @@ type LoginFormValues = {
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const redirectTo = "/sales/pos";
+  const redirectTo = "/sales/html_capture/new";
 
   const login = useAuthStore((state) => state.login);
   const loading = useAuthStore((state) => state.loading);

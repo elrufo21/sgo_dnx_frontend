@@ -88,23 +88,28 @@ export function SaleCaptureFormFields({
   onCreateClient,
   onSearchClients,
 }: SaleCaptureFormFieldsProps) {
-  const methods = useFormContext<SaleCaptureFormValues>();
+  const { control, setValue } = useFormContext<SaleCaptureFormValues>();
   const values = useWatch({
-    control: methods.control,
+    control,
   }) as SaleCaptureFormValues;
   const paymentMethod = values.paymentMethod ?? "EFECTIVO";
   const paymentNeedsOperation = !["(SELECCIONE)", "EFECTIVO", "-"].includes(
     paymentMethod,
   );
   const docTypeCode = values.docTypeCode ?? "03";
-  const serie = docTypeCode === "01" ? "F001" : "BA01";
-  const currentCorrelative = correlative || `${serie}-00000000`;
+  const correlativeDisplay = values.correlativeDisplay ?? "";
+  const emissionDate = values.emissionDate ?? "";
+  const serie = docTypeCode === "01" ? "FA01" : "BA01";
+  const currentCorrelative =
+    correlative ?? (docTypeCode === "101" ? "" : `${serie}-00000000`);
   const searchTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    methods.setValue("correlativeDisplay", currentCorrelative);
-    if (!values.emissionDate) methods.setValue("emissionDate", todayValue());
-  }, [currentCorrelative, methods, values.emissionDate]);
+    if (correlativeDisplay !== currentCorrelative) {
+      setValue("correlativeDisplay", currentCorrelative);
+    }
+    if (!emissionDate) setValue("emissionDate", todayValue());
+  }, [correlativeDisplay, currentCorrelative, emissionDate, setValue]);
 
   useEffect(
     () => () => {
@@ -205,24 +210,24 @@ export function SaleCaptureFormFields({
       return;
     }
 
-    methods.setValue("customerName", client.nombreRazon ?? "", {
+    setValue("customerName", client.nombreRazon ?? "", {
       shouldDirty: true,
     });
-    methods.setValue("customerEmail", client.email ?? "", {
+    setValue("customerEmail", client.email ?? "", {
       shouldDirty: true,
     });
-    methods.setValue("customerDoc", client.ruc || client.dni || "", {
+    setValue("customerDoc", client.ruc || client.dni || "", {
       shouldDirty: true,
     });
-    methods.setValue("memberCode", getClientCode(client), {
+    setValue("memberCode", getClientCode(client), {
       shouldDirty: true,
     });
-    methods.setValue(
+    setValue(
       "address",
       client.direccionFiscal || client.direccionDespacho || "",
       { shouldDirty: true },
     );
-    methods.setValue("docTypeCode", client.ruc ? "01" : "03", {
+    setValue("docTypeCode", client.ruc ? "01" : "03", {
       shouldDirty: true,
     });
     onClientSelected?.(client);
@@ -253,8 +258,8 @@ export function SaleCaptureFormFields({
         <div className="grid gap-5">
           {/* Section 1: Documento */}
           <div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <HookFormSelect<SaleCaptureFormValues>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {/**  <HookFormSelect<SaleCaptureFormValues>
                 name="concept"
                 label="Concepto"
                 disabled={disabled}
@@ -262,7 +267,15 @@ export function SaleCaptureFormFields({
                   { value: "MERCADERIA", label: "MERCADERIA" },
                   { value: "SERVICIO", label: "SERVICIO" },
                 ]}
-              />
+              />  <HookFormSelect<SaleCaptureFormValues>
+                name="concept"
+                label="Concepto"
+                disabled={disabled}
+                options={[
+                  { value: "MERCADERIA", label: "MERCADERIA" },
+                  { value: "SERVICIO", label: "SERVICIO" },
+                ]}
+              /> */}
               <HookFormSelect<SaleCaptureFormValues>
                 name="docTypeCode"
                 label="Documento"
@@ -372,6 +385,51 @@ export function SaleCaptureFormFields({
                 }}
                 onInputBlur={handleCustomerCodeBlur}
               />
+              <div className="col-span-2 grid gap-2 sm:col-span-3 sm:grid-cols-[minmax(0,1fr)_112px]">
+                <HookFormAutocomplete
+                  name="customerName"
+                  label="Cliente"
+                  placeholder="Seleccionar cliente"
+                  options={customerNameOptions}
+                  disabled={disabled}
+                  allowCreate
+                  createLabel={(value) => `Usar cliente: ${value}`}
+                  syncInputToValue
+                  onInputValueChange={queueClientSearch}
+                  filterOptions={(options, state) =>
+                    filterByClientData(options, state.inputValue)
+                  }
+                  onOptionSelected={(option) => {
+                    if (!option) {
+                      setValue("customerName", "", {
+                        shouldDirty: true,
+                      });
+                      setValue("customerDoc", "", {
+                        shouldDirty: true,
+                      });
+                      setValue("customerEmail", "", {
+                        shouldDirty: true,
+                      });
+                      setValue("address", "", { shouldDirty: true });
+                      onClientSelected?.(null);
+                      return;
+                    }
+
+                    const selectedClient = option.client as Client | null;
+                    applyClientSelection(selectedClient);
+                  }}
+                  onInputBlur={handleCustomerInputBlur}
+                />
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={onCreateClient}
+                  disabled={disabled}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Cliente
+                </button>
+              </div>
               <HookFormAutocomplete
                 name="customerDoc"
                 label={docTypeCode === "01" ? "RUC" : "DNI"}
@@ -391,12 +449,12 @@ export function SaleCaptureFormFields({
                 }
                 onOptionSelected={(option) => {
                   if (!option) {
-                    methods.setValue("customerDoc", "", { shouldDirty: true });
-                    methods.setValue("customerName", "", { shouldDirty: true });
-                    methods.setValue("customerEmail", "", {
+                    setValue("customerDoc", "", { shouldDirty: true });
+                    setValue("customerName", "", { shouldDirty: true });
+                    setValue("customerEmail", "", {
                       shouldDirty: true,
                     });
-                    methods.setValue("address", "", { shouldDirty: true });
+                    setValue("address", "", { shouldDirty: true });
                     onClientSelected?.(null);
                     return;
                   }
@@ -413,51 +471,6 @@ export function SaleCaptureFormFields({
                   disabled={disabled}
                   placeholder="Correo del cliente"
                 />
-              </div>
-              <div className="col-span-2 grid gap-2 sm:col-span-3 sm:grid-cols-[minmax(0,1fr)_112px]">
-                <HookFormAutocomplete
-                  name="customerName"
-                  label="Cliente"
-                  placeholder="Seleccionar cliente"
-                  options={customerNameOptions}
-                  disabled={disabled}
-                  allowCreate
-                  createLabel={(value) => `Usar cliente: ${value}`}
-                  syncInputToValue
-                  onInputValueChange={queueClientSearch}
-                  filterOptions={(options, state) =>
-                    filterByClientData(options, state.inputValue)
-                  }
-                  onOptionSelected={(option) => {
-                    if (!option) {
-                      methods.setValue("customerName", "", {
-                        shouldDirty: true,
-                      });
-                      methods.setValue("customerDoc", "", {
-                        shouldDirty: true,
-                      });
-                      methods.setValue("customerEmail", "", {
-                        shouldDirty: true,
-                      });
-                      methods.setValue("address", "", { shouldDirty: true });
-                      onClientSelected?.(null);
-                      return;
-                    }
-
-                    const selectedClient = option.client as Client | null;
-                    applyClientSelection(selectedClient);
-                  }}
-                  onInputBlur={handleCustomerInputBlur}
-                />
-                <button
-                  type="button"
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={onCreateClient}
-                  disabled={disabled}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Cliente
-                </button>
               </div>
             </div>
           </div>

@@ -59,7 +59,7 @@ type SaleRow = {
 };
 type SaleForm = {
   concept: "MERCADERIA" | "SERVICIO";
-  docTypeCode: "03" | "01";
+  docTypeCode: "03" | "01" | "101";
   correlativeDisplay: string;
   condition: "ALCONTADO" | "CREDITO";
   delivery: "INMEDIATA" | "POR ENTREGAR";
@@ -112,7 +112,8 @@ type SaleListItem = {
 
 const DOC_CONFIG = {
   "03": { docu: "BOLETA", serie: "BA01", ticket: "boleta" as const },
-  "01": { docu: "FACTURA", serie: "F001", ticket: "factura" as const },
+  "01": { docu: "FACTURA", serie: "FA01", ticket: "factura" as const },
+  "101": { docu: "PROFORMA V", serie: "0001", ticket: "proforma" as const },
 };
 
 const defaultForm: SaleForm = {
@@ -430,6 +431,7 @@ export default function HtmlCaptureSalePage() {
   const openDialog = useDialogStore((state) => state.openDialog);
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
+  const isCapturedSale = Boolean(capture);
 
   const resetDraft = useCallback(() => {
     externalCaptureKeyRef.current = "";
@@ -491,17 +493,27 @@ export default function HtmlCaptureSalePage() {
     let active = true;
     setCorrelative(null);
 
+    if (form.docTypeCode === "101") {
+      return () => {
+        active = false;
+      };
+    }
+
     const query = new URLSearchParams({
       companiaId: String(session.companyId),
       serie: doc.serie,
     });
 
-    apiRequest<{
-      ok?: boolean;
-      nroComprobante?: string;
-      numero?: string;
-      serie?: string;
-    }>({
+    apiRequest<
+      {
+        ok?: boolean;
+        nroComprobante?: string;
+        numero?: string;
+        serie?: string;
+      },
+      unknown,
+      null
+    >({
       url: buildApiUrl(`/Nota/correlativo?${query.toString()}`),
       method: "GET",
       fallback: null,
@@ -654,6 +666,10 @@ export default function HtmlCaptureSalePage() {
       toast.error("Este registro solo se puede visualizar.");
       return;
     }
+    if (isCapturedSale) {
+      toast.error("Los productos capturados no se pueden editar.");
+      return;
+    }
     const query = safeTrim(manualProductInputRef.current?.value);
     const quantity = Number(manualQuantity);
     if (!query) {
@@ -710,7 +726,7 @@ export default function HtmlCaptureSalePage() {
   };
 
   const handleRemoveRow = (code: string) => {
-    if (isReadOnly) return;
+    if (isReadOnly || isCapturedSale) return;
     setRows((current) => current.filter((row) => row.code !== code));
     setLastTicket(null);
   };
@@ -1564,10 +1580,7 @@ export default function HtmlCaptureSalePage() {
                 saleTotal: totals.total,
                 monthTotal: monthlyPvs,
               }}
-              correlative={
-                correlative?.nroComprobante ||
-                `${DOC_CONFIG[form.docTypeCode].serie}-00000000`
-              }
+              correlative={correlative?.nroComprobante}
               onClientSelected={applyClient}
               onCreateClient={isReadOnly ? undefined : handleOpenCreateClientModal}
               onSearchClients={(search) => {
@@ -1666,7 +1679,7 @@ export default function HtmlCaptureSalePage() {
                 event.preventDefault();
                 void handleAddManualProduct();
               }}
-              disabled={loading || isSaving || isReadOnly}
+              disabled={loading || isSaving || isReadOnly || isCapturedSale}
             />
             {manualProductSearchFocused ? (
               <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
@@ -1714,13 +1727,13 @@ export default function HtmlCaptureSalePage() {
             className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
             value={manualQuantity}
             onChange={(event) => setManualQuantity(Number(event.target.value))}
-            disabled={loading || isSaving || isReadOnly}
+            disabled={loading || isSaving || isReadOnly || isCapturedSale}
           />
           <button
             type="button"
             className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={handleAddManualProduct}
-            disabled={loading || isSaving || isReadOnly}
+            disabled={loading || isSaving || isReadOnly || isCapturedSale}
           >
             <Plus className="h-4 w-4" />
             Agregar
@@ -1799,9 +1812,9 @@ export default function HtmlCaptureSalePage() {
                     <td className="px-4 py-2 text-right">
                       <button
                         type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                         onClick={() => handleRemoveRow(row.code)}
-                        disabled={isSaving || isReadOnly}
+                        disabled={isSaving || isReadOnly || isCapturedSale}
                         title="Quitar"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

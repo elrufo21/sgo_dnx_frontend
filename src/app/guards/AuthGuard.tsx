@@ -52,7 +52,7 @@ export function RedirectIfAuthenticated({ children }: GuardProps) {
   }
 
   if (isAuthenticated) {
-    const redirectTo = "/sales/pos";
+    const redirectTo = "/sales/html_capture/new";
     return <Navigate to={redirectTo} replace />;
   }
 
