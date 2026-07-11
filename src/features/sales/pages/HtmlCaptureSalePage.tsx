@@ -19,7 +19,7 @@ import {
 } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate, useParams } from "react-router";
-import CustomerFormBase from "@/components/CustomerFormBase";
+import CustomerDialogContent from "@/components/CustomerDialogContent";
 import TicketDocument from "@/components/Ticket";
 import { HookForm } from "@/components/forms/HookForm";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
@@ -403,7 +403,7 @@ export default function HtmlCaptureSalePage() {
   const { products, fetchProducts, loading } = useProductsStore();
   const {
     clients,
-    searchClients,
+    fetchClients,
     fetchClientByCodigo,
     addClient,
     fetchClientMonthlyPvs,
@@ -429,6 +429,7 @@ export default function HtmlCaptureSalePage() {
   const [listTo, setListTo] = useState(localDate());
   const session = useMemo(readSession, []);
   const openDialog = useDialogStore((state) => state.openDialog);
+  const closeDialog = useDialogStore((state) => state.closeDialog);
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
   const isCapturedSale = Boolean(capture);
@@ -492,12 +493,6 @@ export default function HtmlCaptureSalePage() {
     const doc = DOC_CONFIG[form.docTypeCode];
     let active = true;
     setCorrelative(null);
-
-    if (form.docTypeCode === "101") {
-      return () => {
-        active = false;
-      };
-    }
 
     const query = new URLSearchParams({
       companiaId: String(session.companyId),
@@ -570,6 +565,12 @@ export default function HtmlCaptureSalePage() {
   useEffect(() => {
     if (activeTab === "list") void fetchListRows();
   }, [activeTab, fetchListRows]);
+
+  useEffect(() => {
+    if (!clients.length) {
+      void fetchClients({ estado: "", page: 1, pageSize: 100 });
+    }
+  }, [clients.length, fetchClients]);
 
   const productByCode = useMemo(() => {
     const map = new Map<string, Product>();
@@ -661,6 +662,70 @@ export default function HtmlCaptureSalePage() {
     [form.docTypeCode, formMethods],
   );
 
+  const handleSelectClientFromDialog = useCallback(
+    (client: Client) => {
+      applyClient(client);
+      closeDialog();
+    },
+    [applyClient, closeDialog],
+  );
+
+  const handleCreateClientFromDialog = useCallback(
+    async (data: Omit<Client, "id">) => {
+      const payload: Omit<Client, "id"> = {
+        clienteCodigo: safeTrim(data.clienteCodigo),
+        nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
+        ruc: safeTrim(data.ruc),
+        dni: safeTrim(data.dni),
+        direccionFiscal: safeTrim(data.direccionFiscal) || "-",
+        direccionDespacho: safeTrim(data.direccionDespacho),
+        telefonoMovil: safeTrim(data.telefonoMovil),
+        email: safeTrim(data.email),
+        registradoPor: safeTrim(data.registradoPor) || session.username,
+        estado: safeTrim(data.estado) || "ACTIVO",
+        fecha: data.fecha ?? null,
+      };
+
+      if (!payload.nombreRazon) {
+        toast.error("El nombre o razon social es obligatorio.");
+        return false;
+      }
+
+      const result = await addClient(payload);
+      if (!result.ok) {
+        toast.error(result.error ?? "No se pudo crear el cliente.");
+        return false;
+      }
+
+      await fetchClients({ estado: "", page: 1, pageSize: 100 });
+      const refreshedClients = useClientsStore.getState().clients;
+      const normalizedName = safeTrim(payload.nombreRazon).toLowerCase();
+      const normalizedRuc = safeTrim(payload.ruc);
+      const normalizedDni = safeTrim(payload.dni);
+      const normalizedCode = safeTrim(payload.clienteCodigo);
+
+      const created =
+        result.client ??
+        refreshedClients.find((client) => {
+          const clientName = safeTrim(client.nombreRazon).toLowerCase();
+          return (
+            (normalizedRuc && safeTrim(client.ruc) === normalizedRuc) ||
+            (normalizedDni && safeTrim(client.dni) === normalizedDni) ||
+            (normalizedCode && getClientCode(client) === normalizedCode) ||
+            (!!normalizedName && clientName === normalizedName)
+          );
+        }) ??
+        null;
+
+      if (created) applyClient(created);
+      setMonthlyPvs(0);
+      toast.success("Cliente creado correctamente.");
+      closeDialog();
+      return true;
+    },
+    [addClient, applyClient, closeDialog, fetchClients, session.username],
+  );
+
   const handleAddManualProduct = async () => {
     if (isReadOnly) {
       toast.error("Este registro solo se puede visualizar.");
@@ -737,85 +802,45 @@ export default function HtmlCaptureSalePage() {
       return;
     }
     openDialog({
-      title: "Registrar cliente",
+      title: "Clientes",
       maxWidth: "lg",
       fullWidth: true,
-      confirmText: "Guardar",
-      cancelText: "Cancelar",
+      cancelText: "Cerrar",
       content: (
-        <CustomerFormBase
-          mode="create"
-          variant="modal"
+        <CustomerDialogContent
           initialData={{
             clienteCodigo: safeTrim(form.memberCode),
             nombreRazon: safeTrim(form.customerName),
             email: safeTrim(form.customerEmail),
-            dni: form.docTypeCode === "03" ? safeTrim(form.customerDoc) : "",
+            dni:
+              form.docTypeCode === "03" && safeTrim(form.customerDoc).length === 8
+                ? safeTrim(form.customerDoc)
+                : "",
             ruc: form.docTypeCode === "01" ? safeTrim(form.customerDoc) : "",
             direccionFiscal: safeTrim(form.address),
             direccionDespacho: safeTrim(form.address),
           }}
-          onSave={async () => false}
-          onNew={() => {}}
+          initialQuery={
+            safeTrim(form.customerName).toUpperCase() === "VARIOS"
+              ? ""
+              : safeTrim(form.customerName || form.customerDoc || form.memberCode)
+          }
+          onSelectClient={handleSelectClientFromDialog}
+          onCreateClient={handleCreateClientFromDialog}
         />
       ),
-      onConfirm: async (rawData) => {
-        const data = (rawData ?? {}) as Partial<Client>;
-        const payload: Omit<Client, "id"> = {
-          clienteCodigo: safeTrim(data.clienteCodigo),
-          nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
-          ruc: safeTrim(data.ruc),
-          dni: safeTrim(data.dni),
-          direccionFiscal: safeTrim(data.direccionFiscal) || "-",
-          direccionDespacho: safeTrim(data.direccionDespacho),
-          telefonoMovil: safeTrim(data.telefonoMovil),
-          email: safeTrim(data.email),
-          registradoPor: safeTrim(data.registradoPor) || session.username,
-          estado: safeTrim(data.estado) || "ACTIVO",
-          fecha: data.fecha ?? null,
-        };
-
-        if (!payload.nombreRazon) {
-          toast.error("El nombre o razon social es obligatorio.");
-          return false;
-        }
-
-        const result = await addClient(payload);
-        if (!result.ok) {
-          toast.error(result.error ?? "No se pudo crear el cliente.");
-          return false;
-        }
-
-        const created =
-          result.client ??
-          (
-            await searchClients(
-              payload.ruc || payload.dni || payload.clienteCodigo || payload.nombreRazon,
-              "ACTIVO",
-              10,
-            )
-          )[0] ??
-          null;
-
-        if (created) applyClient(created);
-        setMonthlyPvs(0);
-        toast.success("Cliente creado correctamente.");
-        return true;
-      },
     });
   }, [
-    addClient,
-    applyClient,
     form.address,
     form.customerDoc,
     form.customerName,
     form.customerEmail,
     form.docTypeCode,
     form.memberCode,
+    handleCreateClientFromDialog,
+    handleSelectClientFromDialog,
     isReadOnly,
     openDialog,
-    searchClients,
-    session.username,
   ]);
 
   useEffect(() => {
@@ -877,6 +902,8 @@ export default function HtmlCaptureSalePage() {
           : docValue.length === 11
             ? "01"
             : "03";
+      const customerDocValue =
+        nextDocTypeCode === "01" || docValue.length === 8 ? docValue : "";
       const localClient =
         clientOptions.find(
           (opt) => opt.code && opt.code === safeTrim(data.memberCode),
@@ -904,7 +931,7 @@ export default function HtmlCaptureSalePage() {
         );
         formMethods.setValue(
           "customerDoc",
-          docValue || formMethods.getValues("customerDoc"),
+          customerDocValue || formMethods.getValues("customerDoc"),
           { shouldDirty: true },
         );
         formMethods.setValue(
@@ -1088,7 +1115,11 @@ export default function HtmlCaptureSalePage() {
   ) => (
     <TicketDocument
       clientName={form.customerName || "VARIOS"}
-      clientId={form.customerDoc}
+      clientId={
+        form.docTypeCode === "03" && safeTrim(form.customerDoc).length !== 8
+          ? ""
+          : form.customerDoc
+      }
       clientAddress={form.address}
       docType={DOC_CONFIG[form.docTypeCode].ticket}
       paymentMethod={form.paymentMethod}
@@ -1125,6 +1156,10 @@ export default function HtmlCaptureSalePage() {
   );
 
   const buildTicketBlob = async (documentNumber: string, noteId: number) => {
+    const qrClientDoc =
+      form.docTypeCode === "03" && safeTrim(form.customerDoc).length !== 8
+        ? ""
+        : safeTrim(form.customerDoc);
     const qrData = [
       session.companyRuc || "20601070155",
       form.docTypeCode,
@@ -1133,8 +1168,7 @@ export default function HtmlCaptureSalePage() {
       totals.total.toFixed(2),
       localDate(),
       form.docTypeCode === "01" ? "06" : "01",
-      form.customerDoc ||
-        (form.docTypeCode === "01" ? "00000000000" : "00000000"),
+      qrClientDoc || (form.docTypeCode === "01" ? "00000000000" : "00000000"),
     ].join("|");
     const preGeneratedQrBase64 = await generateTicketQrBase64(qrData);
     return await pdf(
@@ -1236,6 +1270,13 @@ export default function HtmlCaptureSalePage() {
           : null);
     }
 
+    if (!saleClient && form.docTypeCode === "01") {
+      toast.error(
+        "Para Factura debes registrar o seleccionar el cliente con + Cliente.",
+      );
+      return;
+    }
+
     const clienteId = Number(saleClient?.id ?? 1) || 1;
 
     setIsSaving(true);
@@ -1306,7 +1347,7 @@ export default function HtmlCaptureSalePage() {
       });
 
       const parsed = parseNotaResult(result);
-      const documentNumber = `${doc.serie}-${parsed.number}`;
+      const documentNumber = `${notaSerie}-${parsed.number || notaNumero}`;
       if (!parsed.noteId) {
         toast.error(
           parsed.raw.toLowerCase().includes("existe")
@@ -1587,9 +1628,6 @@ export default function HtmlCaptureSalePage() {
               correlative={correlative?.nroComprobante}
               onClientSelected={applyClient}
               onCreateClient={isReadOnly ? undefined : handleOpenCreateClientModal}
-              onSearchClients={(search) => {
-                void searchClients(search);
-              }}
             />
           </div>
         </HookForm>

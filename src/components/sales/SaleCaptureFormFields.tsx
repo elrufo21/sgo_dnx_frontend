@@ -99,9 +99,10 @@ export function SaleCaptureFormFields({
   const docTypeCode = values.docTypeCode ?? "03";
   const correlativeDisplay = values.correlativeDisplay ?? "";
   const emissionDate = values.emissionDate ?? "";
-  const serie = docTypeCode === "01" ? "FA01" : "BA01";
+  const serie =
+    docTypeCode === "01" ? "FA01" : docTypeCode === "101" ? "0001" : "BA01";
   const currentCorrelative =
-    correlative ?? (docTypeCode === "101" ? "" : `${serie}-00000000`);
+    correlative ?? `${serie}-00000000`;
   const searchTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -120,6 +121,7 @@ export function SaleCaptureFormFields({
 
   const queueClientSearch = useCallback(
     (value: string) => {
+      if (!onSearchClients) return;
       const search = safeTrim(value);
       if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
       if (search.length < 2) return;

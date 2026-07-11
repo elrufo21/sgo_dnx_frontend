@@ -25,7 +25,7 @@ import { HookForm } from "@/components/forms/HookForm";
 import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormAutocomplete } from "@/components/forms/HookFormAutocomplete";
-import CustomerFormBase from "@/components/CustomerFormBase";
+import CustomerDialogContent from "@/components/CustomerDialogContent";
 import { usePosCartDraftPersistence } from "@/features/pos/hooks/usePosCartDraftPersistence";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { useProductsStore } from "@/store/products/products.store";
@@ -188,6 +188,20 @@ const numberToWords = (amount: number, currencyLabel = "SOLES") => {
   return `${parts.join(" ").trim()} CON ${cents}/100 ${currencyLabel}`.toUpperCase();
 };
 
+const normalizeSearchText = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const tokenizeSearchText = (value: unknown) =>
+  normalizeSearchText(value).split(" ").filter(Boolean);
+
+const normalizeDocumentText = (value: unknown) =>
+  String(value ?? "").replace(/\D/g, "");
+
 const PaymentPage = () => {
   const { notaId: notaIdParam } = useParams<{ notaId?: string }>();
   const { pathname, search, state } = useLocation();
@@ -207,7 +221,8 @@ const PaymentPage = () => {
   const clearEditingNota = usePosStore((s) => s.clearEditingNota);
   const clearCart = usePosStore((s) => s.clearCart);
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { clients, fetchClients, searchClients, addClient } = useClientsStore();
+  const closeDialog = useDialogStore((s) => s.closeDialog);
+  const { clients, fetchClients, addClient } = useClientsStore();
   const { fetchProducts: refetchProducts } = useProductsStore();
   const fetchBoletaSummaryDocuments = useBoletasSummaryStore(
     (s) => s.fetchDocuments,
@@ -558,7 +573,6 @@ const PaymentPage = () => {
   const prevApplyDiscountRef = useRef(false);
   const hasMountedApplyDiscountRef = useRef(false);
   const hasInvalidCustomerSelectionRef = useRef(false);
-  const clientSearchTimerRef = useRef<number | null>(null);
   const isConfirmedRef = useRef(false);
   const isOrderNotesFlowRef = useRef(false);
   const clearCartRef = useRef(clearCart);
@@ -1127,29 +1141,6 @@ const PaymentPage = () => {
     formState: { isSubmitting, dirtyFields },
   } = formMethods;
 
-  const queueClientSearch = useCallback(
-    (value: string) => {
-      const term = safeTrim(value);
-      if (clientSearchTimerRef.current) {
-        window.clearTimeout(clientSearchTimerRef.current);
-      }
-      if (term.length < 2) return;
-      clientSearchTimerRef.current = window.setTimeout(() => {
-        void searchClients(term);
-      }, 300);
-    },
-    [searchClients],
-  );
-
-  useEffect(
-    () => () => {
-      if (clientSearchTimerRef.current) {
-        window.clearTimeout(clientSearchTimerRef.current);
-      }
-    },
-    [],
-  );
-
   const docTypeCode = watch("docTypeCode");
   const paymentMethod = watch("paymentMethod");
   const clienteId = watch("clienteId");
@@ -1188,6 +1179,56 @@ const PaymentPage = () => {
         : "boleta";
   const isFactura = docTypeCode === "01";
   const isProforma = docTypeCode === "101";
+
+  useEffect(() => {
+    if (docTypeCode === "SELECCIONAR") return;
+    if (notaId || isEditingMode || hasLoadedNotaMeta) return;
+
+    const doc = docTypeConfig[docTypeCode];
+    if (!doc || companyId <= 0) return;
+
+    let active = true;
+    const query = new URLSearchParams({
+      companiaId: String(companyId),
+      serie: doc.serie,
+    });
+
+    apiRequest<
+      {
+        ok?: boolean;
+        numero?: string;
+        serie?: string;
+      },
+      unknown,
+      null
+    >({
+      url: buildApiUrl(`/Nota/correlativo?${query.toString()}`),
+      method: "GET",
+      fallback: null,
+    })
+      .then((response) => {
+        if (!active || !response?.ok) return;
+        const serie = safeTrim(response.serie) || doc.serie;
+        const numero = safeTrim(response.numero).replace(/\D/g, "");
+        setNotaSerieOverride(serie);
+        if (numero) setNotaNumero(numero.padStart(8, "0"));
+      })
+      .catch(() => {
+        if (!active) return;
+        setNotaSerieOverride(doc.serie);
+        setNotaNumero("");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    companyId,
+    docTypeCode,
+    hasLoadedNotaMeta,
+    isEditingMode,
+    notaId,
+  ]);
   const normalizedNotaEstado = safeTrim(notaEstadoActual).toUpperCase();
   const resolvedDocTypeCodeForResend = (() => {
     const fromHeader = safeTrim(
@@ -2041,7 +2082,7 @@ const PaymentPage = () => {
 
   useEffect(() => {
     if (!clients.length) {
-      fetchClients();
+      fetchClients({ estado: "", page: 1, pageSize: 100 });
     }
   }, [clients.length, fetchClients]);
 
@@ -2197,104 +2238,114 @@ const PaymentPage = () => {
     setClienteIdFromOption(null, { shouldDirty: true });
   }, [customerId, clienteId, dirtyFields?.customerId, setClienteIdFromOption]);
 
+  const selectClientFromDialog = useCallback(
+    (client: Client) => {
+      const selectedName = safeTrim(client.nombreRazon);
+      const selectedDoc =
+        docTypeCode === "01"
+          ? safeTrim(client.ruc) || safeTrim(client.dni)
+          : safeTrim(client.dni) || safeTrim(client.ruc);
+
+      setValue("customerName", selectedName, { shouldDirty: true });
+      setValue("customerId", selectedDoc, { shouldDirty: true });
+      setClienteIdFromOption(client);
+      closeDialog();
+    },
+    [closeDialog, docTypeCode, setClienteIdFromOption, setValue],
+  );
+
+  const createClientFromDialog = useCallback(
+    async (data: Omit<Client, "id">) => {
+      const payload: Omit<Client, "id"> = {
+        clienteCodigo: safeTrim(data.clienteCodigo),
+        nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
+        ruc: safeTrim(data.ruc),
+        dni: safeTrim(data.dni),
+        direccionFiscal: safeTrim(data.direccionFiscal),
+        direccionDespacho: safeTrim(data.direccionDespacho),
+        telefonoMovil: safeTrim(data.telefonoMovil),
+        email: safeTrim(data.email),
+        registradoPor: safeTrim(data.registradoPor) || resolvedNotaUsuario,
+        estado: safeTrim(data.estado) || "ACTIVO",
+        fecha: data.fecha ?? null,
+      };
+
+      if (!payload.nombreRazon) {
+        toast.error("El nombre o razon social es obligatorio.");
+        return false;
+      }
+
+      const result = await addClient(payload);
+      if (!result.ok) {
+        toast.error(result.error ?? "No se pudo crear el cliente.");
+        return false;
+      }
+
+      await fetchClients({ estado: "", page: 1, pageSize: 100 });
+      const refreshedClients = useClientsStore.getState().clients;
+      const normalizedName = safeTrim(payload.nombreRazon).toLowerCase();
+      const normalizedRuc = safeTrim(payload.ruc);
+      const normalizedDni = safeTrim(payload.dni);
+
+      const createdClient =
+        result.client ??
+        refreshedClients.find((client) => {
+          const clientRuc = safeTrim(client.ruc);
+          const clientDni = safeTrim(client.dni);
+          const clientName = safeTrim(client.nombreRazon).toLowerCase();
+          return (
+            (normalizedRuc && clientRuc === normalizedRuc) ||
+            (normalizedDni && clientDni === normalizedDni) ||
+            (!!normalizedName && clientName === normalizedName)
+          );
+        }) ??
+        null;
+
+      selectClientFromDialog(createdClient ?? { id: 0, ...payload });
+      toast.success("Cliente creado correctamente.");
+      return true;
+    },
+    [
+      addClient,
+      fetchClients,
+      resolvedNotaUsuario,
+      selectClientFromDialog,
+    ],
+  );
+
   const handleOpenCreateClientModal = useCallback(() => {
     if (formLocked) return;
 
     openDialog({
-      title: "Registrar cliente",
+      title: "Clientes",
       maxWidth: "lg",
       fullWidth: true,
-      confirmText: "Guardar",
-      cancelText: "Cancelar",
+      cancelText: "Cerrar",
       content: (
-        <CustomerFormBase
-          mode="create"
-          variant="modal"
-          onSave={async () => false}
-          onNew={() => {}}
+        <CustomerDialogContent
+          initialData={{
+            nombreRazon: safeTrim(customerName),
+            dni: docTypeCode === "01" ? "" : safeTrim(customerId),
+            ruc: docTypeCode === "01" ? safeTrim(customerId) : "",
+          }}
+          initialQuery={
+            safeTrim(customerName).toUpperCase() === "VARIOS"
+              ? ""
+              : safeTrim(customerName || customerId)
+          }
+          onSelectClient={selectClientFromDialog}
+          onCreateClient={createClientFromDialog}
         />
       ),
-      onConfirm: async (rawData) => {
-        const data = (rawData ?? {}) as Partial<Client>;
-        const payload: Omit<Client, "id"> = {
-          clienteCodigo: safeTrim(data.clienteCodigo),
-          nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
-          ruc: safeTrim(data.ruc),
-          dni: safeTrim(data.dni),
-          direccionFiscal: safeTrim(data.direccionFiscal),
-          direccionDespacho: safeTrim(data.direccionDespacho),
-          telefonoMovil: safeTrim(data.telefonoMovil),
-          email: safeTrim(data.email),
-          registradoPor: safeTrim(data.registradoPor) || resolvedNotaUsuario,
-          estado: safeTrim(data.estado) || "ACTIVO",
-          fecha: data.fecha ?? null,
-        };
-
-        if (!payload.nombreRazon) {
-          toast.error("El nombre o razon social es obligatorio.");
-          return false;
-        }
-
-        const result = await addClient(payload);
-        if (!result.ok) {
-          toast.error(result.error ?? "No se pudo crear el cliente.");
-          return false;
-        }
-
-        const normalizedName = safeTrim(payload.nombreRazon).toLowerCase();
-        const normalizedRuc = safeTrim(payload.ruc);
-        const normalizedDni = safeTrim(payload.dni);
-        const refreshedClients = await searchClients(
-          normalizedRuc || normalizedDni || normalizedName,
-          "ACTIVO",
-          10,
-        );
-
-        const createdClient =
-          refreshedClients.find((client) => {
-            const clientRuc = safeTrim(client.ruc);
-            const clientDni = safeTrim(client.dni);
-            const clientName = safeTrim(client.nombreRazon).toLowerCase();
-            return (
-              (normalizedRuc && clientRuc === normalizedRuc) ||
-              (normalizedDni && clientDni === normalizedDni) ||
-              (!!normalizedName && clientName === normalizedName)
-            );
-          }) ?? null;
-
-        const selectedName =
-          safeTrim(createdClient?.nombreRazon) || payload.nombreRazon;
-        const selectedDoc =
-          docTypeCode === "01"
-            ? safeTrim(createdClient?.ruc) ||
-              safeTrim(createdClient?.dni) ||
-              payload.ruc ||
-              payload.dni
-            : safeTrim(createdClient?.dni) ||
-              safeTrim(createdClient?.ruc) ||
-              payload.dni ||
-              payload.ruc;
-
-        setValue("customerName", selectedName, { shouldDirty: true });
-        setValue("customerId", selectedDoc, { shouldDirty: true });
-        setClienteIdFromOption({
-          id: createdClient?.id ?? null,
-          clienteId: createdClient?.id ?? null,
-        });
-        toast.success("Cliente creado correctamente.");
-        return true;
-      },
     });
   }, [
-    addClient,
+    createClientFromDialog,
+    customerId,
+    customerName,
     docTypeCode,
-    fetchClients,
     formLocked,
     openDialog,
-    resolvedNotaUsuario,
-    searchClients,
-    setClienteIdFromOption,
-    setValue,
+    selectClientFromDialog,
   ]);
 
   const confirmWithAppDialog = useCallback(
@@ -2330,11 +2381,15 @@ const PaymentPage = () => {
     const seen = new Set<string>();
     const result: typeof clients = [];
     clients.forEach((client, index) => {
-      const dniKey = client.dni ? safeTrim(client.dni) : "";
-      const rucKey = (client as any).ruc ? safeTrim((client as any).ruc) : "";
+      const dniKey = client.dni ? normalizeDocumentText(client.dni) : "";
+      const rucKey = (client as any).ruc
+        ? normalizeDocumentText((client as any).ruc)
+        : "";
       const idKey =
         client.id !== undefined && client.id !== null ? `id-${client.id}` : "";
-      const nameKey = client.nombreRazon ? `name-${client.nombreRazon}` : "";
+      const nameKey = client.nombreRazon
+        ? `name-${normalizeSearchText(client.nombreRazon)}`
+        : "";
       const key =
         (dniKey && `dni-${dniKey}`) ||
         (rucKey && `ruc-${rucKey}`) ||
@@ -2348,17 +2403,49 @@ const PaymentPage = () => {
     return result;
   }, [clients]);
 
-  const clientOptions = useMemo(
-    () =>
-      uniqueClients.map((client) => ({
-        value: client.nombreRazon ?? "",
-        label: client.nombreRazon ?? "",
-        dni: client.dni ?? "",
-        ruc: client.ruc ?? "",
+  const clientOptions = useMemo(() => {
+    const byLabel = new Map<
+      string,
+      {
+        value: string;
+        label: string;
+        dni: string;
+        ruc: string;
+        id: number;
+        searchLabel: string;
+        searchDocument: string;
+      }
+    >();
+
+    uniqueClients.forEach((client) => {
+      const label = safeTrim(client.nombreRazon ?? "");
+      if (!label) return;
+      const dni = safeTrim(client.dni ?? "");
+      const ruc = safeTrim(client.ruc ?? "");
+      const option = {
+        value: label,
+        label,
+        dni,
+        ruc,
         id: client.id,
-      })),
-    [uniqueClients],
-  );
+        searchLabel: normalizeSearchText(label),
+        searchDocument: normalizeSearchText(`${dni} ${ruc}`),
+      };
+      const current = byLabel.get(option.searchLabel);
+      const optionScore = Number(Boolean(ruc)) * 2 + Number(Boolean(dni));
+      const currentScore = current
+        ? Number(Boolean(current.ruc)) * 2 + Number(Boolean(current.dni))
+        : -1;
+
+      if (!current || optionScore > currentScore) {
+        byLabel.set(option.searchLabel, option);
+      }
+    });
+
+    return Array.from(byLabel.values()).sort((a, b) =>
+      a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
+    );
+  }, [uniqueClients]);
 
   const facturaClientOptions = useMemo(
     () =>
@@ -2368,33 +2455,65 @@ const PaymentPage = () => {
     [clientOptions],
   );
 
-  const dniOptions = useMemo(
-    () =>
-      uniqueClients
-        .filter((client) => client.dni?.trim())
-        .map((client) => ({
-          value: (client.dni ?? "").trim(),
-          label: (client.dni ?? "").trim(),
-          dni: (client.dni ?? "").trim(),
-          nombreRazon: (client.nombreRazon ?? "").trim(),
-          id: client.id,
-        })),
-    [uniqueClients],
-  );
+  const dniOptions = useMemo(() => {
+    const byDocument = new Map<
+      string,
+      {
+        value: string;
+        label: string;
+        dni: string;
+        nombreRazon: string;
+        id: number;
+      }
+    >();
 
-  const rucOptions = useMemo(
-    () =>
-      uniqueClients
-        .filter((client) => client.ruc?.trim())
-        .map((client) => ({
-          value: (client.ruc ?? "").trim(),
-          label: (client.ruc ?? "").trim(),
-          ruc: (client.ruc ?? "").trim(),
-          nombreRazon: (client.nombreRazon ?? "").trim(),
+    uniqueClients
+      .filter((client) => client.dni?.trim())
+      .forEach((client) => {
+        const dni = safeTrim(client.dni ?? "");
+        const key = normalizeDocumentText(dni);
+        if (!key || byDocument.has(key)) return;
+        byDocument.set(key, {
+          value: dni,
+          label: dni,
+          dni,
+          nombreRazon: safeTrim(client.nombreRazon ?? ""),
           id: client.id,
-        })),
-    [uniqueClients],
-  );
+        });
+      });
+
+    return Array.from(byDocument.values());
+  }, [uniqueClients]);
+
+  const rucOptions = useMemo(() => {
+    const byDocument = new Map<
+      string,
+      {
+        value: string;
+        label: string;
+        ruc: string;
+        nombreRazon: string;
+        id: number;
+      }
+    >();
+
+    uniqueClients
+      .filter((client) => client.ruc?.trim())
+      .forEach((client) => {
+        const ruc = safeTrim(client.ruc ?? "");
+        const key = normalizeDocumentText(ruc);
+        if (!key || byDocument.has(key)) return;
+        byDocument.set(key, {
+          value: ruc,
+          label: ruc,
+          ruc,
+          nombreRazon: safeTrim(client.nombreRazon ?? ""),
+          id: client.id,
+        });
+      });
+
+    return Array.from(byDocument.values());
+  }, [uniqueClients]);
 
   const facturaRucOptions = useMemo(
     () =>
@@ -2427,11 +2546,11 @@ const PaymentPage = () => {
         return false;
       }
 
-      const typedNameNormalized = typedName.toLowerCase();
+      const typedNameNormalized = normalizeSearchText(typedName);
       const availableClients =
         docTypeCode === "01" ? facturaClientOptions : clientOptions;
       const matchedOption = availableClients.find(
-        (opt) => safeTrim(opt.label).toLowerCase() === typedNameNormalized,
+        (opt) => normalizeSearchText(opt.label) === typedNameNormalized,
       );
 
       if (!matchedOption) {
@@ -2488,12 +2607,24 @@ const PaymentPage = () => {
       docTypeCode === "01"
         ? safeTrim((clientById as any).ruc ?? "")
         : safeTrim((clientById as any).dni ?? "");
+    const normalizedCurrentName = safeTrim(customerName);
+    const normalizedCurrentDoc = safeTrim(customerId);
+    const isManualNameEdition =
+      Boolean(dirtyFields?.customerName) &&
+      normalizedCurrentName !== "" &&
+      normalizedCurrentName !== nameFromId;
+    const isManualDocEdition =
+      Boolean(dirtyFields?.customerId) &&
+      normalizedCurrentDoc !== "" &&
+      normalizedCurrentDoc !== docFromId;
 
-    if (nameFromId && safeTrim(customerName) !== nameFromId) {
+    if (isManualNameEdition || isManualDocEdition) return;
+
+    if (nameFromId && normalizedCurrentName !== nameFromId) {
       setValue("customerName", nameFromId, { shouldDirty: false });
     }
 
-    if (safeTrim(customerId) !== docFromId) {
+    if (normalizedCurrentDoc !== docFromId) {
       setValue("customerId", docFromId, { shouldDirty: false });
     }
   }, [
@@ -2502,8 +2633,26 @@ const PaymentPage = () => {
     uniqueClients,
     customerName,
     customerId,
+    dirtyFields?.customerName,
+    dirtyFields?.customerId,
     setValue,
   ]);
+
+  useEffect(() => {
+    const clientIdNumeric = Number(clienteId);
+    if (!Number.isFinite(clientIdNumeric) || clientIdNumeric <= 0) return;
+
+    const clientById = uniqueClients.find(
+      (client) => Number(client.id) === clientIdNumeric,
+    );
+    if (!clientById) return;
+
+    const canonicalName = safeTrim(clientById.nombreRazon ?? "");
+    const typedName = safeTrim(customerName);
+    if (typedName === canonicalName) return;
+
+    setClienteIdFromOption(null, { shouldDirty: true });
+  }, [clienteId, uniqueClients, customerName, setClienteIdFromOption]);
 
   const resolveDocumentValue = useCallback(
     (value: any, type: "dni" | "ruc") => {
@@ -2593,6 +2742,7 @@ const PaymentPage = () => {
       state: { inputValue: string },
     ) => {
       const input = (state.inputValue ?? "").trim().toLowerCase();
+      const inputDocument = normalizeDocumentText(input);
       const filtered = options.filter((opt) => {
         const label = (opt.label ?? "").toLowerCase();
         const valueStr = String(opt.value ?? "").toLowerCase();
@@ -2604,11 +2754,13 @@ const PaymentPage = () => {
         )
           .toString()
           .toLowerCase();
+        const docDigits = normalizeDocumentText(docStr);
         return (
           input === "" ||
           label.includes(input) ||
           valueStr.includes(input) ||
-          docStr.includes(input)
+          docStr.includes(input) ||
+          (inputDocument !== "" && docDigits.includes(inputDocument))
         );
       });
 
@@ -2624,7 +2776,12 @@ const PaymentPage = () => {
           )
             .toString()
             .toLowerCase();
-          return label === input || valueStr === input || docStr === input;
+          return (
+            label === input ||
+            valueStr === input ||
+            docStr === input ||
+            normalizeDocumentText(docStr) === inputDocument
+          );
         });
 
         if (!exists) {
@@ -2639,6 +2796,63 @@ const PaymentPage = () => {
       return filtered;
     },
     [docLabel],
+  );
+
+  const clientFilterOptions = useCallback(
+    (
+      options: Array<(typeof clientOptions)[number]>,
+      state: { inputValue: string },
+    ) => {
+      const inputNormalized = normalizeSearchText(state.inputValue ?? "");
+      if (!inputNormalized) return options.slice(0, 100);
+
+      const tokens = tokenizeSearchText(inputNormalized);
+      const ranked: Array<{
+        option: (typeof clientOptions)[number];
+        score: number;
+      }> = [];
+
+      options.forEach((option) => {
+        const label = option.searchLabel ?? normalizeSearchText(option.label);
+        const document =
+          option.searchDocument ??
+          normalizeSearchText(`${option.dni ?? ""} ${option.ruc ?? ""}`);
+        const matchesAllTokens = tokens.every(
+          (token) => label.includes(token) || document.includes(token),
+        );
+        if (!matchesAllTokens) return;
+
+        let score = 4;
+        if (label === inputNormalized || document === inputNormalized) {
+          score = 0;
+        } else if (label.startsWith(inputNormalized)) {
+          score = 1;
+        } else if (
+          tokens.every((token) =>
+            label.split(" ").some((segment) => segment.startsWith(token)),
+          )
+        ) {
+          score = 2;
+        } else if (document.startsWith(inputNormalized)) {
+          score = 3;
+        }
+
+        ranked.push({ option, score });
+      });
+
+      return ranked
+        .sort((a, b) => {
+          if (a.score !== b.score) return a.score - b.score;
+          const byLength = a.option.label.length - b.option.label.length;
+          if (byLength !== 0) return byLength;
+          return a.option.label.localeCompare(b.option.label, "es", {
+            sensitivity: "base",
+          });
+        })
+        .map((item) => item.option)
+        .slice(0, 100);
+    },
+    [],
   );
 
   const ticketPreviewProps = useMemo(() => {
@@ -5346,6 +5560,36 @@ const PaymentPage = () => {
           label="Nombre del cliente"
           placeholder="Seleccionar cliente"
           options={docTypeCode === "01" ? facturaClientOptions : clientOptions}
+          isOptionEqualToValue={(option: any, value: any) => {
+            const optionId = Number(
+              option?.id ?? option?.clienteId ?? option?.clientId ?? 0,
+            );
+            const valueId = Number(
+              value?.id ??
+                value?.clienteId ??
+                value?.clientId ??
+                clienteId ??
+                0,
+            );
+
+            if (
+              Number.isFinite(optionId) &&
+              optionId > 0 &&
+              Number.isFinite(valueId) &&
+              valueId > 0
+            ) {
+              return optionId === valueId;
+            }
+
+            const optionLabel = safeTrim(
+              option?.label ?? option?.nombreRazon ?? option?.value,
+            );
+            const valueLabel = safeTrim(value?.label ?? value?.value ?? value);
+            return (
+              normalizeSearchText(optionLabel) === normalizeSearchText(valueLabel)
+            );
+          }}
+          filterOptions={clientFilterOptions as any}
           rules={{
             validate: (value: any) => {
               if (docTypeCode !== "01") return true;
@@ -5360,7 +5604,6 @@ const PaymentPage = () => {
             },
           }}
           syncInputToValue
-          onInputValueChange={queueClientSearch}
           disableClearable={formLocked}
           disabled={formLocked}
           onInputBlur={({ inputValue }) => {
@@ -5394,7 +5637,6 @@ const PaymentPage = () => {
             disabled={formLocked}
             allowCreate
             createLabel={(value: string) => `Usar RUC: ${value}`}
-            onInputValueChange={queueClientSearch}
             filterOptions={documentFilterOptions as any}
             isOptionEqualToValue={(option: any, value: any) =>
               String(option?.value) === String((value as any)?.value ?? value)
@@ -5431,7 +5673,6 @@ const PaymentPage = () => {
             disabled={formLocked}
             allowCreate
             createLabel={(value: string) => `Usar DNI: ${value}`}
-            onInputValueChange={queueClientSearch}
             filterOptions={documentFilterOptions as any}
             isOptionEqualToValue={(option: any, value: any) =>
               String(option?.value) === String((value as any)?.value ?? value)

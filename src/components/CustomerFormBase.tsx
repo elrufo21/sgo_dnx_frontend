@@ -8,6 +8,7 @@ import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { Client } from "@/types/customer";
@@ -33,6 +34,7 @@ interface ClientFormBaseProps {
   onNew?: () => void;
   onDelete?: () => void;
   variant?: "page" | "modal";
+  showModalActions?: boolean;
 }
 
 const buildDefaults = (
@@ -62,6 +64,7 @@ export default function CustomerFormBase({
   onNew,
   onDelete,
   variant = "page",
+  showModalActions = false,
 }: ClientFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousTipoDocumentoRef = useRef<"ruc" | "dni" | null>(null);
@@ -102,6 +105,23 @@ export default function CustomerFormBase({
 
   const selectedTipoDocumento = watch("tipoDocumento");
   const documentMaxLength = selectedTipoDocumento === "dni" ? 8 : 11;
+  const rootClassName = isModal
+    ? "h-auto px-0 py-2 sm:px-2"
+    : "h-auto py-8 px-4 sm:px-6 lg:px-8 from-blue-50 via-indigo-50 to-purple-50";
+  const shellClassName = isModal ? "w-full" : "max-w-5xl mx-auto";
+  const cardClassName = isModal
+    ? "bg-white overflow-hidden"
+    : "bg-white overflow-visible rounded-2xl shadow-xl";
+  const bodyClassName = isModal ? "px-3 py-4 sm:px-4 sm:py-5" : "p-6 sm:p-8";
+  const gridClassName = isModal
+    ? "grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,0.95fr)]"
+    : "grid grid-cols-1 lg:grid-cols-3 gap-6";
+  const fieldsGridClassName = isModal
+    ? "grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 order-2 lg:order-1"
+    : "lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 order-2 lg:order-1";
+  const documentPanelClassName = isModal
+    ? "order-1 border-b border-slate-200 pb-5 lg:order-2 lg:border-b-0 lg:border-l lg:pb-0 lg:pl-5"
+    : "border-t-2 border-gray-100 pt-4 order-1 lg:order-2";
 
   const focusNombreRazon = () => {
     window.requestAnimationFrame(() => {
@@ -307,27 +327,59 @@ export default function CustomerFormBase({
     }
 
     const responseRecord = response as Record<string, unknown>;
-    const responseDataCandidate = responseRecord.response as
+    const responseContainer = responseRecord.response as
       | Record<string, unknown>
       | undefined;
-    const nestedData = responseDataCandidate?.data;
+    const rawResponseData = responseContainer?.data;
+    const parsedResponseData =
+      typeof rawResponseData === "string"
+        ? (() => {
+            try {
+              return JSON.parse(rawResponseData) as unknown;
+            } catch {
+              return rawResponseData;
+            }
+          })()
+        : rawResponseData;
     const data =
-      nestedData && typeof nestedData === "object"
-        ? (nestedData as Record<string, unknown>)
+      parsedResponseData && typeof parsedResponseData === "object"
+        ? (parsedResponseData as Record<string, unknown>)
         : responseRecord;
+    const rawErrorData = (responseRecord as { response?: { data?: unknown } })
+      .response?.data;
+    const errorDataRecord =
+      rawErrorData && typeof rawErrorData === "object"
+        ? (rawErrorData as Record<string, unknown>)
+        : null;
 
     const asText = (value: unknown) => String(value ?? "").trim();
     const pickFirst = (...values: unknown[]) =>
       values.map(asText).find((v) => v.length > 0) ?? "";
 
     const apiMessage = pickFirst(
+      errorDataRecord?.message,
+      errorDataRecord?.error,
       data.message,
       data.error,
       (data as { errors?: unknown }).errors,
+      (parsedResponseData as { message?: unknown })?.message,
+      (parsedResponseData as { error?: unknown })?.error,
+      rawResponseData,
     );
-    const successFlag = data.success;
+    const successFlag =
+      (data as { success?: unknown }).success ??
+      errorDataRecord?.success ??
+      (responseRecord as { success?: unknown }).success;
+    const hasExplicitFailure =
+      successFlag === false ||
+      String(successFlag ?? "")
+        .trim()
+        .toLowerCase() === "0" ||
+      String(successFlag ?? "")
+        .trim()
+        .toLowerCase() === "false";
 
-    if (successFlag === false) {
+    if (hasExplicitFailure) {
       toast.error(apiMessage || "No se encontraron datos del documento");
       return;
     }
@@ -394,20 +446,9 @@ export default function CustomerFormBase({
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={`h-auto py-8 px-4 sm:px-6 lg:px-8 ${
-        isModal ? "" : "from-blue-50 via-indigo-50 to-purple-50"
-      }`}
-    >
-      <div className="max-w-5xl mx-auto">
-        <div
-          className={`bg-white ${
-            isModal
-              ? "overflow-hidden"
-              : "overflow-visible rounded-2xl shadow-xl"
-          }`}
-        >
+    <div ref={containerRef} className={rootClassName}>
+      <div className={shellClassName}>
+        <div className={cardClassName}>
           <HookForm methods={formMethods} onSubmit={handleSave}>
             {!isModal && (
               <div className="sticky top-20 sm:top-2 z-30 bg-[#B23636] text-white px-4 py-3 rounded-t-2xl flex items-center justify-between shadow-lg shadow-black/10">
@@ -455,10 +496,10 @@ export default function CustomerFormBase({
               </div>
             )}
 
-            <div className="p-6 sm:p-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 order-2 lg:order-1">
-                  <div className="col-span-2">
+            <div className={bodyClassName}>
+              <div className={gridClassName}>
+                <div className={fieldsGridClassName}>
+                  <div className="md:col-span-2">
                     <HookFormInput<CustomerFormValues>
                       data-focus-first="true"
                       name="nombreRazon"
@@ -571,7 +612,7 @@ export default function CustomerFormBase({
                   />
                 </div>
 
-                <div className="border-t-2 border-gray-100 pt-4 order-1 lg:order-2">
+                <div className={documentPanelClassName}>
                   <div className="space-y-4">
                     <div className="flex items-center gap-6">
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -630,6 +671,29 @@ export default function CustomerFormBase({
                   </div>
                 </div>
               </div>
+
+              {isModal && showModalActions && (
+                <div className="mt-6 flex justify-end gap-2 border-t border-slate-200 pt-4">
+                  {mode !== "edit" && (
+                    <button
+                      type="button"
+                      onClick={handleNew}
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Nuevo
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-70"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSubmitting ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              )}
             </div>
           </HookForm>
         </div>

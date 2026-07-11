@@ -426,15 +426,21 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   pointsLabel: {
-    width: "68%",
+    width: "64%",
     fontSize: 9,
     fontWeight: "bold",
   },
-  pointsAmount: {
-    width: "32%",
+  pointsArrow: {
+    width: "10%",
     fontSize: 9,
     fontWeight: "bold",
-    textAlign: "left",
+    textAlign: "center",
+  },
+  pointsAmount: {
+    width: "26%",
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "right",
   },
   qrPlaceholder: {
     width: 80,
@@ -839,13 +845,15 @@ const TicketDocument = ({
 
         <View style={styles.pointsBox}>
           <View style={styles.pointsRow}>
-            <Text style={styles.pointsLabel}>PVS TOTAL DE VENTA -----&gt;</Text>
+            <Text style={styles.pointsLabel}>PVS TOTAL DE VENTA</Text>
+            <Text style={styles.pointsArrow}>---&gt;</Text>
             <Text style={styles.pointsAmount}>
               {ticketData.pvsTotalVenta.toFixed(2)}
             </Text>
           </View>
           <View style={styles.pointsRow}>
-            <Text style={styles.pointsLabel}>PVS TOTAL DEL MES -----&gt;</Text>
+            <Text style={styles.pointsLabel}>PVS TOTAL DEL MES</Text>
+            <Text style={styles.pointsArrow}>---&gt;</Text>
             <Text style={styles.pointsAmount}>
               {ticketData.pvsTotalMes.toFixed(2)}
             </Text>
