@@ -17,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type InputHTMLAttributes,
   type KeyboardEvent,
 } from "react";
 import {
@@ -47,6 +48,8 @@ interface HookFormAutocompleteProps<
   isOptionEqualToValue?: (option: TOption, value: TOption) => boolean;
   onOptionSelected?: (option: TOption | null) => void;
   onInputValueChange?: (value: string) => void;
+  onInputKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+  transformInputValue?: (value: string) => string;
   onInputBlur?: (params: {
     inputValue: string;
     selectedOption: TOption | null;
@@ -58,6 +61,7 @@ interface HookFormAutocompleteProps<
   control?: Control<T>;
   disabled?: boolean;
   syncInputToValue?: boolean;
+  inputProps?: InputHTMLAttributes<HTMLInputElement>;
 
   allowCreate?: boolean;
   showCreateOption?: boolean;
@@ -86,12 +90,15 @@ export function HookFormAutocomplete<
   isOptionEqualToValue,
   onOptionSelected,
   onInputValueChange,
+  onInputKeyDown,
+  transformInputValue,
   onInputBlur,
   disableClearable = false,
   className,
   control,
   disabled = false,
   syncInputToValue = false,
+  inputProps,
 
   allowCreate = false,
   showCreateOption = true,
@@ -339,22 +346,25 @@ export function HookFormAutocomplete<
                   return;
                 }
 
-                setInputValue(newInputValue);
+                const nextInputValue = transformInputValue
+                  ? transformInputValue(newInputValue)
+                  : newInputValue;
+                setInputValue(nextInputValue);
 
                 if (reason === "input" && syncInputToValue) {
-                  field.onChange(newInputValue);
-                  onInputValueChange?.(newInputValue);
+                  field.onChange(nextInputValue);
+                  onInputValueChange?.(nextInputValue);
                   return;
                 }
 
                 if (reason === "input" && selectedOption) {
                   const selectedLabel = defaultGetOptionLabel(selectedOption);
-                  if (newInputValue !== selectedLabel) {
+                  if (nextInputValue !== selectedLabel) {
                     field.onChange(null);
                   }
                 }
 
-                if (reason === "input") onInputValueChange?.(newInputValue);
+                if (reason === "input") onInputValueChange?.(nextInputValue);
               }}
               onChange={(event, option) => {
                 const moveToNext = () => {
@@ -467,6 +477,7 @@ export function HookFormAutocomplete<
                   }}
                   inputProps={{
                     ...params.inputProps,
+                    ...inputProps,
                     name: historySafeFieldName,
                     "data-auto-next": "true",
                     "data-no-uppercase": "true",
@@ -485,6 +496,10 @@ export function HookFormAutocomplete<
                     params.inputProps?.onKeyDown?.(
                       event as unknown as KeyboardEvent<HTMLInputElement>,
                     );
+                    onInputKeyDown?.(
+                      event as unknown as KeyboardEvent<HTMLInputElement>,
+                    );
+                    if (event.defaultPrevented) return;
                     handleKeyDown(event as KeyboardEvent<HTMLInputElement>);
                   }}
                 />

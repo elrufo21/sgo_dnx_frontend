@@ -81,6 +81,7 @@ type SaleForm = {
   customerName: string;
   customerEmail: string;
   customerDoc: string;
+  customerRuc: string;
   address: string;
   memberCode: string;
   transactionNumber: string;
@@ -129,6 +130,7 @@ const defaultForm: SaleForm = {
   customerName: "",
   customerEmail: "",
   customerDoc: "",
+  customerRuc: "",
   address: "",
   memberCode: "",
   transactionNumber: "",
@@ -141,18 +143,25 @@ const normalizeCode = (value: unknown) => safeTrim(value).toUpperCase();
 const readText = (root: ParentNode, selector: string) =>
   root.querySelector(selector)?.textContent?.trim() ?? "";
 const normalizeCaptureText = (value: unknown) =>
-  String(value ?? "").replace(/\s+/g, " ").trim();
+  String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
 const normalizeLabelText = (value: unknown) =>
   normalizeCaptureText(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+const normalizeDocumentText = (value: unknown) =>
+  String(value ?? "").replace(/\D/g, "");
 const isCustomerLabel = (value: unknown) =>
   /^(senores|senor\(a\)|cliente)\s*:?/.test(normalizeLabelText(value));
 const cleanCustomerName = (value: unknown) =>
   normalizeCaptureText(value)
     .replace(/^(Señores|Senores|Señor\(a\)|Senor\(a\)|Cliente)\s*:?\s*/i, "")
-    .replace(/\b(Fecha|Domicilio|Direcci[oó]n|Email|R\.?\s*U\.?\s*C|DNI)\s*:.*$/i, "")
+    .replace(
+      /\b(Fecha|Domicilio|Direcci[oó]n|Email|R\.?\s*U\.?\s*C|DNI)\s*:.*$/i,
+      "",
+    )
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
     .replace(/\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b/g, "")
     .trim();
@@ -162,7 +171,11 @@ const readValueAfterCustomerLabel = (section: Element | null) => {
   );
   for (let index = 0; index < nodes.length; index += 1) {
     if (!isCustomerLabel(nodes[index].textContent)) continue;
-    for (let next = index + 1; next < Math.min(nodes.length, index + 5); next += 1) {
+    for (
+      let next = index + 1;
+      next < Math.min(nodes.length, index + 5);
+      next += 1
+    ) {
       const candidate = cleanCustomerName(nodes[next].textContent);
       if (candidate && !isCustomerLabel(candidate)) return candidate;
     }
@@ -175,7 +188,7 @@ const readCustomerName = (root: ParentNode) => {
 
   const sections = ["#section-2", "#section-3", "#section-4", "#section-5"]
     .map((selector) => root.querySelector(selector))
-    .filter(Boolean);
+    .filter((section): section is Element => Boolean(section));
 
   for (const section of sections) {
     const name = readValueAfterCustomerLabel(section);
@@ -234,10 +247,57 @@ const parseNotaResult = (result: unknown) => {
     raw,
   };
 };
+const asRecord = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+const firstValue = (
+  record: Record<string, unknown> | null,
+  ...keys: string[]
+) => keys.map((key) => record?.[key]).find((value) => value != null) ?? "";
+const parseBooleanLike = (value: unknown) =>
+  ["1", "true", "si", "sí", "yes"].includes(safeTrim(value).toLowerCase());
+const parseSunatResult = (result: unknown) => {
+  const root = asRecord(result);
+  const sunat = asRecord(firstValue(root, "sunat", "Sunat"));
+  const code =
+    safeTrim(
+      firstValue(root, "cod_sunat", "codSunat", "COD_SUNAT", "CodSunat"),
+    ) ||
+    safeTrim(
+      firstValue(sunat, "cod_sunat", "codSunat", "COD_SUNAT", "CodSunat"),
+    );
+  const message =
+    safeTrim(
+      firstValue(root, "msj_sunat", "msjSunat", "MSJ_SUNAT", "MsjSunat"),
+    ) ||
+    safeTrim(
+      firstValue(
+        sunat,
+        "msj_sunat",
+        "msjSunat",
+        "MSJ_SUNAT",
+        "MsjSunat",
+        "mensaje",
+        "Mensaje",
+      ),
+    );
+  const acceptedRaw =
+    firstValue(root, "aceptado", "Aceptado", "ACEPTADO") ||
+    firstValue(sunat, "aceptado", "Aceptado", "ACEPTADO", "ok", "Ok", "OK");
+  const accepted =
+    parseBooleanLike(acceptedRaw) ||
+    safeTrim(firstValue(sunat, "flg_rta", "FlgRta")) === "1" ||
+    code === "0" ||
+    code === "0000";
+
+  return { accepted, code, message };
+};
 const parseCapture = (html: string): CaptureData => {
   const document = new DOMParser().parseFromString(html, "text/html");
   const table = document.querySelector("table");
-  const ruc = `${readText(document, "#section-1 .medium-font.center-align")} ${readText(document, "#section-4")}`.trim();
+  const ruc =
+    `${readText(document, "#section-1 .medium-font.center-align")} ${readText(document, "#section-4")}`.trim();
   const sectionText = readText(document, "#section-6");
   const memberCode =
     sectionText.match(/No\.\s*de\s*Membres[ií]a\s*:?\s*([A-Z0-9-]+)/i)?.[1] ??
@@ -305,7 +365,11 @@ const pickValue = (source: unknown, ...keys: string[]) => {
   return "";
 };
 const parseApiNumber = (value: unknown) => {
-  const parsed = Number(String(value ?? "").replace(/[^\d,.-]/g, "").replace(",", "."));
+  const parsed = Number(
+    String(value ?? "")
+      .replace(/[^\d,.-]/g, "")
+      .replace(",", "."),
+  );
   return Number.isFinite(parsed) ? parsed : 0;
 };
 const formatListDate = (value: unknown) => {
@@ -316,7 +380,7 @@ const formatListDate = (value: unknown) => {
   return date.toLocaleDateString("es-PE");
 };
 const parseSaleListResponse = (payload: unknown): SaleListItem[] => {
-  const items = Array.isArray(payload)
+  const items: unknown[] = Array.isArray(payload)
     ? payload
     : Array.isArray((payload as any)?.items)
       ? (payload as any).items
@@ -343,8 +407,15 @@ const parseSaleListResponse = (payload: unknown): SaleListItem[] => {
         pvs: parseApiNumber(pickValue(item, "pv", "PV")),
         total: parseApiNumber(pickValue(item, "notaTotal", "NotaTotal")),
         state:
-          safeTrim(pickValue(item, "estadoOBS", "EstadoOBS", "notaEstado", "NotaEstado")) ||
-          "-",
+          safeTrim(
+            pickValue(
+              item,
+              "estadoOBS",
+              "EstadoOBS",
+              "notaEstado",
+              "NotaEstado",
+            ),
+          ) || "-",
       };
     })
     .filter((item): item is SaleListItem => Boolean(item));
@@ -390,9 +461,12 @@ export default function HtmlCaptureSalePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
-  const isNewRoute = location.pathname.replace(/\/+$/, "").endsWith("/sales/html_capture/new");
+  const isNewRoute = location.pathname
+    .replace(/\/+$/, "")
+    .endsWith("/sales/html_capture/new");
   const routeNoteId = Number(id ?? 0);
-  const isExistingRoute = !isNewRoute && Number.isFinite(routeNoteId) && routeNoteId > 0;
+  const isExistingRoute =
+    !isNewRoute && Number.isFinite(routeNoteId) && routeNoteId > 0;
   const routeKey = isExistingRoute ? `id:${routeNoteId}` : "new";
   const isReadOnly = isExistingRoute;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -471,7 +545,12 @@ export default function HtmlCaptureSalePage() {
       }
 
       const ticket = JSON.parse(stored) as StoredTicket;
-      formMethods.reset({ ...defaultForm, ...ticket.form });
+      const storedForm = { ...defaultForm, ...ticket.form };
+      if (storedForm.docTypeCode === "01" && !storedForm.customerRuc) {
+        storedForm.customerRuc = storedForm.customerDoc;
+        storedForm.customerDoc = "";
+      }
+      formMethods.reset(storedForm);
       setCapture(ticket.capture);
       setRows(ticket.rows);
       setMonthlyPvs(ticket.monthlyPvs ?? 0);
@@ -609,10 +688,20 @@ export default function HtmlCaptureSalePage() {
       clientOptions.find(
         (opt) =>
           opt.label === safeTrim(form.customerName) ||
-          (safeTrim(form.memberCode) && opt.code === safeTrim(form.memberCode)) ||
-          (safeTrim(form.customerDoc) && opt.doc === safeTrim(form.customerDoc)),
+          (safeTrim(form.memberCode) &&
+            opt.code === safeTrim(form.memberCode)) ||
+          (safeTrim(form.customerDoc) &&
+            opt.client.dni === safeTrim(form.customerDoc)) ||
+          (safeTrim(form.customerRuc) &&
+            opt.client.ruc === safeTrim(form.customerRuc)),
       )?.client ?? null,
-    [clientOptions, form.customerDoc, form.customerName, form.memberCode],
+    [
+      clientOptions,
+      form.customerDoc,
+      form.customerName,
+      form.customerRuc,
+      form.memberCode,
+    ],
   );
 
   useEffect(() => {
@@ -644,7 +733,10 @@ export default function HtmlCaptureSalePage() {
       formMethods.setValue("customerEmail", client.email ?? "", {
         shouldDirty: true,
       });
-      formMethods.setValue("customerDoc", client.ruc || client.dni || "", {
+      formMethods.setValue("customerDoc", client.dni || "", {
+        shouldDirty: true,
+      });
+      formMethods.setValue("customerRuc", client.ruc || "", {
         shouldDirty: true,
       });
       formMethods.setValue("memberCode", getClientCode(client), {
@@ -655,9 +747,13 @@ export default function HtmlCaptureSalePage() {
         client.direccionFiscal || client.direccionDespacho || "",
         { shouldDirty: true },
       );
-      formMethods.setValue("docTypeCode", client.ruc ? "01" : form.docTypeCode, {
-        shouldDirty: true,
-      });
+      formMethods.setValue(
+        "docTypeCode",
+        client.ruc ? "01" : form.docTypeCode,
+        {
+          shouldDirty: true,
+        },
+      );
     },
     [form.docTypeCode, formMethods],
   );
@@ -756,17 +852,15 @@ export default function HtmlCaptureSalePage() {
     const queryText = normalizeLabelText(query);
     const product =
       productByCode.get(queryCode) ??
-      source.find(
-        (item) => {
-          const code = normalizeCode(item.codigo);
-          const name = normalizeLabelText(item.nombre);
-          return (
-            code === normalizeCode(query) ||
-            code.includes(queryCode) ||
-            name.includes(queryText)
-          );
-        },
-      ) ??
+      source.find((item) => {
+        const code = normalizeCode(item.codigo);
+        const name = normalizeLabelText(item.nombre);
+        return (
+          code === normalizeCode(query) ||
+          code.includes(queryCode) ||
+          name.includes(queryText)
+        );
+      }) ??
       null;
 
     if (!product) {
@@ -812,18 +906,22 @@ export default function HtmlCaptureSalePage() {
             clienteCodigo: safeTrim(form.memberCode),
             nombreRazon: safeTrim(form.customerName),
             email: safeTrim(form.customerEmail),
-            dni:
-              form.docTypeCode === "03" && safeTrim(form.customerDoc).length === 8
-                ? safeTrim(form.customerDoc)
-                : "",
-            ruc: form.docTypeCode === "01" ? safeTrim(form.customerDoc) : "",
+            dni: [8, 9].includes(normalizeDocumentText(form.customerDoc).length)
+              ? normalizeDocumentText(form.customerDoc)
+              : "",
+            ruc: safeTrim(form.customerRuc),
             direccionFiscal: safeTrim(form.address),
             direccionDespacho: safeTrim(form.address),
           }}
           initialQuery={
             safeTrim(form.customerName).toUpperCase() === "VARIOS"
               ? ""
-              : safeTrim(form.customerName || form.customerDoc || form.memberCode)
+              : safeTrim(
+                  form.customerName ||
+                    form.customerRuc ||
+                    form.customerDoc ||
+                    form.memberCode,
+                )
           }
           onSelectClient={handleSelectClientFromDialog}
           onCreateClient={handleCreateClientFromDialog}
@@ -835,6 +933,7 @@ export default function HtmlCaptureSalePage() {
     form.customerDoc,
     form.customerName,
     form.customerEmail,
+    form.customerRuc,
     form.docTypeCode,
     form.memberCode,
     handleCreateClientFromDialog,
@@ -846,7 +945,8 @@ export default function HtmlCaptureSalePage() {
   useEffect(() => {
     const code = safeTrim(form.memberCode);
     if (!code || selectedClient) return;
-    const match = clientOptions.find((opt) => opt.code === code)?.client ?? null;
+    const match =
+      clientOptions.find((opt) => opt.code === code)?.client ?? null;
     if (match) applyClient(match);
   }, [applyClient, clientOptions, form.memberCode, selectedClient]);
 
@@ -911,7 +1011,9 @@ export default function HtmlCaptureSalePage() {
       const matchedClient =
         localClient ??
         (data.memberCode
-          ? await fetchClientByCodigo(safeTrim(data.memberCode)).catch(() => null)
+          ? await fetchClientByCodigo(safeTrim(data.memberCode)).catch(
+              () => null,
+            )
           : null);
       formMethods.setValue("docTypeCode", nextDocTypeCode, {
         shouldDirty: true,
@@ -929,11 +1031,13 @@ export default function HtmlCaptureSalePage() {
           data.customerName || formMethods.getValues("customerName"),
           { shouldDirty: true },
         );
-        formMethods.setValue(
-          "customerDoc",
-          customerDocValue || formMethods.getValues("customerDoc"),
-          { shouldDirty: true },
-        );
+        if (customerDocValue) {
+          formMethods.setValue(
+            nextDocTypeCode === "01" ? "customerRuc" : "customerDoc",
+            customerDocValue,
+            { shouldDirty: true },
+          );
+        }
         formMethods.setValue(
           "customerEmail",
           data.customerEmail || formMethods.getValues("customerEmail"),
@@ -1085,7 +1189,8 @@ export default function HtmlCaptureSalePage() {
   };
 
   const validate = () => {
-    if (!rows.length) return "Agrega productos o captura un HTML antes de vender.";
+    if (!rows.length)
+      return "Agrega productos o captura un HTML antes de vender.";
     const missing = rows.filter((row) => !row.matched);
     if (missing.length) {
       return `Productos no encontrados: ${missing
@@ -1093,8 +1198,50 @@ export default function HtmlCaptureSalePage() {
         .map((row) => row.code)
         .join(", ")}`;
     }
-    if (form.docTypeCode === "01" && safeTrim(form.customerDoc).length !== 11) {
+
+    const customerName = safeTrim(form.customerName);
+    const customerDni = normalizeDocumentText(form.customerDoc);
+    const customerRuc = normalizeDocumentText(form.customerRuc);
+    const matchedName = customerName
+      ? clientOptions.find(
+          (opt) =>
+            normalizeLabelText(opt.label) === normalizeLabelText(customerName),
+        )?.client ?? null
+      : null;
+    const matchedDni = customerDni
+      ? clientOptions.find(
+          (opt) => normalizeDocumentText(opt.client.dni) === customerDni,
+        )?.client ?? null
+      : null;
+    const matchedRuc = customerRuc
+      ? clientOptions.find(
+          (opt) => normalizeDocumentText(opt.client.ruc) === customerRuc,
+        )?.client ?? null
+      : null;
+    const validatedClient =
+      matchedName ?? selectedClient ?? matchedDni ?? matchedRuc ?? null;
+
+    if (customerName && !validatedClient) {
+      return "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.";
+    }
+    if (customerDni && !matchedDni) {
+      return "El DNI no existe. Agrega el cliente y seleccionalo.";
+    }
+    if (customerRuc && !matchedRuc) {
+      return "El RUC no existe. Agrega el cliente y seleccionalo.";
+    }
+    if (form.docTypeCode === "01" && !validatedClient) {
+      return "Para factura debes seleccionar un cliente registrado.";
+    }
+    if (form.docTypeCode === "01" && customerRuc.length !== 11) {
       return "Factura requiere RUC de 11 digitos.";
+    }
+    if (
+      form.docTypeCode !== "01" &&
+      customerDni &&
+      ![8, 9].includes(customerDni.length)
+    ) {
+      return "El DNI debe tener 8 o 9 digitos.";
     }
     if (form.paymentMethod === "(SELECCIONE)") {
       return "Seleccione forma de pago.";
@@ -1116,9 +1263,11 @@ export default function HtmlCaptureSalePage() {
     <TicketDocument
       clientName={form.customerName || "VARIOS"}
       clientId={
-        form.docTypeCode === "03" && safeTrim(form.customerDoc).length !== 8
-          ? ""
-          : form.customerDoc
+        form.docTypeCode === "01"
+          ? form.customerRuc
+          : [8, 9].includes(normalizeDocumentText(form.customerDoc).length)
+            ? form.customerDoc
+            : ""
       }
       clientAddress={form.address}
       docType={DOC_CONFIG[form.docTypeCode].ticket}
@@ -1157,9 +1306,11 @@ export default function HtmlCaptureSalePage() {
 
   const buildTicketBlob = async (documentNumber: string, noteId: number) => {
     const qrClientDoc =
-      form.docTypeCode === "03" && safeTrim(form.customerDoc).length !== 8
-        ? ""
-        : safeTrim(form.customerDoc);
+      form.docTypeCode === "01"
+        ? safeTrim(form.customerRuc)
+        : [8, 9].includes(normalizeDocumentText(form.customerDoc).length)
+          ? normalizeDocumentText(form.customerDoc)
+          : "";
     const qrData = [
       session.companyRuc || "20601070155",
       form.docTypeCode,
@@ -1190,7 +1341,10 @@ export default function HtmlCaptureSalePage() {
 
   const printTicket = async () => {
     if (!lastTicket) return;
-    const blob = await buildTicketBlob(lastTicket.documentNumber, lastTicket.noteId);
+    const blob = await buildTicketBlob(
+      lastTicket.documentNumber,
+      lastTicket.noteId,
+    );
     const url = URL.createObjectURL(blob);
     const win = window.open(url, "_blank");
     if (!win) {
@@ -1236,10 +1390,11 @@ export default function HtmlCaptureSalePage() {
     const deposito = form.paymentMethod === "EFECTIVO" ? 0 : total;
     let saleClient = selectedClient;
     const hasCapturedClientData = Boolean(
-        safeTrim(form.customerName) ||
-        safeTrim(form.customerDoc) ||
-        safeTrim(form.customerEmail) ||
-        safeTrim(form.memberCode),
+      safeTrim(form.customerName) ||
+      safeTrim(form.customerDoc) ||
+      safeTrim(form.customerEmail) ||
+      safeTrim(form.customerRuc) ||
+      safeTrim(form.memberCode),
     );
 
     if (!saleClient && form.docTypeCode === "03" && hasCapturedClientData) {
@@ -1247,8 +1402,10 @@ export default function HtmlCaptureSalePage() {
       const created = await addClient({
         clienteCodigo: safeTrim(form.memberCode),
         nombreRazon: safeTrim(form.customerName) || "VARIOS",
-        ruc: "",
-        dni: customerDoc.length === 8 ? customerDoc : "",
+        ruc: safeTrim(form.customerRuc),
+        dni: [8, 9].includes(normalizeDocumentText(customerDoc).length)
+          ? normalizeDocumentText(customerDoc)
+          : "",
         direccionFiscal: safeTrim(form.address) || "-",
         direccionDespacho: safeTrim(form.address),
         telefonoMovil: "",
@@ -1372,7 +1529,27 @@ export default function HtmlCaptureSalePage() {
       setActiveTab("ticket");
       navigate(`/sales/html_capture/${parsed.noteId}`, { replace: true });
       await downloadTicket(documentNumber, parsed.noteId);
-      toast.success(`${doc.docu} registrada: ${documentNumber}`);
+      if (doc.docu === "FACTURA") {
+        const sunat = parseSunatResult(result);
+        const detail = [sunat.code, sunat.message].filter(Boolean).join(" - ");
+        if (sunat.accepted) {
+          toast.success(`FACTURA registrada y aceptada: ${documentNumber}`);
+        } else if (detail) {
+          toast.warning(
+            `FACTURA registrada sin aceptación OSE/SUNAT: ${detail}`,
+          );
+        } else {
+          toast.warning(
+            `FACTURA registrada: ${documentNumber}. OSE/SUNAT no devolvió respuesta.`,
+          );
+        }
+      } else if (doc.docu === "BOLETA") {
+        toast.success(
+          `BOLETA registrada: ${documentNumber}. Resumen/lote se gestiona en Boletas.`,
+        );
+      } else {
+        toast.success(`${doc.docu} registrada: ${documentNumber}`);
+      }
     } catch (err) {
       console.error("No se pudo registrar venta HTML", err);
       toast.error("No se pudo registrar la venta.");
@@ -1400,7 +1577,8 @@ export default function HtmlCaptureSalePage() {
           type="button"
           className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           onClick={() =>
-            lastTicket && downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
+            lastTicket &&
+            downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
           }
           disabled={!lastTicket}
         >
@@ -1463,7 +1641,9 @@ export default function HtmlCaptureSalePage() {
           onClick={fetchListRows}
           disabled={isListLoading}
         >
-          <Search className={`h-4 w-4 ${isListLoading ? "animate-pulse" : ""}`} />
+          <Search
+            className={`h-4 w-4 ${isListLoading ? "animate-pulse" : ""}`}
+          />
           Buscar
         </button>
         <button
@@ -1508,13 +1688,19 @@ export default function HtmlCaptureSalePage() {
           <tbody>
             {isListLoading ? (
               <tr>
-                <td colSpan={8} className="px-5 py-14 text-center text-sm text-slate-400">
+                <td
+                  colSpan={8}
+                  className="px-5 py-14 text-center text-sm text-slate-400"
+                >
                   Cargando listado...
                 </td>
               </tr>
             ) : listRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-14 text-center text-sm text-slate-400">
+                <td
+                  colSpan={8}
+                  className="px-5 py-14 text-center text-sm text-slate-400"
+                >
                   No hay ventas para mostrar.
                 </td>
               </tr>
@@ -1529,7 +1715,9 @@ export default function HtmlCaptureSalePage() {
                     {row.document || `Nota #${row.noteId}`}
                   </td>
                   <td className="px-4 py-2 text-slate-600">{row.customer}</td>
-                  <td className="px-4 py-2 text-slate-500">{row.paymentMethod}</td>
+                  <td className="px-4 py-2 text-slate-500">
+                    {row.paymentMethod}
+                  </td>
                   <td className="px-4 py-2 text-right font-medium text-slate-700">
                     {money(row.pvs)}
                   </td>
@@ -1543,7 +1731,9 @@ export default function HtmlCaptureSalePage() {
                     <button
                       type="button"
                       className="inline-flex h-8 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-                      onClick={() => navigate(`/sales/html_capture/${row.noteId}`)}
+                      onClick={() =>
+                        navigate(`/sales/html_capture/${row.noteId}`)
+                      }
                     >
                       Abrir
                     </button>
@@ -1558,9 +1748,9 @@ export default function HtmlCaptureSalePage() {
   );
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
+    <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="flex w-full rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
           <button
             type="button"
             className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
@@ -1613,278 +1803,312 @@ export default function HtmlCaptureSalePage() {
         ListPanel
       ) : (
         <>
-      {/* Datos de la venta */}
-      <section className="rounded-lg border border-slate-200 bg-white">
-        <HookForm methods={formMethods} onSubmit={() => undefined}>
-          <div className="px-5 py-3">
-            <SaleCaptureFormFields
-              clientOptions={clientOptions}
-              disabled={isSaving || isReadOnly}
-              summary={{
-                pvs: totals.pv,
-                saleTotal: totals.total,
-                monthTotal: monthlyPvs,
-              }}
-              correlative={correlative?.nroComprobante}
-              onClientSelected={applyClient}
-              onCreateClient={isReadOnly ? undefined : handleOpenCreateClientModal}
+          {/* Barra de acciones */}
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".html,.htm,text/html"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
             />
-          </div>
-        </HookForm>
-      </section>
-
-      {/* Productos capturados */}
-      <section className="rounded-lg border border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
-          <h2 className="mr-auto text-sm font-semibold text-slate-700">
-            Productos de venta
-            {rows.length > 0 && (
-              <span className="ml-2 font-normal text-slate-400">
-                ({rows.length})
-              </span>
-            )}
-          </h2>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".html,.htm,text/html"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <button
-            type="button"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading || isSaving || isReadOnly}
-          >
-            <FileUp className="h-4 w-4" />
-            Capturar datos
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={clearForm}
-            disabled={isSaving || isReadOnly}
-          >
-            <RotateCcw className="h-4 w-4" />
-            Limpiar
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-            onClick={registerSale}
-            disabled={
-              isSaving ||
-              isReadOnly ||
-              !rows.length ||
-              rows.some((row) => !row.matched)
-            }
-          >
-            {isSaving ? (
-              <FileDown className="h-4 w-4 animate-pulse" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-            {isSaving ? "Registrando..." : "Registrar y descargar ticket"}
-          </button>
-          {lastTicket ? (
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-              onClick={printTicket}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || isSaving || isReadOnly}
             >
-              <Printer className="h-4 w-4" />
-              Imprimir ticket
+              <FileUp className="h-4 w-4" />
+              Capturar datos
             </button>
-          ) : null}
-        </div>
-
-        <div className="grid gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[1fr_120px_auto]">
-          <div className="relative">
-            <input
-              ref={manualProductInputRef}
-              type="text"
-              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
-              placeholder="Buscar producto por código o nombre"
-              onChange={(event) => {
-                setManualProductSearch(event.currentTarget.value);
-                setManualProductSearchFocused(true);
-              }}
-              onFocus={() => setManualProductSearchFocused(true)}
-              onBlur={() =>
-                window.setTimeout(() => setManualProductSearchFocused(false), 120)
-              }
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                void handleAddManualProduct();
-              }}
-              disabled={loading || isSaving || isReadOnly || isCapturedSale}
-            />
-            {manualProductSearchFocused ? (
-              <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
-                {filteredManualProducts.length ? (
-                  filteredManualProducts.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50"
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        const value = `${product.codigo} - ${product.nombre}`;
-                        if (manualProductInputRef.current) {
-                          manualProductInputRef.current.value = value;
-                        }
-                        setManualProductSearch(value);
-                        setManualProductSearchFocused(false);
-                      }}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-semibold text-slate-700">
-                          {product.nombre}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {product.codigo}
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-semibold text-slate-700">
-                        S/ {money(Number(product.preVenta ?? product.preVentaB ?? 0))}
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-3 py-2 text-slate-400">
-                    {loading ? "Cargando productos..." : "Sin coincidencias"}
-                  </div>
-                )}
-              </div>
+            <button
+              type="button"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              onClick={clearForm}
+              disabled={isSaving || isReadOnly}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Limpiar
+            </button>
+            {lastTicket ? (
+              <button
+                type="button"
+                className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:flex-none"
+                onClick={printTicket}
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir ticket
+              </button>
             ) : null}
-          </div>
-          <input
-            type="number"
-            min="1"
-            step="1"
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
-            value={manualQuantity}
-            onChange={(event) => setManualQuantity(Number(event.target.value))}
-            disabled={loading || isSaving || isReadOnly || isCapturedSale}
-          />
-          <button
-            type="button"
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={handleAddManualProduct}
-            disabled={loading || isSaving || isReadOnly || isCapturedSale}
-          >
-            <Plus className="h-4 w-4" />
-            Agregar
-          </button>
-        </div>
-
-        <div className="max-h-[46vh] overflow-auto">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
-            <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
-              <tr>
-                {[
-                  "Descripcion",
-                  "Cantidad",
-                  "Precio",
-                  "PV Unit.",
-                  "PV Total",
-                  "SV Total",
-                  "Importe",
-                  "",
-                ].map((header, i) => (
-                  <th
-                    key={header}
-                    className={`border-b border-slate-100 px-4 py-2 font-medium ${
-                      i > 0 ? "text-right" : "text-left"
-                    }`}
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-14 text-center text-sm text-slate-400"
-                  >
-                    Captura un HTML o agrega productos para venta libre.
-                  </td>
-                </tr>
+            <button
+              type="button"
+              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-red-800 px-4 text-sm font-medium text-white transition-colors hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+              onClick={registerSale}
+              disabled={
+                isSaving ||
+                isReadOnly ||
+                !rows.length ||
+                rows.some((row) => !row.matched)
+              }
+            >
+              {isSaving ? (
+                <FileDown className="h-4 w-4 animate-pulse" />
               ) : (
-                rows.map((row) => (
-                  <tr
-                    key={row.code}
-                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-                  >
-                    <td className="px-4 py-2 text-slate-600">
-                      <span className="flex items-center gap-2">
-                        {row.description}
-                        {!row.matched && (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                            no encontrado
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-right text-slate-600">
-                      {row.quantity}
-                    </td>
-                    <td className="px-4 py-2 text-right text-slate-600">
-                      {money(row.price)}
-                    </td>
-                    <td className="px-4 py-2 text-right text-slate-500">
-                      {money(row.pv)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-medium text-slate-700">
-                      {money(row.pv * row.quantity)}
-                    </td>
-                    <td className="px-4 py-2 text-right text-slate-500">
-                      {money(row.sv * row.quantity)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-semibold text-slate-800">
-                      {money(row.price * row.quantity)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        onClick={() => handleRemoveRow(row.code)}
-                        disabled={isSaving || isReadOnly || isCapturedSale}
-                        title="Quitar"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                <CheckCircle2 className="h-4 w-4" />
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Totales: barra compacta al pie de la misma tarjeta */}
-        <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm">
-          <Summary label="Sub total" value={totals.subtotal} />
-          <Summary label="IGV" value={totals.igv} />
-          <Summary label="PVS" value={totals.pv} />
-          {totals.discount > 0 && (
-            <Summary label="Descuento" value={totals.discount} negative />
-          )}
-          <div className="flex items-baseline gap-2 border-l border-slate-200 pl-6">
-            <span className="text-sm font-semibold text-slate-700">Total</span>
-            <span className="text-lg font-semibold text-slate-900">
-              S/ {money(totals.total)}
-            </span>
+              {isSaving ? "Registrando..." : "Registrar y descargar ticket"}
+            </button>
           </div>
-        </div>
-      </section>
+
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_440px] xl:items-start">
+            {/* Productos capturados */}
+            <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
+              <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
+                <h2 className="mr-auto text-sm font-semibold text-slate-700">
+                  Productos de venta
+                  {rows.length > 0 && (
+                    <span className="ml-2 font-normal text-slate-400">
+                      ({rows.length})
+                    </span>
+                  )}
+                </h2>
+                <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
+                  <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase text-slate-400">
+                      PVS venta
+                    </p>
+                    <p className="text-right text-base font-semibold tabular-nums text-slate-800">
+                      {money(totals.pv)}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase text-blue-600">
+                      PVS mes
+                    </p>
+                    <p className="text-right text-base font-semibold tabular-nums text-slate-800">
+                      {money(monthlyPvs)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            <div className="grid min-w-0 gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_120px_auto]">
+              <div className="relative min-w-0">
+                <input
+                  ref={manualProductInputRef}
+                  type="text"
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+                  placeholder="Buscar producto por código o nombre"
+                  onChange={(event) => {
+                    setManualProductSearch(event.currentTarget.value);
+                    setManualProductSearchFocused(true);
+                  }}
+                  onFocus={() => setManualProductSearchFocused(true)}
+                  onBlur={() =>
+                    window.setTimeout(
+                      () => setManualProductSearchFocused(false),
+                      120,
+                    )
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    void handleAddManualProduct();
+                  }}
+                  disabled={loading || isSaving || isReadOnly || isCapturedSale}
+                />
+                {manualProductSearchFocused ? (
+                  <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                    {filteredManualProducts.length ? (
+                      filteredManualProducts.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            const value = `${product.codigo} - ${product.nombre}`;
+                            if (manualProductInputRef.current) {
+                              manualProductInputRef.current.value = value;
+                            }
+                            setManualProductSearch(value);
+                            setManualProductSearchFocused(false);
+                          }}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold text-slate-700">
+                              {product.nombre}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {product.codigo}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-semibold text-slate-700">
+                            S/{" "}
+                            {money(
+                              Number(
+                                product.preVenta ?? product.preVentaB ?? 0,
+                              ),
+                            )}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-slate-400">
+                        {loading
+                          ? "Cargando productos..."
+                          : "Sin coincidencias"}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+                value={manualQuantity}
+                onChange={(event) =>
+                  setManualQuantity(Number(event.target.value))
+                }
+                disabled={loading || isSaving || isReadOnly || isCapturedSale}
+              />
+              <button
+                type="button"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleAddManualProduct}
+                disabled={loading || isSaving || isReadOnly || isCapturedSale}
+              >
+                <Plus className="h-4 w-4" />
+                Agregar
+              </button>
+            </div>
+
+            <div className="max-h-[46vh] w-full max-w-full overflow-x-auto overflow-y-auto">
+              <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px]">
+                <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
+                  <tr>
+                    {[
+                      "Descripcion",
+                      "Cantidad",
+                      "Precio",
+                      "PV Unit.",
+                      "PV Total",
+                      "SV Total",
+                      "Importe",
+                      "",
+                    ].map((header, i) => (
+                      <th
+                        key={header}
+                        className={`border-b border-slate-100 px-4 py-2 font-medium ${
+                          i > 0 ? "text-right" : "text-left"
+                        }`}
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="px-5 py-14 text-center text-sm text-slate-400"
+                      >
+                        Captura un HTML o agrega productos para venta libre.
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((row) => (
+                      <tr
+                        key={row.code}
+                        className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                      >
+                        <td className="px-4 py-2 text-slate-600">
+                          <span className="flex items-center gap-2">
+                            {row.description}
+                            {!row.matched && (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                no encontrado
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-600">
+                          {row.quantity}
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-600">
+                          {money(row.price)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-500">
+                          {money(row.pv)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium text-slate-700">
+                          {money(row.pv * row.quantity)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-500">
+                          {money(row.sv * row.quantity)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold text-slate-800">
+                          {money(row.price * row.quantity)}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                            onClick={() => handleRemoveRow(row.code)}
+                            disabled={isSaving || isReadOnly || isCapturedSale}
+                            title="Quitar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totales: barra compacta al pie de la misma tarjeta */}
+            <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-4 gap-y-1 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm sm:justify-end sm:gap-x-6">
+              <Summary label="Sub total" value={totals.subtotal} />
+              <Summary label="IGV" value={totals.igv} />
+              <Summary label="PVS" value={totals.pv} />
+              {totals.discount > 0 && (
+                <Summary label="Descuento" value={totals.discount} negative />
+              )}
+              <div className="flex items-baseline gap-2 border-l border-slate-200 pl-4 sm:pl-6">
+                <span className="text-sm font-semibold text-slate-700">
+                  Total
+                </span>
+                <span className="text-lg font-semibold text-slate-900">
+                  S/ {money(totals.total)}
+                </span>
+              </div>
+            </div>
+          </section>
+
+            {/* Datos de la venta */}
+            <section className="order-2 min-w-0 rounded-lg border border-slate-200 bg-white xl:sticky xl:top-4">
+              <HookForm methods={formMethods} onSubmit={() => undefined}>
+                <div className="px-4 py-3">
+                  <SaleCaptureFormFields
+                    clientOptions={clientOptions}
+                    disabled={isSaving || isReadOnly}
+                    correlative={correlative?.nroComprobante}
+                    onClientSelected={applyClient}
+                    onCreateClient={
+                      isReadOnly ? undefined : handleOpenCreateClientModal
+                    }
+                  />
+                </div>
+              </HookForm>
+            </section>
+          </div>
         </>
       )}
     </div>
