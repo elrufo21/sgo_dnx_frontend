@@ -67,6 +67,8 @@ const normalizeSearchText = (value: unknown) =>
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+const tokenizeSearchText = (value: unknown) =>
+  normalizeSearchText(value).split(/\s+/).filter(Boolean);
 const normalizeDocumentText = (value: unknown) =>
   String(value ?? "").replace(/\D/g, "");
 const clampDocumentValue = (type: "dni" | "ruc", value: unknown) =>
@@ -107,8 +109,7 @@ export function SaleCaptureFormFields({
   const emissionDate = values.emissionDate ?? "";
   const serie =
     docTypeCode === "01" ? "FA01" : docTypeCode === "101" ? "0001" : "BA01";
-  const currentCorrelative =
-    correlative ?? `${serie}-00000000`;
+  const currentCorrelative = correlative ?? `${serie}-00000000`;
   const searchTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -138,8 +139,34 @@ export function SaleCaptureFormFields({
     [onSearchClients],
   );
 
+  const normalizedClientOptions = useMemo(() => {
+    const byLabel = new Map<string, ClientOption>();
+
+    clientOptions
+      .filter((opt) => Number(opt.client.id) > 0)
+      .forEach((opt) => {
+        const label = safeTrim(opt.label) || `Cliente ${opt.client.id}`;
+        const option = { ...opt, label };
+        const key = normalizeSearchText(label);
+        const current = byLabel.get(key);
+        const optionScore =
+          Number(Boolean(safeTrim(option.client.ruc))) * 2 +
+          Number(Boolean(safeTrim(option.client.dni)));
+        const currentScore = current
+          ? Number(Boolean(safeTrim(current.client.ruc))) * 2 +
+            Number(Boolean(safeTrim(current.client.dni)))
+          : -1;
+
+        if (!current || optionScore > currentScore) byLabel.set(key, option);
+      });
+
+    return Array.from(byLabel.values()).sort((a, b) =>
+      a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
+    );
+  }, [clientOptions]);
+
   const customerNameOptions = useMemo(() => {
-    const baseOptions = clientOptions
+    const baseOptions = normalizedClientOptions
       .filter((opt) => safeTrim(opt.label).toUpperCase() !== "VARIOS")
       .map((opt) => ({
         label: opt.label,
@@ -155,7 +182,7 @@ export function SaleCaptureFormFields({
     return docTypeCode === "01"
       ? baseOptions.filter((opt) => safeTrim(opt.ruc))
       : baseOptions;
-  }, [clientOptions, docTypeCode]);
+  }, [docTypeCode, normalizedClientOptions]);
 
   const saleClientByName = useMemo(() => {
     const byName = new Map<string, (typeof customerNameOptions)[number]>();
@@ -167,7 +194,7 @@ export function SaleCaptureFormFields({
 
   const customerDniOptions = useMemo(
     () =>
-      clientOptions
+      normalizedClientOptions
         .filter((opt) => safeTrim(opt.client.dni))
         .map((opt) => ({
           label: safeTrim(opt.client.dni),
@@ -179,12 +206,12 @@ export function SaleCaptureFormFields({
           id: opt.client.id,
           client: opt.client,
         })),
-    [clientOptions],
+    [normalizedClientOptions],
   );
 
   const customerRucOptions = useMemo(
     () =>
-      clientOptions
+      normalizedClientOptions
         .filter((opt) => safeTrim(opt.client.ruc))
         .map((opt) => ({
           label: safeTrim(opt.client.ruc),
@@ -196,12 +223,12 @@ export function SaleCaptureFormFields({
           id: opt.client.id,
           client: opt.client,
         })),
-    [clientOptions],
+    [normalizedClientOptions],
   );
 
   const customerCodeOptions = useMemo(
     () =>
-      clientOptions
+      normalizedClientOptions
         .filter((opt) => safeTrim(opt.code))
         .map((opt) => ({
           label: opt.code,
@@ -212,7 +239,7 @@ export function SaleCaptureFormFields({
           id: opt.client.id,
           client: opt.client,
         })),
-    [clientOptions],
+    [normalizedClientOptions],
   );
 
   const filterByClientData = <
@@ -222,12 +249,44 @@ export function SaleCaptureFormFields({
     inputValue: string,
   ) => {
     const search = normalizeSearchText(inputValue);
-    if (!search) return options;
-    return options.filter((opt) =>
-      [opt.label, opt.nombreRazon, opt.doc, opt.code, opt.dni, opt.ruc].some(
-        (value) => normalizeSearchText(value).includes(search),
-      ),
-    );
+    if (!search) return options.slice(0, 100);
+    const tokens = tokenizeSearchText(search);
+
+    return options
+      .map((opt) => {
+        const label = normalizeSearchText(opt.label ?? opt.nombreRazon);
+        const document = normalizeSearchText(
+          `${opt.doc ?? ""} ${opt.code ?? ""} ${opt.dni ?? ""} ${opt.ruc ?? ""}`,
+        );
+        const matches = tokens.every(
+          (token) => label.includes(token) || document.includes(token),
+        );
+        if (!matches) return null;
+
+        let score = 4;
+        if (label === search || document === search) score = 0;
+        else if (label.startsWith(search)) score = 1;
+        else if (
+          tokens.every((token) =>
+            label.split(" ").some((part) => part.startsWith(token)),
+          )
+        ) {
+          score = 2;
+        } else if (document.startsWith(search)) {
+          score = 3;
+        }
+
+        return { opt, score };
+      })
+      .filter((item): item is { opt: T; score: number } => item !== null)
+      .sort((a, b) => {
+        if (a.score !== b.score) return a.score - b.score;
+        return a.opt.label.localeCompare(b.opt.label, "es", {
+          sensitivity: "base",
+        });
+      })
+      .map((item) => item.opt)
+      .slice(0, 100);
   };
 
   const filterDocumentOptions = <
@@ -288,9 +347,6 @@ export function SaleCaptureFormFields({
       client.direccionFiscal || client.direccionDespacho || "",
       { shouldDirty: true },
     );
-    setValue("docTypeCode", client.ruc ? "01" : "03", {
-      shouldDirty: true,
-    });
     onClientSelected?.(client);
   };
 
@@ -313,7 +369,9 @@ export function SaleCaptureFormFields({
     const code = safeTrim(inputValue);
     if (!code) return;
     const match =
-      clientOptions.find((opt) => opt.code === code)?.client ?? null;
+      normalizedClientOptions.find(
+        (opt) => normalizeSearchText(opt.code) === normalizeSearchText(code),
+      )?.client ?? null;
     applyClientSelection(match);
   };
 
@@ -397,13 +455,14 @@ export function SaleCaptureFormFields({
               { value: "01", label: "FACTURA" },
             ]}
           />
+          {/**
           <HookFormInput<SaleCaptureFormValues>
             name="emissionDate"
             label="Emisión"
             type="date"
             disabled
-          />
-          <div className="sm:col-span-2">
+          /> */}
+          <div className="sm:col-span-1">
             <HookFormInput<SaleCaptureFormValues>
               name="correlativeDisplay"
               label="Correlativo"
@@ -435,16 +494,7 @@ export function SaleCaptureFormFields({
               { value: "CREDITO", label: "CRÉDITO" },
             ]}
           />
-          <HookFormSelect<SaleCaptureFormValues>
-            name="delivery"
-            label="Entrega"
-            disabled={disabled}
-            options={[
-              { value: "INMEDIATA", label: "INMEDIATA" },
-              { value: "POR ENTREGAR", label: "POR ENTREGAR" },
-            ]}
-          />
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-1">
             <HookFormSelect<SaleCaptureFormValues>
               name="paymentMethod"
               label="Forma pago"
@@ -464,6 +514,16 @@ export function SaleCaptureFormFields({
               ]}
             />
           </div>
+          {/**    <HookFormSelect<SaleCaptureFormValues>
+            name="delivery"
+            label="Entrega"
+            disabled={disabled}
+            options={[
+              { value: "INMEDIATA", label: "INMEDIATA" },
+              { value: "POR ENTREGAR", label: "POR ENTREGAR" },
+            ]}
+          /> */}
+
           <HookFormSelect<SaleCaptureFormValues>
             name="bankEntity"
             label="Entidad"
@@ -615,7 +675,6 @@ export function SaleCaptureFormFields({
           </div>
         </div>
       </div>
-
     </div>
   );
 }

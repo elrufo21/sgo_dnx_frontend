@@ -71,8 +71,11 @@ interface LoginResponse {
   CompaniaDirecSunat?: string | null;
   CompaniaTelefono?: string | null;
   UsuarioSol?: string | null;
+  UsuarioSOL?: string | null;
   ClaveSol?: string | null;
+  ClaveSOL?: string | null;
   CertificadoBase64?: string | null;
+  CertificadoPFX?: string | null;
   ClaveCertificado?: string | null;
   Entorno?: string | number | null;
   FechaVencimientoClave?: string | null;
@@ -432,10 +435,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
           companyPhone: normalizeText(
             readLoginValue(parsed, "CompaniaTelefono", "companiaTelefono"),
           ),
-          usuarioSol: normalizeText(readLoginValue(parsed, "UsuarioSol", "usuarioSol")),
-          claveSol: normalizeText(readLoginValue(parsed, "ClaveSol", "claveSol")),
+          usuarioSol: normalizeText(
+            readLoginValue(parsed, "UsuarioSol", "UsuarioSOL", "usuarioSol", "usuarioSOL"),
+          ),
+          claveSol: normalizeText(
+            readLoginValue(parsed, "ClaveSol", "ClaveSOL", "claveSol", "claveSOL"),
+          ),
           certificadoBase64: normalizeText(
-            readLoginValue(parsed, "CertificadoBase64", "certificadoBase64"),
+            readLoginValue(
+              parsed,
+              "CertificadoBase64",
+              "CertificadoPFX",
+              "certificadoBase64",
+              "certificadoPFX",
+            ),
           ),
           claveCertificado: normalizeText(
             readLoginValue(parsed, "ClaveCertificado", "claveCertificado"),
@@ -461,10 +474,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
           CompaniaTelefono: normalizeText(
             readLoginValue(parsed, "CompaniaTelefono", "companiaTelefono"),
           ),
-          UsuarioSol: normalizeText(readLoginValue(parsed, "UsuarioSol", "usuarioSol")),
-          ClaveSol: normalizeText(readLoginValue(parsed, "ClaveSol", "claveSol")),
+          UsuarioSol: normalizeText(
+            readLoginValue(parsed, "UsuarioSol", "UsuarioSOL", "usuarioSol", "usuarioSOL"),
+          ),
+          ClaveSol: normalizeText(
+            readLoginValue(parsed, "ClaveSol", "ClaveSOL", "claveSol", "claveSOL"),
+          ),
           CertificadoBase64: normalizeText(
-            readLoginValue(parsed, "CertificadoBase64", "certificadoBase64"),
+            readLoginValue(
+              parsed,
+              "CertificadoBase64",
+              "CertificadoPFX",
+              "certificadoBase64",
+              "certificadoPFX",
+            ),
           ),
           ClaveCertificado: normalizeText(
             readLoginValue(parsed, "ClaveCertificado", "claveCertificado"),
@@ -494,10 +517,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
           companiaTelefono: normalizeText(
             readLoginValue(parsed, "CompaniaTelefono", "companiaTelefono"),
           ),
-          usuarioSol: normalizeText(readLoginValue(parsed, "UsuarioSol", "usuarioSol")),
-          claveSol: normalizeText(readLoginValue(parsed, "ClaveSol", "claveSol")),
+          usuarioSol: normalizeText(
+            readLoginValue(parsed, "UsuarioSol", "UsuarioSOL", "usuarioSol", "usuarioSOL"),
+          ),
+          claveSol: normalizeText(
+            readLoginValue(parsed, "ClaveSol", "ClaveSOL", "claveSol", "claveSOL"),
+          ),
           certificadoBase64: normalizeText(
-            readLoginValue(parsed, "CertificadoBase64", "certificadoBase64"),
+            readLoginValue(
+              parsed,
+              "CertificadoBase64",
+              "CertificadoPFX",
+              "certificadoBase64",
+              "certificadoPFX",
+            ),
           ),
           claveCertificado: normalizeText(
             readLoginValue(parsed, "ClaveCertificado", "claveCertificado"),

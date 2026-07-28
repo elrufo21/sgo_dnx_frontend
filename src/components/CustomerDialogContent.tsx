@@ -1,41 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Plus, Save, X } from "lucide-react";
 import CustomerFormBase from "@/components/CustomerFormBase";
-import { buildApiUrl } from "@/config";
-import { apiRequest } from "@/shared/helpers/apiRequest";
 import { useDialogStore } from "@/store/app/dialog.store";
+import { useClientsStore } from "@/store/customers/customers.store";
 import type { Client } from "@/types/customer";
 
 const safeTrim = (value: unknown) => String(value ?? "").trim();
-const PAGE_SIZE = 20;
 const normalizeSearch = (value: unknown) =>
   safeTrim(value)
-    .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-const parseComboClients = (value: unknown): Client[] =>
-  String(value ?? "")
-    .split(/[¬\n\r]+/)
-    .map((row) => row.trim())
-    .filter(Boolean)
-    .map((row) => {
-      const parts = row.split("|");
-      return {
-        id: Number(parts[0]) || 0,
-        nombreRazon: safeTrim(parts[1]),
-        ruc: safeTrim(parts[2]),
-        dni: safeTrim(parts[3]),
-        direccionFiscal: safeTrim(parts[4]),
-        telefonoMovil: safeTrim(parts[5]),
-        email: safeTrim(parts[6]),
-        estado: safeTrim(parts[7]) || "ACTIVO",
-        direccionDespacho: safeTrim(parts[8]),
-        registradoPor: safeTrim(parts[9]),
-        fecha: safeTrim(parts[10]) || null,
-        clienteCodigo: safeTrim(parts[11]),
-      };
-    })
-    .filter((client) => client.id || client.nombreRazon);
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+const tokenizeSearch = (value: unknown) =>
+  normalizeSearch(value).split(" ").filter(Boolean);
+const CUSTOMER_DIALOG_FORM_ID = "customer-dialog-form";
 
 type CustomerDialogContentProps = {
   initialData?: Partial<Client>;
@@ -50,48 +30,26 @@ export default function CustomerDialogContent({
   onSelectClient,
   onCreateClient,
 }: CustomerDialogContentProps) {
-  const [activeTab, setActiveTab] = useState<"list" | "form">("list");
+  const clients = useClientsStore((state) => state.clients);
+  const fetchClients = useClientsStore((state) => state.fetchClients);
+  const loadingClients = useClientsStore((state) => state.loading);
+  const closeDialog = useDialogStore((state) => state.closeDialog);
+  const [activeTab, setActiveTab] = useState<"list" | "form">("form");
   const [query, setQuery] = useState(initialQuery);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [page, setPage] = useState(1);
-  const [loadingClients, setLoadingClients] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    let active = true;
-    setLoadingClients(true);
-    apiRequest<string>({
-      url: buildApiUrl("/Cliente"),
-      method: "GET",
-      fallback: "",
-    })
-      .then((response) => {
-        if (active) setClients(parseComboClients(response));
-      })
-      .finally(() => {
-        if (active) setLoadingClients(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    void fetchClients("");
+  }, [fetchClients]);
 
   useEffect(() => {
-    useDialogStore.setState({
-      confirmText: "Guardar",
-      onConfirm:
-        activeTab === "form"
-          ? (data?: unknown) => onCreateClient((data ?? {}) as Omit<Client, "id">)
-          : undefined,
-    });
-
-    return () => {
-      useDialogStore.setState({ onConfirm: undefined });
-    };
-  }, [activeTab, onCreateClient]);
+    if (activeTab !== "list") return;
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [activeTab]);
 
   const filteredClients = useMemo(() => {
-    const tokens = normalizeSearch(query).split(" ").filter(Boolean);
-    if (!tokens.length) return clients;
+    const tokens = tokenizeSearch(query);
+    if (!tokens.length) return clients.slice(0, 100);
 
     return clients
       .filter((client) => {
@@ -99,150 +57,179 @@ export default function CustomerDialogContent({
           `${client.clienteCodigo} ${client.nombreRazon} ${client.ruc} ${client.dni} ${client.telefonoMovil}`,
         );
         return tokens.every((token) => haystack.includes(token));
-      });
+      })
+      .slice(0, 100);
   }, [clients, query]);
-  const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pagedClients = filteredClients.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
 
-  useEffect(() => {
-    setPage(1);
-  }, [query]);
+  const openNewForm = () => {
+    setQuery("");
+    setActiveTab("form");
+  };
+
+  const submitForm = () => {
+    setActiveTab("form");
+    window.requestAnimationFrame(() => {
+      (
+        document.getElementById(
+          CUSTOMER_DIALOG_FORM_ID,
+        ) as HTMLFormElement | null
+      )?.requestSubmit();
+    });
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-100 p-1">
-        <button
-          type="button"
-          className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-            activeTab === "list"
-              ? "bg-slate-800 text-white shadow-sm"
-              : "text-slate-600 hover:bg-white"
-          }`}
-          onClick={() => setActiveTab("list")}
-        >
-          Clientes
-        </button>
-        <button
-          type="button"
-          className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-            activeTab === "form"
-              ? "bg-slate-800 text-white shadow-sm"
-              : "text-slate-600 hover:bg-white"
-          }`}
-          onClick={() => setActiveTab("form")}
-        >
-          Formulario
-        </button>
-      </div>
-
-      {activeTab === "list" ? (
-        <div className="space-y-3">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por nombre, codigo, DNI, RUC o telefono"
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
-          <div className="max-h-[55vh] overflow-auto rounded-lg border border-slate-200">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead className="sticky top-0 bg-slate-100 text-xs uppercase text-slate-500">
-                <tr className="text-left">
-                  <th className="px-3 py-2 font-semibold">Cliente</th>
-                  <th className="px-3 py-2 font-semibold">Codigo</th>
-                  <th className="px-3 py-2 font-semibold">DNI</th>
-                  <th className="px-3 py-2 font-semibold">RUC</th>
-                  <th className="px-3 py-2 text-right font-semibold">Accion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white text-slate-800">
-                {loadingClients ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-3 py-8 text-center text-slate-500"
-                    >
-                      Cargando clientes...
-                    </td>
-                  </tr>
-                ) : pagedClients.length ? (
-                  pagedClients.map((client) => (
-                    <tr
-                      key={client.id}
-                      className="hover:bg-slate-50"
-                      onDoubleClick={() => onSelectClient(client)}
-                    >
-                      <td className="px-3 py-2 font-medium">
-                        {client.nombreRazon}
-                      </td>
-                      <td className="px-3 py-2">{client.clienteCodigo}</td>
-                      <td className="px-3 py-2">{client.dni}</td>
-                      <td className="px-3 py-2">{client.ruc}</td>
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          type="button"
-                          className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-900"
-                          onClick={() => onSelectClient(client)}
-                        >
-                          Usar
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-3 py-8 text-center text-slate-500"
-                    >
-                      No se encontraron clientes.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+    <div className="flex h-[68dvh] max-h-[38rem] flex-col overflow-hidden bg-white">
+      <div className="shrink-0 bg-[#B23636] px-2 py-2 text-white sm:px-3">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid w-full grid-cols-2 rounded-md bg-white/10 p-1 lg:w-[28rem]">
+            <button
+              type="button"
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                activeTab === "list"
+                  ? "bg-white text-slate-700 shadow-sm"
+                  : "text-white hover:bg-white/10"
+              }`}
+              onClick={() => setActiveTab("list")}
+            >
+              Clientes
+            </button>
+            <button
+              type="button"
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                activeTab === "form"
+                  ? "bg-red-700 text-white shadow-sm"
+                  : "text-white hover:bg-white/10"
+              }`}
+              onClick={openNewForm}
+            >
+              Formulario
+            </button>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-            <span>
-              {filteredClients.length} de {clients.length} clientes
-            </span>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 overflow-x-auto pb-1 lg:pb-0">
+            <button
+              type="button"
+              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-white/10 px-3 text-sm font-semibold hover:bg-white/20"
+              onClick={openNewForm}
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo
+            </button>
+            {activeTab === "form" ? (
               <button
                 type="button"
-                className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
-                disabled={currentPage <= 1}
-                onClick={() => setPage((value) => Math.max(1, value - 1))}
+                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold hover:bg-red-700"
+                onClick={submitForm}
               >
-                Anterior
+                <Save className="h-4 w-4" />
+                Guardar
               </button>
-              <span>
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
-                disabled={currentPage >= totalPages}
-                onClick={() =>
-                  setPage((value) => Math.min(totalPages, value + 1))
-                }
-              >
-                Siguiente
-              </button>
-            </div>
+            ) : null}
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/20 bg-white/10 hover:bg-white/20"
+              onClick={closeDialog}
+              title="Cerrar"
+              aria-label="Cerrar"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
-      ) : (
-        <CustomerFormBase
-          mode="create"
-          variant="modal"
-          initialData={initialData}
-          onSave={onCreateClient}
-          onNew={() => {}}
-        />
-      )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden p-4 sm:p-6">
+        {activeTab === "list" ? (
+          <div className="flex h-full min-h-0 flex-col gap-3">
+            <input
+              ref={searchInputRef}
+              type="search"
+              data-no-uppercase="true"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar por nombre, codigo, DNI, RUC o telefono"
+              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="sticky top-0 bg-slate-100 text-xs uppercase text-slate-500">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-semibold">Cliente</th>
+                    <th className="px-3 py-2 font-semibold">Codigo</th>
+                    <th className="px-3 py-2 font-semibold">DNI</th>
+                    <th className="px-3 py-2 font-semibold">RUC</th>
+                    <th className="px-3 py-2 text-right font-semibold">
+                      Accion
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white text-slate-800">
+                  {loadingClients ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-8 text-center text-slate-500"
+                      >
+                        Cargando clientes...
+                      </td>
+                    </tr>
+                  ) : filteredClients.length ? (
+                    filteredClients.map((client) => (
+                      <tr
+                        key={client.id}
+                        className="hover:bg-slate-50"
+                        onDoubleClick={() => onSelectClient(client)}
+                      >
+                        <td className="px-3 py-2 font-medium">
+                          {client.nombreRazon}
+                        </td>
+                        <td className="px-3 py-2">{client.clienteCodigo}</td>
+                        <td className="px-3 py-2">{client.dni}</td>
+                        <td className="px-3 py-2">{client.ruc}</td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#B23636] text-white hover:bg-[#9f2f2f]"
+                            onClick={() => onSelectClient(client)}
+                            title="Usar"
+                            aria-label="Usar"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-8 text-center text-slate-500"
+                      >
+                        No se encontraron clientes.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>
+                {filteredClients.length} de {clients.length} clientes
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="h-full overflow-auto">
+            <CustomerFormBase
+              mode="create"
+              variant="modal"
+              initialData={initialData}
+              formId={CUSTOMER_DIALOG_FORM_ID}
+              onSave={onCreateClient}
+              onNew={() => {}}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -86,6 +86,14 @@ const safeText = (value: unknown, fallback = "") => {
   return text || fallback;
 };
 
+const firstText = (...values: unknown[]) => {
+  for (const value of values) {
+    const text = safeText(value);
+    if (text) return text;
+  }
+  return "";
+};
+
 const normalizeInvoiceEstado = (estado?: string) =>
   safeText(estado).toUpperCase();
 
@@ -914,6 +922,7 @@ export default function ServiceInvoiceCreate() {
 
   const buildPayload = useCallback(
     (values: ServiceInvoiceFormValues): ServiceInvoiceSendPayload => {
+      const userRecord = (user ?? {}) as Record<string, unknown>;
       const razonSocial = safeText(
         user?.companyName,
         safeText(user?.companyCommercialName, "TU RAZON SOCIAL"),
@@ -947,21 +956,28 @@ export default function ServiceInvoiceCreate() {
         DISTRITO_EMPRESA: ubigeoName,
         CODIGO_PAIS_EMPRESA: "PE",
         CODIGO_ANEXO: "0000",
-        USUARIO_SOL_EMPRESA: safeText(
+        USUARIO_SOL_EMPRESA: firstText(
           config?.solUser,
-          safeText(user?.usuarioSol, "USUARIO_BETA"),
+          user?.usuarioSol,
+          userRecord.UsuarioSol,
+          userRecord.UsuarioSOL,
         ),
-        PASS_SOL_EMPRESA: safeText(
+        PASS_SOL_EMPRESA: firstText(
           config?.solPassword,
-          safeText(user?.claveSol, "CLAVE_BETA"),
+          user?.claveSol,
+          userRecord.ClaveSol,
+          userRecord.ClaveSOL,
         ),
-        CONTRA_FIRMA: safeText(
+        CONTRA_FIRMA: firstText(
           config?.certificatePassword,
-          safeText(user?.claveCertificado, "CLAVE_CERTIFICADO"),
+          user?.claveCertificado,
+          userRecord.ClaveCertificado,
         ),
-        RUTA_PFX: safeText(
+        RUTA_PFX: firstText(
           config?.certificateBase64,
-          safeText(user?.certificadoBase64, "C:\\ruta\\certificado.pfx"),
+          user?.certificadoBase64,
+          userRecord.CertificadoBase64,
+          userRecord.CertificadoPFX,
         ),
         NRO_DOCUMENTO_CLIENTE: safeText(values.nroDocumentoCliente),
         TIPO_DOCUMENTO_CLIENTE: "6",
@@ -998,6 +1014,7 @@ export default function ServiceInvoiceCreate() {
 
   const buildCreditNotePayload = useCallback(
     (values: ServiceInvoiceFormValues): ServiceInvoiceCreditNotePayload => {
+      const userRecord = (user ?? {}) as Record<string, unknown>;
       const razonSocial = safeText(
         user?.companyName,
         safeText(user?.companyCommercialName, "TU RAZON SOCIAL"),
@@ -1028,21 +1045,28 @@ export default function ServiceInvoiceCreate() {
         NRO_COMPROBANTE: "",
         FECHA_DOCUMENTO: values.fechaDocumento,
         COD_MONEDA: values.codMoneda,
-        USUARIO_SOL_EMPRESA: safeText(
+        USUARIO_SOL_EMPRESA: firstText(
           config?.solUser,
-          safeText(user?.usuarioSol, "USUARIO_BETA"),
+          user?.usuarioSol,
+          userRecord.UsuarioSol,
+          userRecord.UsuarioSOL,
         ),
-        PASS_SOL_EMPRESA: safeText(
+        PASS_SOL_EMPRESA: firstText(
           config?.solPassword,
-          safeText(user?.claveSol, "CLAVE_BETA"),
+          user?.claveSol,
+          userRecord.ClaveSol,
+          userRecord.ClaveSOL,
         ),
-        CONTRA_FIRMA: safeText(
+        CONTRA_FIRMA: firstText(
           config?.certificatePassword,
-          safeText(user?.claveCertificado, "CLAVE_CERTIFICADO"),
+          user?.claveCertificado,
+          userRecord.ClaveCertificado,
         ),
-        RUTA_PFX: safeText(
+        RUTA_PFX: firstText(
           config?.certificateBase64,
-          safeText(user?.certificadoBase64, "C:\\ruta\\certificado.pfx"),
+          user?.certificadoBase64,
+          userRecord.CertificadoBase64,
+          userRecord.CertificadoPFX,
         ),
         NRO_DOCUMENTO_CLIENTE: safeText(values.nroDocumentoCliente),
         TIPO_DOCUMENTO_CLIENTE: "6",

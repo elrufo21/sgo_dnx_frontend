@@ -72,6 +72,12 @@ export function GlobalDialog() {
   };
 
   const showTitleActionsOnMobile = isMobile && mobileActions !== null;
+  const showFooterActions =
+    !showTitleActionsOnMobile &&
+    (!hideCancelButton ||
+      Boolean(onConfirm) ||
+      Boolean(isMobile && mobileActions));
+  const fullBleedContent = !title && hideCancelButton && !onConfirm;
 
   return (
     <Dialog
@@ -93,13 +99,32 @@ export function GlobalDialog() {
       }}
     >
       {title || showTitleActionsOnMobile ? (
-        <DialogTitle sx={showTitleActionsOnMobile ? { py: 1.25, px: 2 } : undefined}>
+        <DialogTitle
+          sx={showTitleActionsOnMobile ? { py: 1.25, px: 2 } : undefined}
+        >
           {showTitleActionsOnMobile ? (
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-              <Box sx={{ fontWeight: 600, fontSize: "1rem", minWidth: 0, pr: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+              }}
+            >
+              <Box
+                sx={{ fontWeight: 600, fontSize: "1rem", minWidth: 0, pr: 1 }}
+              >
                 {title}
               </Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                }}
+              >
                 {mobileActions}
                 {!hideCancelButton && (
                   <IconButton
@@ -128,7 +153,11 @@ export function GlobalDialog() {
                     aria-label={confirmText}
                     sx={{ minWidth: 36, width: 36, px: 0 }}
                   >
-                    {loading ? <CircularProgress size={16} /> : <Save size={16} />}
+                    {loading ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <Save size={16} />
+                    )}
                   </Button>
                 )}
               </Box>
@@ -138,42 +167,45 @@ export function GlobalDialog() {
           )}
         </DialogTitle>
       ) : null}
-      <DialogContent dividers sx={isMobile ? { p: 2 } : undefined}>
+      <DialogContent
+        dividers
+        sx={fullBleedContent ? { p: 0 } : isMobile ? { p: 2 } : undefined}
+      >
         {content}
       </DialogContent>
-      {!showTitleActionsOnMobile ? (
+      {showFooterActions ? (
         <DialogActions
-        sx={
-          isMobile
-            ? {
-                px: 2,
-                py: 1.5,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 1,
-                flexWrap: "wrap",
-              }
-            : undefined
-        }
-      >
-        {isMobile && mobileActions ? mobileActions : null}
-        {!hideCancelButton && (
-          <Button onClick={handleClose} disabled={loading}>
-            {cancelText}
-          </Button>
-        )}
-        {onConfirm && (
-          <Button
-            onClick={handleConfirm}
-            variant="contained"
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={18} /> : undefined}
-          >
-            {confirmText}
-          </Button>
-        )}
-      </DialogActions>
+          sx={
+            isMobile
+              ? {
+                  px: 2,
+                  py: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }
+              : undefined
+          }
+        >
+          {isMobile && mobileActions ? mobileActions : null}
+          {!hideCancelButton && (
+            <Button onClick={handleClose} disabled={loading}>
+              {cancelText}
+            </Button>
+          )}
+          {onConfirm && (
+            <Button
+              onClick={handleConfirm}
+              variant="contained"
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={18} /> : undefined}
+            >
+              {confirmText}
+            </Button>
+          )}
+        </DialogActions>
       ) : null}
     </Dialog>
   );

@@ -55,6 +55,7 @@ const resolveCompanyId = (override?: string | number) => {
 const resolveProcessType = (value: unknown): BillingProcessType => {
   const normalized = normalizeText(value).toUpperCase();
   if (normalized === "PRODUCCION" || normalized === "1") return "PRODUCCION";
+  if (normalized === "BETA" || normalized === "3") return "BETA";
   return "BETA";
 };
 
@@ -243,26 +244,42 @@ const syncSunatConfigToSession = (
       ...userData,
       companyId: normalizeText(userData.companyId, String(companyId)),
       usuarioSol: summary.solUser,
+      UsuarioSol: summary.solUser,
+      UsuarioSOL: summary.solUser,
       claveSol: summary.solPassword,
+      ClaveSol: summary.solPassword,
+      ClaveSOL: summary.solPassword,
       claveCertificado: summary.certificatePassword,
+      ClaveCertificado: summary.certificatePassword,
       entorno: entornoValue,
+      Entorno: entornoValue,
     };
 
     if (summary.certificateBase64) {
       nextUser.certificadoBase64 = summary.certificateBase64;
+      nextUser.CertificadoBase64 = summary.certificateBase64;
+      nextUser.CertificadoPFX = summary.certificateBase64;
     }
 
     const nextLoginPayload: Record<string, unknown> = {
       ...payloadData,
       companiaId: normalizeText(payloadData.companiaId, String(companyId)),
       usuarioSol: summary.solUser,
+      UsuarioSol: summary.solUser,
+      UsuarioSOL: summary.solUser,
       claveSol: summary.solPassword,
+      ClaveSol: summary.solPassword,
+      ClaveSOL: summary.solPassword,
       claveCertificado: summary.certificatePassword,
+      ClaveCertificado: summary.certificatePassword,
       entorno: entornoValue,
+      Entorno: entornoValue,
     };
 
     if (summary.certificateBase64) {
       nextLoginPayload.certificadoBase64 = summary.certificateBase64;
+      nextLoginPayload.CertificadoBase64 = summary.certificateBase64;
+      nextLoginPayload.CertificadoPFX = summary.certificateBase64;
     }
 
     const nextSession = {

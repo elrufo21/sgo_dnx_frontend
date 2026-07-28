@@ -1,4 +1,4 @@
-import { ArrowRight, FileSpreadsheet, ReceiptText } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, ReceiptText, Send } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -14,6 +14,12 @@ export default function AccountingDashboard() {
         desc: "Administra datos base para reportes PDT de empresa.",
         icon: <FileSpreadsheet className="h-10 w-10 text-emerald-600" />,
         route: "/accounting/pdt-company",
+      },
+      {
+        title: "Envio de facturas",
+        desc: "Lista facturas emitidas y abre el comprobante para reenviar al OSE.",
+        icon: <Send className="h-10 w-10 text-blue-600" />,
+        route: "/accounting/invoice-dispatch",
       },
     ];
 

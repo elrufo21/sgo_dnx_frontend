@@ -25,6 +25,7 @@ const PASSWORD_HINTS = [
   "currentpassword",
   "newpassword",
 ];
+const SEARCH_HINTS = ["search", "buscar", "busqueda", "filtro", "filter"];
 
 const normalizeHint = (value: string) =>
   value
@@ -88,6 +89,7 @@ const shouldSkipUppercase = (field: FormFieldElement) => {
     const inputType = field.type.toLowerCase();
     if (inputType === "email") return true;
     if (inputType === "password") return true;
+    if (inputType === "search") return true;
   }
 
   const descriptors = getFieldDescriptors(field);
@@ -96,6 +98,7 @@ const shouldSkipUppercase = (field: FormFieldElement) => {
   return descriptors.some(
     (descriptor) =>
       includesAnyHint(descriptor, EMAIL_HINTS) ||
+      includesAnyHint(descriptor, SEARCH_HINTS) ||
       includesAnyHint(descriptor, USERNAME_HINTS) ||
       includesAnyHint(descriptor, PASSWORD_HINTS),
   );

@@ -224,6 +224,30 @@ const parseClientListResponse = (response: unknown) => {
   };
 };
 
+const parseComboClients = (value: unknown): Client[] =>
+  String(value ?? "")
+    .split(/[¬\n\r]+/)
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .map((row) => {
+      const parts = row.split("|");
+      return {
+        id: Number(parts[0]) || 0,
+        nombreRazon: String(parts[1] ?? "").trim(),
+        ruc: String(parts[2] ?? "").trim(),
+        dni: String(parts[3] ?? "").trim(),
+        direccionFiscal: String(parts[4] ?? "").trim(),
+        telefonoMovil: String(parts[5] ?? "").trim(),
+        email: String(parts[6] ?? "").trim(),
+        estado: String(parts[7] ?? "").trim() || "ACTIVO",
+        direccionDespacho: String(parts[8] ?? "").trim(),
+        registradoPor: String(parts[9] ?? "").trim(),
+        fecha: String(parts[10] ?? "").trim() || null,
+        clienteCodigo: String(parts[11] ?? "").trim(),
+      };
+    })
+    .filter((client) => client.id || client.nombreRazon);
+
 const mergeClients = (current: Client[], incoming: Client[]) => {
   const map = new Map<number, Client>();
   current.forEach((client) => map.set(client.id, client));
@@ -239,12 +263,22 @@ export const useClientsStore = create<ClientsState>((set) => ({
   fetchClients: async (params = "ACTIVO") => {
     set({ loading: true });
     try {
+      const paged =
+        typeof params !== "string" &&
+        (params.page !== undefined ||
+          params.pageSize !== undefined ||
+          params.search !== undefined);
       const response = await apiRequest<unknown>({
-        url: buildClientListUrl(params),
+        url: paged ? buildClientListUrl(params) : `${API_BASE_URL}/Cliente`,
         method: "GET",
         fallback: [],
       });
-      const { items, total } = parseClientListResponse(response);
+      const { items, total } = paged
+        ? parseClientListResponse(response)
+        : (() => {
+            const clients = parseComboClients(response);
+            return { items: clients, total: clients.length };
+          })();
       set({ clients: items, totalClients: total, loading: false });
     } catch (error) {
       console.error("Error loading clients", error);

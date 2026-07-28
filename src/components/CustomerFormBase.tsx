@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -35,6 +35,7 @@ interface ClientFormBaseProps {
   onDelete?: () => void;
   variant?: "page" | "modal";
   showModalActions?: boolean;
+  formId?: string;
 }
 
 const buildDefaults = (
@@ -65,6 +66,7 @@ export default function CustomerFormBase({
   onDelete,
   variant = "page",
   showModalActions = false,
+  formId,
 }: ClientFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousTipoDocumentoRef = useRef<"ruc" | "dni" | null>(null);
@@ -127,10 +129,9 @@ export default function CustomerFormBase({
     window.requestAnimationFrame(() => {
       setFocus("nombreRazon");
 
-      const nombreInput =
-        containerRef.current?.querySelector<HTMLInputElement>(
-          '[data-focus-first="true"]',
-        );
+      const nombreInput = containerRef.current?.querySelector<HTMLInputElement>(
+        '[data-focus-first="true"]',
+      );
 
       if (!nombreInput || nombreInput.disabled) {
         focusFirstInput(containerRef.current);
@@ -328,8 +329,7 @@ export default function CustomerFormBase({
 
     const responseRecord = response as Record<string, unknown>;
     const responseContainer = responseRecord.response as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const rawResponseData = responseContainer?.data;
     const parsedResponseData =
       typeof rawResponseData === "string"
@@ -449,7 +449,7 @@ export default function CustomerFormBase({
     <div ref={containerRef} className={rootClassName}>
       <div className={shellClassName}>
         <div className={cardClassName}>
-          <HookForm methods={formMethods} onSubmit={handleSave}>
+          <HookForm methods={formMethods} onSubmit={handleSave} formId={formId}>
             {!isModal && (
               <div className="sticky top-20 sm:top-2 z-30 bg-[#B23636] text-white px-4 py-3 rounded-t-2xl flex items-center justify-between shadow-lg shadow-black/10">
                 <div className="flex items-center gap-3">
@@ -701,4 +701,3 @@ export default function CustomerFormBase({
     </div>
   );
 }
-

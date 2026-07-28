@@ -62,6 +62,8 @@ type LoadedNotaMonetaryTotals = {
   totalToPay: number;
 };
 
+const DEFAULT_TIPO_PROCESO = 3;
+
 const getCartItemKey = (item: Pick<PosCartItem, "productId" | "detalleId">) =>
   Number(item.detalleId ?? 0) || Number(item.productId ?? 0);
 const hasInvalidQuantityOrStockForPayment = (item: PosCartItem) => {
@@ -520,8 +522,7 @@ const PaymentPage = () => {
     () =>
       state && typeof state === "object"
         ? ((state as Record<string, unknown>).htmlCapture as
-            | Record<string, unknown>
-            | undefined)
+            Record<string, unknown> | undefined)
         : undefined,
     [state],
   );
@@ -755,31 +756,47 @@ const PaymentPage = () => {
     const usuarioSol = safeTrim(
       parsedSession?.user?.usuarioSol ??
         parsedSession?.usuarioSol ??
+        parsedSession?.UsuarioSol ??
+        parsedSession?.UsuarioSOL ??
         parsedSession?.loginPayload?.usuarioSol ??
+        parsedSession?.loginPayload?.UsuarioSol ??
+        parsedSession?.loginPayload?.UsuarioSOL ??
         "",
     );
     const claveSol = safeTrim(
       parsedSession?.user?.claveSol ??
         parsedSession?.claveSol ??
+        parsedSession?.ClaveSol ??
+        parsedSession?.ClaveSOL ??
         parsedSession?.loginPayload?.claveSol ??
+        parsedSession?.loginPayload?.ClaveSol ??
+        parsedSession?.loginPayload?.ClaveSOL ??
         "",
     );
     const claveCertificado = safeTrim(
       parsedSession?.user?.claveCertificado ??
         parsedSession?.claveCertificado ??
+        parsedSession?.ClaveCertificado ??
         parsedSession?.loginPayload?.claveCertificado ??
+        parsedSession?.loginPayload?.ClaveCertificado ??
         "",
     );
     const certificadoBase64 = safeTrim(
       parsedSession?.user?.certificadoBase64 ??
         parsedSession?.certificadoBase64 ??
+        parsedSession?.CertificadoBase64 ??
+        parsedSession?.CertificadoPFX ??
         parsedSession?.loginPayload?.certificadoBase64 ??
+        parsedSession?.loginPayload?.CertificadoBase64 ??
+        parsedSession?.loginPayload?.CertificadoPFX ??
         "",
     );
     const entorno = safeTrim(
       parsedSession?.user?.entorno ??
         parsedSession?.entorno ??
+        parsedSession?.Entorno ??
         parsedSession?.loginPayload?.entorno ??
+        parsedSession?.loginPayload?.Entorno ??
         "",
     );
     const boletaPorLoteRaw =
@@ -1116,10 +1133,7 @@ const PaymentPage = () => {
     defaultValues: {
       docTypeCode: "SELECCIONAR" as "03" | "01" | "101" | "SELECCIONAR",
       paymentMethod: "EFECTIVO" as
-        | "EFECTIVO"
-        | "TARJETA"
-        | "TRANSFERENCIA"
-        | "YAPE",
+        "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "YAPE",
       clienteId: null as number | null,
       customerName: "",
       customerId: "",
@@ -1222,13 +1236,7 @@ const PaymentPage = () => {
     return () => {
       active = false;
     };
-  }, [
-    companyId,
-    docTypeCode,
-    hasLoadedNotaMeta,
-    isEditingMode,
-    notaId,
-  ]);
+  }, [companyId, docTypeCode, hasLoadedNotaMeta, isEditingMode, notaId]);
   const normalizedNotaEstado = safeTrim(notaEstadoActual).toUpperCase();
   const resolvedDocTypeCodeForResend = (() => {
     const fromHeader = safeTrim(
@@ -2082,7 +2090,7 @@ const PaymentPage = () => {
 
   useEffect(() => {
     if (!clients.length) {
-      fetchClients({ estado: "", page: 1, pageSize: 100 });
+      fetchClients("");
     }
   }, [clients.length, fetchClients]);
 
@@ -2281,7 +2289,7 @@ const PaymentPage = () => {
         return false;
       }
 
-      await fetchClients({ estado: "", page: 1, pageSize: 100 });
+      await fetchClients("");
       const refreshedClients = useClientsStore.getState().clients;
       const normalizedName = safeTrim(payload.nombreRazon).toLowerCase();
       const normalizedRuc = safeTrim(payload.ruc);
@@ -2305,22 +2313,18 @@ const PaymentPage = () => {
       toast.success("Cliente creado correctamente.");
       return true;
     },
-    [
-      addClient,
-      fetchClients,
-      resolvedNotaUsuario,
-      selectClientFromDialog,
-    ],
+    [addClient, fetchClients, resolvedNotaUsuario, selectClientFromDialog],
   );
 
   const handleOpenCreateClientModal = useCallback(() => {
     if (formLocked) return;
 
     openDialog({
-      title: "Clientes",
+      title: "",
       maxWidth: "lg",
       fullWidth: true,
       cancelText: "Cerrar",
+      hideCancelButton: true,
       content: (
         <CustomerDialogContent
           initialData={{
@@ -2953,7 +2957,8 @@ const PaymentPage = () => {
     const clienteIdNumber = Number(clienteId ?? 1) || 1;
     const captureTransaction = safeTrim(htmlCapture?.transactionNumber);
     const captureMemberCode = safeTrim(htmlCapture?.memberCode);
-    const captureCustomer = safeTrim(htmlCapture?.customerName) || safeTrim(customerName);
+    const captureCustomer =
+      safeTrim(htmlCapture?.customerName) || safeTrim(customerName);
     const pvTotal = safeItems.reduce(
       (sum, item) => sum + Number(item.pv ?? 0) * Number(item.cantidad ?? 0),
       0,
@@ -3523,11 +3528,11 @@ const PaymentPage = () => {
 
     if (!isEditing && docTypeCode === "03" && boletaPorLoteFromSession) {
       const todayIso = getLocalDateISO(new Date());
-      const tipoProcesoRaw = Number(entornoFromSession || 3);
+      const tipoProcesoRaw = Number(entornoFromSession || DEFAULT_TIPO_PROCESO);
       const tipoProceso =
         Number.isFinite(tipoProcesoRaw) && tipoProcesoRaw > 0
           ? Math.floor(tipoProcesoRaw)
-          : 3;
+          : DEFAULT_TIPO_PROCESO;
 
       try {
         const nextSequence = await fetchNextBoletaSummarySequence(companyId);
@@ -4235,13 +4240,11 @@ const PaymentPage = () => {
       toast.info("Solo se puede reenviar cuando el estado SUNAT es RECHAZADO.");
       return;
     }
-    if (
-      !(
-        resolvedDocTypeCodeForResend === "01" ||
-        resolvedDocTypeCodeForResend === "03" ||
-        resolvedDocTypeCodeForResend === "07"
-      )
-    ) {
+    if (!(
+      resolvedDocTypeCodeForResend === "01" ||
+      resolvedDocTypeCodeForResend === "03" ||
+      resolvedDocTypeCodeForResend === "07"
+    )) {
       toast.info(
         "Reenvío disponible solo para factura, boleta o nota de crédito.",
       );
@@ -4288,7 +4291,7 @@ const PaymentPage = () => {
       const tipoProceso =
         Number.isFinite(tipoProcesoParsed) && tipoProcesoParsed > 0
           ? Math.floor(tipoProcesoParsed)
-          : 3;
+          : DEFAULT_TIPO_PROCESO;
       const detalleFuente: PosCartItem[] = serverItems.length
         ? serverItems
         : purchasedItems.length
@@ -4634,7 +4637,7 @@ const PaymentPage = () => {
     const tipoProceso =
       Number.isFinite(tipoProcesoParsed) && tipoProcesoParsed > 0
         ? Math.floor(tipoProcesoParsed)
-        : 3;
+        : DEFAULT_TIPO_PROCESO;
     const formaPagoNc = safeTrim(paymentMethod) || "EFECTIVO";
 
     const missingCodigoSunat = detallesFuente
@@ -5586,7 +5589,8 @@ const PaymentPage = () => {
             );
             const valueLabel = safeTrim(value?.label ?? value?.value ?? value);
             return (
-              normalizeSearchText(optionLabel) === normalizeSearchText(valueLabel)
+              normalizeSearchText(optionLabel) ===
+              normalizeSearchText(valueLabel)
             );
           }}
           filterOptions={clientFilterOptions as any}

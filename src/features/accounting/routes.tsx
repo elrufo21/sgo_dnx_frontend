@@ -1,5 +1,6 @@
 import AccountingDashboard from "./pages/AccountingDashboard";
 import BoletasSummaryPage from "@/features/boletasSummary/pages/BoletasSummaryPage";
+import InvoiceDispatchPage from "./pages/InvoiceDispatchPage";
 import PdtCompanyPage from "./pages/PdtCompanyPage";
 
 export default [
@@ -17,6 +18,16 @@ export default [
       breadcrumb: [
         { label: "Contabilidad", to: "/accounting" },
         { label: "PDT Empresa" },
+      ],
+    },
+  },
+  {
+    path: "accounting/invoice-dispatch",
+    element: <InvoiceDispatchPage />,
+    handle: {
+      breadcrumb: [
+        { label: "Contabilidad", to: "/accounting" },
+        { label: "Envio de facturas" },
       ],
     },
   },

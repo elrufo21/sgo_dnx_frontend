@@ -24,6 +24,8 @@ import { calculateBoletaTotals, parseAmount } from "../boletasSummary.utils";
 const columnHelper = createColumnHelper<BoletaSummaryDocument>();
 const sentColumnHelper = createColumnHelper<BoletaSummarySentRecord>();
 
+const DEFAULT_TIPO_PROCESO = 3;
+
 const formatCurrency = (value: number) =>
   value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -121,9 +123,16 @@ type BoletasSummarySession = {
     companyName?: string | null;
     entorno?: string | number | null;
     claveCertificado?: string | null;
+    ClaveCertificado?: string | null;
     usuarioSol?: string | null;
+    UsuarioSol?: string | null;
+    UsuarioSOL?: string | null;
     claveSol?: string | null;
+    ClaveSol?: string | null;
+    ClaveSOL?: string | null;
     certificadoBase64?: string | null;
+    CertificadoBase64?: string | null;
+    CertificadoPFX?: string | null;
   };
   companiaId?: string | number | null;
   companiaRuc?: string | null;
@@ -133,11 +142,19 @@ type BoletasSummarySession = {
     companiaId?: string | number | null;
     companiaRuc?: string | null;
     razonSocial?: string | null;
+    Entorno?: string | number | null;
     entorno?: string | number | null;
     claveCertificado?: string | null;
+    ClaveCertificado?: string | null;
     usuarioSol?: string | null;
+    UsuarioSol?: string | null;
+    UsuarioSOL?: string | null;
     claveSol?: string | null;
+    ClaveSol?: string | null;
+    ClaveSOL?: string | null;
     certificadoBase64?: string | null;
+    CertificadoBase64?: string | null;
+    CertificadoPFX?: string | null;
   };
 } | null;
 
@@ -360,11 +377,16 @@ export default function BoletasSummaryPage() {
       notaId: row.notaId,
     }));
 
-    const tipoProcesoRaw = Number(user.entorno ?? loginPayload.entorno ?? 3);
+    const tipoProcesoRaw = Number(
+      user.entorno ??
+        loginPayload.Entorno ??
+        loginPayload.entorno ??
+        DEFAULT_TIPO_PROCESO,
+    );
     const tipoProceso =
       Number.isFinite(tipoProcesoRaw) && tipoProcesoRaw > 0
         ? Math.floor(tipoProcesoRaw)
-        : 3;
+        : DEFAULT_TIPO_PROCESO;
 
     const payloadBase = {
       NRO_DOCUMENTO_EMPRESA: safeTrim(
@@ -389,12 +411,34 @@ export default function BoletasSummaryPage() {
       FECHA_DOCUMENTO: todayIso,
       TIPO_PROCESO: tipoProceso,
       CONTRA_FIRMA: safeTrim(
-        user.claveCertificado ?? loginPayload.claveCertificado,
+        user.claveCertificado ??
+          user.ClaveCertificado ??
+          loginPayload.claveCertificado ??
+          loginPayload.ClaveCertificado,
       ),
-      USUARIO_SOL_EMPRESA: safeTrim(user.usuarioSol ?? loginPayload.usuarioSol),
-      PASS_SOL_EMPRESA: safeTrim(user.claveSol ?? loginPayload.claveSol),
+      USUARIO_SOL_EMPRESA: safeTrim(
+        user.usuarioSol ??
+          user.UsuarioSol ??
+          user.UsuarioSOL ??
+          loginPayload.usuarioSol ??
+          loginPayload.UsuarioSol ??
+          loginPayload.UsuarioSOL,
+      ),
+      PASS_SOL_EMPRESA: safeTrim(
+        user.claveSol ??
+          user.ClaveSol ??
+          user.ClaveSOL ??
+          loginPayload.claveSol ??
+          loginPayload.ClaveSol ??
+          loginPayload.ClaveSOL,
+      ),
       RUTA_PFX: safeTrim(
-        user.certificadoBase64 ?? loginPayload.certificadoBase64,
+        user.certificadoBase64 ??
+          user.CertificadoBase64 ??
+          user.CertificadoPFX ??
+          loginPayload.certificadoBase64 ??
+          loginPayload.CertificadoBase64 ??
+          loginPayload.CertificadoPFX,
       ),
       COMPANIA_ID: Number.isFinite(companyId) && companyId > 0 ? companyId : 1,
     };
@@ -759,10 +803,22 @@ export default function BoletasSummaryPage() {
           loginPayload.companiaRuc,
       );
       const usuarioSol = safeTrim(
-        row.usuarioSolEmpresa ?? user.usuarioSol ?? loginPayload.usuarioSol,
+        row.usuarioSolEmpresa ??
+          user.usuarioSol ??
+          user.UsuarioSol ??
+          user.UsuarioSOL ??
+          loginPayload.usuarioSol ??
+          loginPayload.UsuarioSol ??
+          loginPayload.UsuarioSOL,
       );
       const passSol = safeTrim(
-        row.passSolEmpresa ?? user.claveSol ?? loginPayload.claveSol,
+        row.passSolEmpresa ??
+          user.claveSol ??
+          user.ClaveSol ??
+          user.ClaveSOL ??
+          loginPayload.claveSol ??
+          loginPayload.ClaveSol ??
+          loginPayload.ClaveSOL,
       );
       const secuencia = safeTrim(row.secuencia ?? row.serie);
       const isCancelled = isCancelledSentSummary(row);
@@ -772,12 +828,16 @@ export default function BoletasSummaryPage() {
       );
 
       const tipoProcesoRaw = Number(
-        row.tipoProceso ?? user.entorno ?? loginPayload.entorno ?? 3,
+        row.tipoProceso ??
+          user.entorno ??
+          loginPayload.Entorno ??
+          loginPayload.entorno ??
+          DEFAULT_TIPO_PROCESO,
       );
       const tipoProceso =
         Number.isFinite(tipoProcesoRaw) && tipoProcesoRaw > 0
           ? Math.floor(tipoProcesoRaw)
-          : 3;
+          : DEFAULT_TIPO_PROCESO;
       const intentosRaw = Number(row.intentos ?? 0);
       const intentos =
         Number.isFinite(intentosRaw) && intentosRaw >= 0
