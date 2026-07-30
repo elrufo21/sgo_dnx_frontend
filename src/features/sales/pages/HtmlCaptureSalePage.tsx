@@ -226,6 +226,16 @@ const integer = (value: number) =>
     maximumFractionDigits: 0,
   });
 const safeRowNumber = (value: number) => (Number.isFinite(value) ? value : 0);
+const minAllowedPrice = (row: SaleRow) => Math.max(0, safeRowNumber(row.cost));
+const focusPriceInput = (code: string) => {
+  window.setTimeout(() => {
+    const input = Array.from(
+      document.querySelectorAll<HTMLInputElement>("[data-sale-price-input]"),
+    ).find((element) => element.dataset.rowCode === code);
+    input?.focus();
+    input?.select();
+  }, 0);
+};
 const localDate = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -993,6 +1003,22 @@ export default function HtmlCaptureSalePage() {
     setLastTicket(null);
   };
 
+  const handleRowPriceBlur = (code: string) => {
+    const row = rows.find((item) => item.code === code);
+    if (!row || !Number.isFinite(row.price)) return;
+    const minimum = minAllowedPrice(row);
+    if (minimum <= 0 || row.price >= minimum) return;
+
+    toast.error(`El precio no debe ser menor a: S/ ${money(minimum)}`);
+    focusPriceInput(code);
+    setRows((current) =>
+      current.map((item) =>
+        item.code === code ? { ...item, price: minimum } : item,
+      ),
+    );
+    setLastTicket(null);
+  };
+
   const handleOpenCreateClientModal = useCallback(() => {
     if (isReadOnly) {
       toast.error("Este registro solo se puede visualizar.");
@@ -1569,6 +1595,18 @@ export default function HtmlCaptureSalePage() {
       )
     ) {
       toast.error("Completa cantidad y precio de los productos.");
+      return;
+    }
+    const belowCostRow = rows.find(
+      (row) => safeRowNumber(row.price) < minAllowedPrice(row),
+    );
+    if (belowCostRow) {
+      toast.error(
+        `El precio no debe ser menor a: S/ ${money(
+          minAllowedPrice(belowCostRow),
+        )}`,
+      );
+      focusPriceInput(belowCostRow.code);
       return;
     }
 
@@ -2234,6 +2272,7 @@ export default function HtmlCaptureSalePage() {
                                 )
                               }
                               onKeyDown={handleNumberInputKeyDown}
+                              onBlur={() => handleRowPriceBlur(row.code)}
                               disabled={
                                 isSaving || isReadOnly || isCapturedSale
                               }
@@ -2248,6 +2287,8 @@ export default function HtmlCaptureSalePage() {
                               value={
                                 Number.isFinite(row.price) ? row.price : ""
                               }
+                              data-sale-price-input="true"
+                              data-row-code={row.code}
                               data-auto-next="true"
                               onChange={(event) =>
                                 handleRowPriceChange(
