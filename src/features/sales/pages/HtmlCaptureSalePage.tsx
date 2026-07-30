@@ -217,9 +217,13 @@ const readEmail = (root: ParentNode) =>
 const getClientCode = (client: Client | null | undefined) =>
   safeTrim(client?.clienteCodigo);
 const money = (value: number) =>
-  Number(value || 0).toLocaleString("es-PE", {
+  Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+  });
+const integer = (value: number) =>
+  Number(value || 0).toLocaleString("en-US", {
+    maximumFractionDigits: 0,
   });
 const safeRowNumber = (value: number) => (Number.isFinite(value) ? value : 0);
 const localDate = () => {
@@ -1411,6 +1415,9 @@ export default function HtmlCaptureSalePage() {
     if (customerRuc && !validRucClient) {
       return "El RUC no existe. Agrega el cliente y seleccionalo.";
     }
+    if (!validatedClient) {
+      return "Selecciona un cliente.";
+    }
     if (form.docTypeCode === "01" && !validatedClient) {
       return "Para factura debes seleccionar un cliente registrado.";
     }
@@ -1793,7 +1800,7 @@ export default function HtmlCaptureSalePage() {
             Listado de ventas
           </h2>
           <p className="text-xs text-slate-400">
-            {listRows.length} registros encontrados.
+            {integer(listRows.length)} registros encontrados.
           </p>
         </div>
       </div>
@@ -2050,7 +2057,7 @@ export default function HtmlCaptureSalePage() {
                   Productos de venta
                   {rows.length > 0 && (
                     <span className="ml-2 font-normal text-slate-400">
-                      ({rows.length})
+                      ({integer(rows.length)})
                     </span>
                   )}
                 </h2>

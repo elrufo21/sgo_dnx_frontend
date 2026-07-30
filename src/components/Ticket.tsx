@@ -97,6 +97,10 @@ const formatTicketMoney = (value: number): string =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+const formatTicketInteger = (value: number): string =>
+  Number(value || 0).toLocaleString("en-US", {
+    maximumFractionDigits: 0,
+  });
 
 const splitTicketDescriptionTwoLines = (
   value: string,
@@ -819,8 +823,8 @@ const TicketDocument = ({
         </View>
 
         {ticketData.items.map((item, index) => {
-          const pv = Number(item.pv ?? 0).toFixed(2);
-          const sv = Number(item.sv ?? 0).toFixed(2);
+          const pv = formatTicketMoney(Number(item.pv ?? 0));
+          const sv = formatTicketMoney(Number(item.sv ?? 0));
           const [descriptionLine1, descriptionLine2] =
             splitTicketDescriptionTwoLines(
               `${formatUnitPrefix(item.unitMeasure)}${item.description} |***|PV:${pv} |***|SV:${sv}`,
@@ -830,7 +834,9 @@ const TicketDocument = ({
             <View key={index}>
               <View style={styles.tableItemRow}>
                 <View style={styles.tableItemMetaRow}>
-                  <Text style={styles.colCant}>{item.quantity.toFixed(0)}</Text>
+                  <Text style={styles.colCant}>
+                    {formatTicketInteger(item.quantity)}
+                  </Text>
                   <Text style={styles.tableItemDescriptionFull}>
                     {descriptionLine1}
                   </Text>
@@ -858,7 +864,9 @@ const TicketDocument = ({
 
         <View style={styles.tbRow}>
           <Text style={styles.tbLabel}>TB:</Text>
-          <Text style={styles.tbValue}>{ticketData.totalBags.toFixed(0)}</Text>
+          <Text style={styles.tbValue}>
+            {formatTicketInteger(ticketData.totalBags)}
+          </Text>
         </View>
 
         {!ticketData.isProforma && (
@@ -867,7 +875,7 @@ const TicketDocument = ({
               <Text style={styles.summaryLabel}>OP.GRAVADA :</Text>
               <Text style={styles.summaryCurrency}>S/</Text>
               <Text style={styles.summaryAmount}>
-                {ticketData.operacionGravada.toFixed(2)}
+                {formatTicketMoney(ticketData.operacionGravada)}
               </Text>
             </View>
             {ticketData.showDiscount && (
@@ -875,7 +883,7 @@ const TicketDocument = ({
                 <Text style={styles.summaryLabel}>DESCUENTO :</Text>
                 <Text style={styles.summaryCurrency}>S/</Text>
                 <Text style={styles.summaryAmount}>
-                  {ticketData.descuento.toFixed(2)}
+                  {formatTicketMoney(ticketData.descuento)}
                 </Text>
               </View>
             )}
@@ -883,14 +891,14 @@ const TicketDocument = ({
               <Text style={styles.summaryLabel}>SUBTOTAL :</Text>
               <Text style={styles.summaryCurrency}>S/</Text>
               <Text style={styles.summaryAmount}>
-                {ticketData.subtotal.toFixed(2)}
+                {formatTicketMoney(ticketData.subtotal)}
               </Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>I.G.V. :</Text>
               <Text style={styles.summaryCurrency}>S/</Text>
               <Text style={styles.summaryAmount}>
-                {ticketData.igv.toFixed(2)}
+                {formatTicketMoney(ticketData.igv)}
               </Text>
             </View>
           </>
@@ -899,7 +907,9 @@ const TicketDocument = ({
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>TOTAL :</Text>
           <Text style={styles.totalCurrency}>S/</Text>
-          <Text style={styles.totalAmount}>{ticketData.total.toFixed(2)}</Text>
+          <Text style={styles.totalAmount}>
+            {formatTicketMoney(ticketData.total)}
+          </Text>
         </View>
 
         <View style={styles.footer}>
@@ -911,14 +921,14 @@ const TicketDocument = ({
             <Text style={styles.pointsLabel}>PVS TOTAL DE VENTA</Text>
             <Text style={styles.pointsArrow}>---&gt;</Text>
             <Text style={styles.pointsAmount}>
-              {ticketData.pvsTotalVenta.toFixed(2)}
+              {formatTicketMoney(ticketData.pvsTotalVenta)}
             </Text>
           </View>
           <View style={styles.pointsRow}>
             <Text style={styles.pointsLabel}>PVS TOTAL DEL MES</Text>
             <Text style={styles.pointsArrow}>---&gt;</Text>
             <Text style={styles.pointsAmount}>
-              {ticketData.pvsTotalMes.toFixed(2)}
+              {formatTicketMoney(ticketData.pvsTotalMes)}
             </Text>
           </View>
         </View>
