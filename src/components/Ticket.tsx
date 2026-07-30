@@ -7,7 +7,7 @@ import {
   Image,
 } from "@react-pdf/renderer";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PosCartItem, PosTotals } from "@/types/pos";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 
@@ -90,6 +90,33 @@ const formatUnitPrefix = (value: unknown): string => {
 
   const abbreviated = raw.slice(0, 3).toUpperCase();
   return `${abbreviated}. `;
+};
+
+const formatTicketMoney = (value: number): string =>
+  Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const splitTicketDescriptionTwoLines = (
+  value: string,
+  topLineMaxChars = 36,
+): [string, string] => {
+  const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) return ["", ""];
+  if (normalized.length <= topLineMaxChars) return [normalized, ""];
+
+  const probe = normalized.slice(0, topLineMaxChars + 1);
+  const lastSpace = probe.lastIndexOf(" ");
+  const cutAt =
+    lastSpace >= Math.floor(topLineMaxChars * 0.5)
+      ? lastSpace
+      : topLineMaxChars;
+
+  return [
+    normalized.slice(0, cutAt).trim(),
+    normalized.slice(cutAt).trim(),
+  ];
 };
 
 const UNITS = [
@@ -301,46 +328,64 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   tableHeaderText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "bold",
   },
   colCant: {
-    width: "18%",
-  },
-  colCantBold: {
-    width: "18%",
-    fontWeight: "bold",
-    fontSize: 12,
+    width: "22%",
   },
   colDesc: {
-    width: "44%",
-  },
-  colDescBold: {
-    width: "44%",
-    fontWeight: "bold",
-    fontSize: 10,
+    width: "30%",
+    paddingLeft: 3,
   },
   colPUni: {
     width: "20%",
     textAlign: "right",
   },
   colImporte: {
-    width: "20%",
+    width: "22%",
     textAlign: "right",
   },
   tableRow: {
+    flexDirection: "row",
     marginBottom: 6,
     fontSize: 9,
+    fontWeight: "bold",
   },
-  productMainRow: {
-    flexDirection: "row",
-  },
-  productMeta: {
-    marginLeft: "18%",
+  tableItemRow: {
+    marginTop: 2,
+    marginBottom: 0,
     fontSize: 9,
+    fontWeight: "bold",
+  },
+  tableItemDescriptionSecondRow: {
+    width: "58%",
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "left",
+  },
+  tableItemDescriptionFull: {
+    width: "78%",
+    paddingLeft: 3,
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "left",
+  },
+  tableItemMetaRow: {
+    flexDirection: "row",
+    marginTop: 3,
+    fontSize: 9,
+    fontWeight: "bold",
+  },
+  tableItemSeparator: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#201e1e",
+    marginTop: 6,
+    marginBottom: 6,
   },
   itemsCount: {
-    fontSize: 8,
+    fontSize: 9,
+    fontWeight: "bold",
     marginTop: 6,
     marginBottom: 6,
   },
@@ -773,21 +818,39 @@ const TicketDocument = ({
           </Text>
         </View>
 
-        {ticketData.items.map((item, index) => (
-          <View key={index} style={styles.tableRow}>
-            <View style={styles.productMainRow}>
-              <Text style={styles.colCantBold}>{item.quantity.toFixed(0)}</Text>
-              <Text style={styles.colDescBold}>
-                {`${formatUnitPrefix(item.unitMeasure)}${item.description}`}
-              </Text>
-              <Text style={styles.colPUni}>{item.unitPrice.toFixed(2)}</Text>
-              <Text style={styles.colImporte}>{item.total.toFixed(2)}</Text>
+        {ticketData.items.map((item, index) => {
+          const pv = Number(item.pv ?? 0).toFixed(2);
+          const sv = Number(item.sv ?? 0).toFixed(2);
+          const [descriptionLine1, descriptionLine2] =
+            splitTicketDescriptionTwoLines(
+              `${formatUnitPrefix(item.unitMeasure)}${item.description} |***|PV:${pv} |***|SV:${sv}`,
+            );
+
+          return (
+            <View key={index}>
+              <View style={styles.tableItemRow}>
+                <View style={styles.tableItemMetaRow}>
+                  <Text style={styles.colCant}>{item.quantity.toFixed(0)}</Text>
+                  <Text style={styles.tableItemDescriptionFull}>
+                    {descriptionLine1}
+                  </Text>
+                </View>
+                <View style={styles.tableItemMetaRow}>
+                  <Text style={styles.tableItemDescriptionSecondRow}>
+                    {descriptionLine2}
+                  </Text>
+                  <Text style={styles.colPUni}>
+                    {formatTicketMoney(item.unitPrice)}
+                  </Text>
+                  <Text style={styles.colImporte}>
+                    {formatTicketMoney(item.total)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.tableItemSeparator} />
             </View>
-            <Text style={styles.productMeta}>
-              {`|***|PV:${Number(item.pv ?? 0).toFixed(2)} |***|SV:${Number(item.sv ?? 0).toFixed(2)}`}
-            </Text>
-          </View>
-        ))}
+          );
+        })}
 
         <Text style={styles.itemsCount}>items: {ticketData.items.length}</Text>
 

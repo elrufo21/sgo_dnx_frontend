@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type KeyboardEvent,
 } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate, useParams } from "react-router";
@@ -26,6 +27,10 @@ import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields"
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import {
+  focusNextInput,
+  focusPreviousInput,
+} from "@/shared/helpers/focusNextInput";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
@@ -490,6 +495,7 @@ export default function HtmlCaptureSalePage() {
   const [manualProductSearch, setManualProductSearch] = useState("");
   const [manualProductSearchFocused, setManualProductSearchFocused] =
     useState(false);
+  const [manualProductIndex, setManualProductIndex] = useState(0);
   const [monthlyPvs, setMonthlyPvs] = useState(0);
   const [correlative, setCorrelative] = useState<Correlative>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -673,6 +679,10 @@ export default function HtmlCaptureSalePage() {
       .slice(0, 20);
   }, [manualProductSearch, products]);
 
+  useEffect(() => {
+    setManualProductIndex(0);
+  }, [manualProductSearch]);
+
   const clientOptions = useMemo(
     () =>
       clients.map((client) => ({
@@ -845,7 +855,7 @@ export default function HtmlCaptureSalePage() {
     [addClient, applyClient, closeDialog, fetchClients, session.username],
   );
 
-  const handleAddManualProduct = async () => {
+  const handleAddManualProduct = async (selectedProduct?: Product) => {
     if (isReadOnly) {
       toast.error("Este registro solo se puede visualizar.");
       return;
@@ -855,13 +865,13 @@ export default function HtmlCaptureSalePage() {
       return;
     }
     const query = safeTrim(manualProductSearch);
-    if (!query) {
+    if (!query && !selectedProduct) {
       toast.error("Seleccione un producto.");
       return;
     }
 
     let source = products;
-    if (!source.length) {
+    if (!source.length && !selectedProduct) {
       await fetchProducts("");
       source = useProductsStore.getState().products;
     }
@@ -870,6 +880,7 @@ export default function HtmlCaptureSalePage() {
     const queryText = normalizeLabelText(query);
     const compactQuery = compactSearchText(query);
     const product =
+      selectedProduct ??
       productByCode.get(queryCode) ??
       source.find((item) => {
         const code = normalizeCode(item.codigo);
@@ -896,8 +907,60 @@ export default function HtmlCaptureSalePage() {
       );
     });
     setManualProductSearch("");
+    setManualProductSearchFocused(false);
     setLastTicket(null);
     setActiveTab("sale");
+  };
+
+  const handleManualProductKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setManualProductSearchFocused(true);
+      setManualProductIndex((index) =>
+        Math.min(index + 1, Math.max(filteredManualProducts.length - 1, 0)),
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setManualProductIndex((index) => Math.max(index - 1, 0));
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      focusPreviousInput(event.currentTarget);
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      focusNextInput(event.currentTarget);
+      return;
+    }
+
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const product = filteredManualProducts[manualProductIndex];
+    void handleAddManualProduct(product);
+  };
+
+  const handleNumberInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusPreviousInput(event.currentTarget);
+      return;
+    }
+
+    if (
+      event.key === "ArrowDown" ||
+      event.key === "ArrowRight" ||
+      event.key === "Enter"
+    ) {
+      event.preventDefault();
+      focusNextInput(event.currentTarget);
+    }
   };
 
   const handleRemoveRow = (code: string) => {
@@ -1239,7 +1302,8 @@ export default function HtmlCaptureSalePage() {
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const message = event.data as
-        { type?: string; payload?: CaptureData } | undefined;
+        | { type?: string; payload?: CaptureData }
+        | undefined;
       if (message?.type !== "SGO_DXN_CAPTURE") return;
       if (!message.payload?.lines?.length) return;
       const key = JSON.stringify(message.payload);
@@ -1489,10 +1553,10 @@ export default function HtmlCaptureSalePage() {
     let saleClient = selectedClient ?? findClientFromForm();
     const hasCapturedClientData = Boolean(
       safeTrim(form.customerName) ||
-        safeTrim(form.customerDoc) ||
-        safeTrim(form.customerEmail) ||
-        safeTrim(form.customerRuc) ||
-        safeTrim(form.memberCode),
+      safeTrim(form.customerDoc) ||
+      safeTrim(form.customerEmail) ||
+      safeTrim(form.customerRuc) ||
+      safeTrim(form.memberCode),
     );
 
     if (
@@ -1905,7 +1969,7 @@ export default function HtmlCaptureSalePage() {
             />
             <button
               type="button"
-              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
               onClick={() => fileInputRef.current?.click()}
               disabled={loading || isSaving || isReadOnly}
             >
@@ -1914,7 +1978,7 @@ export default function HtmlCaptureSalePage() {
             </button>
             <button
               type="button"
-              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
               onClick={clearForm}
               disabled={isSaving || isReadOnly}
             >
@@ -1924,7 +1988,7 @@ export default function HtmlCaptureSalePage() {
             {lastTicket ? (
               <button
                 type="button"
-                className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:flex-none"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium leading-none text-slate-700 transition-colors hover:bg-slate-50 sm:flex-none"
                 onClick={printTicket}
               >
                 <Printer className="h-4 w-4" />
@@ -1933,7 +1997,7 @@ export default function HtmlCaptureSalePage() {
             ) : null}
             <button
               type="button"
-              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-red-800 px-4 text-sm font-medium text-white transition-colors hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-red-800 bg-red-800 px-4 text-sm font-medium leading-none text-white transition-colors hover:border-red-900 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
               onClick={registerSale}
               disabled={
                 isSaving ||
@@ -2003,10 +2067,9 @@ export default function HtmlCaptureSalePage() {
                       )
                     }
                     onKeyDown={(event) => {
-                      if (event.key !== "Enter") return;
-                      event.preventDefault();
-                      void handleAddManualProduct();
+                      handleManualProductKeyDown(event);
                     }}
+                    data-auto-next="true"
                     disabled={
                       loading || isSaving || isReadOnly || isCapturedSale
                     }
@@ -2018,12 +2081,15 @@ export default function HtmlCaptureSalePage() {
                           <button
                             key={product.id}
                             type="button"
-                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50"
+                            className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50 ${
+                              filteredManualProducts[manualProductIndex]?.id ===
+                              product.id
+                                ? "bg-slate-100"
+                                : ""
+                            }`}
                             onMouseDown={(event) => {
                               event.preventDefault();
-                              const value = `${product.codigo} - ${product.nombre}`;
-                              setManualProductSearch(value);
-                              setManualProductSearchFocused(false);
+                              void handleAddManualProduct(product);
                             }}
                           >
                             <span className="min-w-0">
@@ -2057,7 +2123,7 @@ export default function HtmlCaptureSalePage() {
                 <button
                   type="button"
                   className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={handleAddManualProduct}
+                  onClick={() => void handleAddManualProduct()}
                   disabled={loading || isSaving || isReadOnly || isCapturedSale}
                 >
                   <Plus className="h-4 w-4" />
@@ -2122,12 +2188,14 @@ export default function HtmlCaptureSalePage() {
                               min="0"
                               step="1"
                               value={row.quantity}
+                              data-auto-next="true"
                               onChange={(event) =>
                                 handleRowQuantityChange(
                                   row.code,
                                   event.currentTarget.value,
                                 )
                               }
+                              onKeyDown={handleNumberInputKeyDown}
                               disabled={
                                 isSaving || isReadOnly || isCapturedSale
                               }
@@ -2140,12 +2208,14 @@ export default function HtmlCaptureSalePage() {
                               min="0"
                               step="0.01"
                               value={row.price}
+                              data-auto-next="true"
                               onChange={(event) =>
                                 handleRowPriceChange(
                                   row.code,
                                   event.currentTarget.value,
                                 )
                               }
+                              onKeyDown={handleNumberInputKeyDown}
                               disabled={
                                 isSaving || isReadOnly || isCapturedSale
                               }

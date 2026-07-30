@@ -522,7 +522,8 @@ const PaymentPage = () => {
     () =>
       state && typeof state === "object"
         ? ((state as Record<string, unknown>).htmlCapture as
-            Record<string, unknown> | undefined)
+            | Record<string, unknown>
+            | undefined)
         : undefined,
     [state],
   );
@@ -1133,7 +1134,10 @@ const PaymentPage = () => {
     defaultValues: {
       docTypeCode: "SELECCIONAR" as "03" | "01" | "101" | "SELECCIONAR",
       paymentMethod: "EFECTIVO" as
-        "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "YAPE",
+        | "EFECTIVO"
+        | "TARJETA"
+        | "TRANSFERENCIA"
+        | "YAPE",
       clienteId: null as number | null,
       customerName: "",
       customerId: "",
@@ -1656,7 +1660,8 @@ const PaymentPage = () => {
     notaDocuRaw: string,
   ) => {
     if (!sourceItems.length) return false;
-    if (safeTrim(notaDocuRaw).toUpperCase().includes("PROFORMA")) return false;
+    if (safeTrim(notaDocuRaw).toUpperCase().includes("PROFORMA V"))
+      return false;
 
     const rawDetailTotal = roundCurrency(
       sourceItems.reduce(
@@ -4240,11 +4245,13 @@ const PaymentPage = () => {
       toast.info("Solo se puede reenviar cuando el estado SUNAT es RECHAZADO.");
       return;
     }
-    if (!(
-      resolvedDocTypeCodeForResend === "01" ||
-      resolvedDocTypeCodeForResend === "03" ||
-      resolvedDocTypeCodeForResend === "07"
-    )) {
+    if (
+      !(
+        resolvedDocTypeCodeForResend === "01" ||
+        resolvedDocTypeCodeForResend === "03" ||
+        resolvedDocTypeCodeForResend === "07"
+      )
+    ) {
       toast.info(
         "Reenvío disponible solo para factura, boleta o nota de crédito.",
       );

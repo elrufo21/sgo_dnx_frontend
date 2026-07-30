@@ -450,7 +450,7 @@ export function SaleCaptureFormFields({
             label="Documento"
             disabled={disabled}
             options={[
-              { value: "101", label: "PROFORMA" },
+              { value: "101", label: "PROFORMA V" },
               { value: "03", label: "BOLETA" },
               { value: "01", label: "FACTURA" },
             ]}
@@ -669,7 +669,7 @@ export function SaleCaptureFormFields({
               name="customerEmail"
               label="Correo"
               type="email"
-              disabled={disabled}
+              disabled
               placeholder="Correo del cliente"
             />
           </div>

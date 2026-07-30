@@ -97,15 +97,19 @@ const isCreditNoteDocument = (value: unknown) => {
 };
 
 const isProformaVDocument = (value: unknown) => {
-  const normalized = String(splitDocumentLabel(value).tipoDocumento || value || "")
+  const normalized = String(
+    splitDocumentLabel(value).tipoDocumento || value || "",
+  )
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase();
-  return normalized.includes("PROFORMA");
+  return normalized.includes("PROFORMA V");
 };
 
 const isProformaVTypeForExport = (value: unknown) => {
-  const normalized = String(splitDocumentLabel(value).tipoDocumento || value || "")
+  const normalized = String(
+    splitDocumentLabel(value).tipoDocumento || value || "",
+  )
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
