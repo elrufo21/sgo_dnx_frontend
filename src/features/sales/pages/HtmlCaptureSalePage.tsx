@@ -221,6 +221,7 @@ const money = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+const safeRowNumber = (value: number) => (Number.isFinite(value) ? value : 0);
 const localDate = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -903,7 +904,9 @@ export default function HtmlCaptureSalePage() {
       const existing = current.findIndex((row) => row.code === product.codigo);
       if (existing < 0) return [...current, productToRow(product, 1)];
       return current.map((row, index) =>
-        index === existing ? { ...row, quantity: row.quantity + 1 } : row,
+        index === existing
+          ? { ...row, quantity: safeRowNumber(row.quantity) + 1 }
+          : row,
       );
     });
     setManualProductSearch("");
@@ -970,7 +973,8 @@ export default function HtmlCaptureSalePage() {
   };
 
   const handleRowQuantityChange = (code: string, value: string) => {
-    const quantity = Math.max(0, Number(value) || 0);
+    const quantity =
+      value === "" ? Number.NaN : Math.max(0, Number(value) || 0);
     setRows((current) =>
       current.map((row) => (row.code === code ? { ...row, quantity } : row)),
     );
@@ -978,7 +982,7 @@ export default function HtmlCaptureSalePage() {
   };
 
   const handleRowPriceChange = (code: string, value: string) => {
-    const price = Math.max(0, Number(value) || 0);
+    const price = value === "" ? Number.NaN : Math.max(0, Number(value) || 0);
     setRows((current) =>
       current.map((row) => (row.code === code ? { ...row, price } : row)),
     );
@@ -1227,7 +1231,8 @@ export default function HtmlCaptureSalePage() {
 
   const totals = useMemo(() => {
     const subtotal = rows.reduce(
-      (sum, row) => sum + row.quantity * row.price,
+      (sum, row) =>
+        sum + safeRowNumber(row.quantity) * safeRowNumber(row.price),
       0,
     );
     const discount = Math.min(capture?.discount ?? 0, subtotal);
@@ -1238,8 +1243,14 @@ export default function HtmlCaptureSalePage() {
       base: total / 1.18,
       igv: total - total / 1.18,
       total,
-      pv: rows.reduce((sum, row) => sum + row.pv * row.quantity, 0),
-      sv: rows.reduce((sum, row) => sum + row.sv * row.quantity, 0),
+      pv: rows.reduce(
+        (sum, row) => sum + row.pv * safeRowNumber(row.quantity),
+        0,
+      ),
+      sv: rows.reduce(
+        (sum, row) => sum + row.sv * safeRowNumber(row.quantity),
+        0,
+      ),
     };
   }, [capture?.discount, rows]);
 
@@ -1250,9 +1261,9 @@ export default function HtmlCaptureSalePage() {
         codigo: row.code,
         nombre: row.description,
         unidadMedida: row.product.unidadMedida || "UNIDAD",
-        precio: row.price,
-        precioMinimo: row.price,
-        cantidad: row.quantity,
+        precio: safeRowNumber(row.price),
+        precioMinimo: safeRowNumber(row.price),
+        cantidad: safeRowNumber(row.quantity),
         valorUM: 1,
         pv: row.pv,
         sv: row.sv,
@@ -1545,6 +1556,14 @@ export default function HtmlCaptureSalePage() {
       });
       return;
     }
+    if (
+      rows.some(
+        (row) => !Number.isFinite(row.quantity) || !Number.isFinite(row.price),
+      )
+    ) {
+      toast.error("Completa cantidad y precio de los productos.");
+      return;
+    }
 
     if (!selectedClient && !clients.length) {
       await fetchClients("");
@@ -1639,14 +1658,22 @@ export default function HtmlCaptureSalePage() {
           },
           detalles: rows.map((row) => ({
             idProducto: row.product.id,
-            detalleCantidad: row.quantity,
+            detalleCantidad: safeRowNumber(row.quantity),
             detalleUm: row.product.unidadMedida || "UNIDAD",
             detalleDescripcion: row.description,
             detalleCosto: row.cost,
-            detallePrecio: row.price,
-            detallePV: Number((row.pv * row.quantity).toFixed(2)),
-            detalleSV: Number((row.sv * row.quantity).toFixed(2)),
-            detalleImporte: Number((row.price * row.quantity).toFixed(2)),
+            detallePrecio: safeRowNumber(row.price),
+            detallePV: Number(
+              (row.pv * safeRowNumber(row.quantity)).toFixed(2),
+            ),
+            detalleSV: Number(
+              (row.sv * safeRowNumber(row.quantity)).toFixed(2),
+            ),
+            detalleImporte: Number(
+              (safeRowNumber(row.price) * safeRowNumber(row.quantity)).toFixed(
+                2,
+              ),
+            ),
             detalleEstado: "PENDIENTE",
             valorUM: 1,
           })),
@@ -2011,7 +2038,7 @@ export default function HtmlCaptureSalePage() {
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
-              {isSaving ? "Registrando..." : "Registrar y descargar ticket"}
+              {isSaving ? "Confirmando..." : "Confirmar"}
             </button>
           </div>
 
@@ -2187,7 +2214,11 @@ export default function HtmlCaptureSalePage() {
                               type="number"
                               min="0"
                               step="1"
-                              value={row.quantity}
+                              value={
+                                Number.isFinite(row.quantity)
+                                  ? row.quantity
+                                  : ""
+                              }
                               data-auto-next="true"
                               onChange={(event) =>
                                 handleRowQuantityChange(
@@ -2207,7 +2238,9 @@ export default function HtmlCaptureSalePage() {
                               type="number"
                               min="0"
                               step="0.01"
-                              value={row.price}
+                              value={
+                                Number.isFinite(row.price) ? row.price : ""
+                              }
                               data-auto-next="true"
                               onChange={(event) =>
                                 handleRowPriceChange(
@@ -2226,13 +2259,16 @@ export default function HtmlCaptureSalePage() {
                             {money(row.pv)}
                           </td>
                           <td className="px-4 py-2 text-right font-medium text-slate-700">
-                            {money(row.pv * row.quantity)}
+                            {money(row.pv * safeRowNumber(row.quantity))}
                           </td>
                           <td className="px-4 py-2 text-right text-slate-500">
-                            {money(row.sv * row.quantity)}
+                            {money(row.sv * safeRowNumber(row.quantity))}
                           </td>
                           <td className="px-4 py-2 text-right font-semibold text-slate-800">
-                            {money(row.price * row.quantity)}
+                            {money(
+                              safeRowNumber(row.price) *
+                                safeRowNumber(row.quantity),
+                            )}
                           </td>
                           <td className="px-4 py-2 text-right">
                             <button
@@ -2281,6 +2317,7 @@ export default function HtmlCaptureSalePage() {
                     clientOptions={clientOptions}
                     disabled={isSaving || isReadOnly}
                     correlative={correlative?.nroComprobante}
+                    preserveMissingClientData={isCapturedSale}
                     onClientSelected={applyClient}
                     onCreateClient={
                       isReadOnly ? undefined : handleOpenCreateClientModal

@@ -54,6 +54,7 @@ interface SaleCaptureFormFieldsProps {
   clientOptions: ClientOption[];
   disabled?: boolean;
   correlative?: string;
+  preserveMissingClientData?: boolean;
   onClientSelected?: (client: Client | null) => void;
   onCreateClient?: () => void;
   onSearchClients?: (search: string) => void;
@@ -92,6 +93,7 @@ export function SaleCaptureFormFields({
   clientOptions,
   disabled = false,
   correlative,
+  preserveMissingClientData = false,
   onClientSelected,
   onCreateClient,
   onSearchClients,
@@ -359,10 +361,9 @@ export function SaleCaptureFormFields({
       applyClientSelection(match.client);
       return;
     }
-    toast.error(
-      "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.",
-    );
-    clearCustomerSelection();
+    if (selectOnlyCustomerMatch(label)) return;
+    if (filterByClientData(customerNameOptions, label).length > 0) return;
+    handleMissingCustomer();
   };
 
   const handleCustomerCodeBlur = ({ inputValue }: { inputValue: string }) => {
@@ -372,16 +373,28 @@ export function SaleCaptureFormFields({
       normalizedClientOptions.find(
         (opt) => normalizeSearchText(opt.code) === normalizeSearchText(code),
       )?.client ?? null;
-    applyClientSelection(match);
+    if (match) {
+      applyClientSelection(match);
+      return;
+    }
+    handleMissingCustomer();
   };
 
   const clearCustomerSelection = () => {
+    setValue("memberCode", "", { shouldDirty: true });
     setValue("customerName", "", { shouldDirty: true });
     setValue("customerDoc", "", { shouldDirty: true });
     setValue("customerRuc", "", { shouldDirty: true });
     setValue("customerEmail", "", { shouldDirty: true });
     setValue("address", "", { shouldDirty: true });
     onClientSelected?.(null);
+  };
+
+  const handleMissingCustomer = () => {
+    toast.error(
+      "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.",
+    );
+    if (!preserveMissingClientData) clearCustomerSelection();
   };
 
   const selectOnlyCustomerMatch = (inputValue: string) => {
@@ -437,7 +450,7 @@ export function SaleCaptureFormFields({
       toast.error(
         `El ${type === "ruc" ? "RUC" : "DNI"} no existe. Agrega el cliente y seleccionalo.`,
       );
-      clearCustomerSelection();
+      if (!preserveMissingClientData) clearCustomerSelection();
     };
 
   return (
