@@ -495,6 +495,7 @@ export default function HtmlCaptureSalePage() {
   const externalCaptureKeyRef = useRef("");
   const appliedCaptureKeyRef = useRef("");
   const loadedRouteKeyRef = useRef("");
+  const registerSaleRef = useRef(false);
   const { products, fetchProducts, loading } = useProductsStore();
   const {
     clients,
@@ -515,6 +516,7 @@ export default function HtmlCaptureSalePage() {
   const [correlative, setCorrelative] = useState<Correlative>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
+  const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
   const [activeTab, setActiveTab] = useState<"sale" | "ticket" | "list">(
     isExistingRoute ? "ticket" : "sale",
   );
@@ -528,6 +530,8 @@ export default function HtmlCaptureSalePage() {
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
   const isCapturedSale = Boolean(capture);
+  const saleType = isCapturedSale ? "CASHBILL" : "VENTA LIBRE";
+  const saleTypeForDatabase = isCapturedSale ? "VENTA" : "VENTA LIBRE";
 
   const resetDraft = useCallback(() => {
     externalCaptureKeyRef.current = "";
@@ -538,6 +542,7 @@ export default function HtmlCaptureSalePage() {
     setManualProductSearch("");
     setMonthlyPvs(0);
     setLastTicket(null);
+    setFreeSaleReasonAsked(false);
     setActiveTab("sale");
     formMethods.reset(defaultForm);
   }, [formMethods]);
@@ -914,6 +919,7 @@ export default function HtmlCaptureSalePage() {
       return;
     }
 
+    const shouldAskFreeSaleReason = !freeSaleReasonAsked && rows.length === 0;
     setRows((current) => {
       const existing = current.findIndex((row) => row.code === product.codigo);
       if (existing < 0) return [...current, productToRow(product, 1)];
@@ -927,6 +933,33 @@ export default function HtmlCaptureSalePage() {
     setManualProductSearchFocused(false);
     setLastTicket(null);
     setActiveTab("sale");
+    if (shouldAskFreeSaleReason) {
+      setFreeSaleReasonAsked(true);
+      openDialog({
+        title: "",
+        content: (
+          <div className="space-y-4 py-1">
+            <p className="text-center text-xl font-black uppercase text-orange-500">
+              PORQUE NO CAPTURAS DEL OBS?
+            </p>
+            <div className="space-y-3 text-sm font-semibold text-slate-700">
+              <label className="flex items-center gap-3">
+                <input type="radio" name="free-sale-reason" />
+                POR PASAR AL OBS
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="radio" name="free-sale-reason" />
+                VENTA LIBRE (SIN CODIGO)
+              </label>
+            </div>
+          </div>
+        ),
+        confirmText: "Aceptar",
+        cancelText: "Ignorar",
+        onConfirm: () => true,
+        maxWidth: "xs",
+      });
+    }
   };
 
   const handleManualProductKeyDown = (
@@ -1491,7 +1524,7 @@ export default function HtmlCaptureSalePage() {
       operationNumber={form.operationNumber}
       memberCode={form.memberCode}
       transactionNumber={form.transactionNumber}
-      saleType="CASH BILL"
+      saleType={saleType}
       items={cartItems}
       totals={{
         subTotal: totals.subtotal,
@@ -1610,6 +1643,9 @@ export default function HtmlCaptureSalePage() {
       return;
     }
 
+    if (registerSaleRef.current) return;
+    registerSaleRef.current = true;
+
     if (!selectedClient && !clients.length) {
       await fetchClients("");
     }
@@ -1630,12 +1666,16 @@ export default function HtmlCaptureSalePage() {
       hasCapturedClientData
     ) {
       saleClient = await createClientFromCapturedForm();
-      if (!saleClient) return;
+      if (!saleClient) {
+        registerSaleRef.current = false;
+        return;
+      }
     }
 
     const error = validate(saleClient);
     if (error) {
       toast.error(error);
+      registerSaleRef.current = false;
       return;
     }
 
@@ -1649,6 +1689,7 @@ export default function HtmlCaptureSalePage() {
       toast.error(
         "Para Factura debes registrar o seleccionar el cliente con + Cliente.",
       );
+      registerSaleRef.current = false;
       return;
     }
 
@@ -1694,7 +1735,7 @@ export default function HtmlCaptureSalePage() {
             notaTransaccion: form.transactionNumber,
             miembro: form.customerName || "VARIOS",
             codigoCliente: form.memberCode,
-            conceptoOBS: "VENTA",
+            conceptoOBS: saleTypeForDatabase,
             estadoOBS: "EMITIDO",
             pv: `${Number(totals.pv.toFixed(2))} PV`,
             image: "",
@@ -1781,6 +1822,7 @@ export default function HtmlCaptureSalePage() {
       toast.error("No se pudo registrar la venta.");
     } finally {
       setIsSaving(false);
+      registerSaleRef.current = false;
     }
   };
 
@@ -2091,13 +2133,15 @@ export default function HtmlCaptureSalePage() {
             {/* Productos capturados */}
             <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
               <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
-                <h2 className="mr-auto text-sm font-semibold text-slate-700">
-                  Productos de venta
-                  {rows.length > 0 && (
-                    <span className="ml-2 font-normal text-slate-400">
-                      ({integer(rows.length)})
+                <h2 className="mr-auto">
+                  <span className="block rounded-md border border-red-200 bg-red-50 px-4 py-2">
+                    <span className="block text-[10px] font-semibold uppercase text-red-300">
+                      Tipo venta
                     </span>
-                  )}
+                    <span className="block text-center text-sm font-black uppercase text-red-700">
+                      {saleType}
+                    </span>
+                  </span>
                 </h2>
                 <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
                   <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
