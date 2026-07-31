@@ -15,6 +15,7 @@ type FetchClientsParams =
 interface ClientsState {
   clients: Client[];
   totalClients: number;
+  allClientsLoaded: boolean;
   loading: boolean;
   fetchClients: (params?: FetchClientsParams) => Promise<void>;
   searchClients: (
@@ -255,9 +256,29 @@ const mergeClients = (current: Client[], incoming: Client[]) => {
   return Array.from(map.values());
 };
 
-export const useClientsStore = create<ClientsState>((set) => ({
+const normalizeClientSearch = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const filterClients = (clients: Client[], term: string, estado: string) => {
+  const tokens = normalizeClientSearch(term).split(/\s+/).filter(Boolean);
+  const estadoFilter = estado.trim();
+  return clients.filter((client) => {
+    if (estadoFilter && client.estado !== estadoFilter) return false;
+    const haystack = normalizeClientSearch(
+      `${client.clienteCodigo} ${client.nombreRazon} ${client.ruc} ${client.dni} ${client.telefonoMovil} ${client.email}`,
+    );
+    return tokens.every((token) => haystack.includes(token));
+  });
+};
+
+export const useClientsStore = create<ClientsState>((set, get) => ({
   clients: [],
   totalClients: 0,
+  allClientsLoaded: false,
   loading: false,
 
   fetchClients: async (params = "ACTIVO") => {
@@ -279,7 +300,12 @@ export const useClientsStore = create<ClientsState>((set) => ({
             const clients = parseComboClients(response);
             return { items: clients, total: clients.length };
           })();
-      set({ clients: items, totalClients: total, loading: false });
+      set({
+        clients: items,
+        totalClients: total,
+        allClientsLoaded: !paged,
+        loading: false,
+      });
     } catch (error) {
       console.error("Error loading clients", error);
       set({ loading: false });
@@ -289,6 +315,10 @@ export const useClientsStore = create<ClientsState>((set) => ({
   searchClients: async (search, estado = "ACTIVO", pageSize = 20) => {
     const term = search.trim();
     if (term.length < 2) return [];
+    const current = get().clients;
+    if (get().allClientsLoaded) {
+      return filterClients(current, term, estado).slice(0, pageSize);
+    }
     const response = await apiRequest<unknown>({
       url: buildClientListUrl({ estado, search: term, page: 1, pageSize }),
       method: "GET",
