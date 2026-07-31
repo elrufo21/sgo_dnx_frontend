@@ -12,8 +12,11 @@ import {
   Landmark,
   ReceiptText,
   FileInput,
+  Bell,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildApiUrl } from "@/config";
+import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import UserFormBase from "@/components/UserFormBase";
 import { PASSWORD_EXPIRATION_LOCK_ENABLED } from "@/config";
@@ -31,6 +34,7 @@ export default function MainLayout() {
   const [open, setOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [pagoVariosCount, setPagoVariosCount] = useState(0);
   const userMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const [search, setSearch] = useState(""); // 🔍 buscador
   const { pathname } = useLocation();
@@ -155,6 +159,36 @@ export default function MainLayout() {
     const role = String(record?.role ?? "").trim();
     return role || "Sesión activa";
   }, [user]);
+  const usuarioId = Number(user?.id ?? 0) || 0;
+
+  useEffect(() => {
+    if (!usuarioId) {
+      setPagoVariosCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchCount = async () => {
+      const query = new URLSearchParams({
+        usuarioId: String(usuarioId),
+        usuario: user?.displayName ?? user?.username ?? "",
+      });
+      const result = (await apiRequest<{ count?: number }>({
+        url: buildApiUrl(`/Nota/pago-varios/count?${query.toString()}`),
+        fallback: { count: 0 },
+      })) as { count?: number };
+      if (!cancelled) setPagoVariosCount(Number(result?.count ?? 0) || 0);
+    };
+
+    void fetchCount();
+    const timer = window.setInterval(fetchCount, 30000);
+    window.addEventListener("sgo:pago-varios-updated", fetchCount);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("sgo:pago-varios-updated", fetchCount);
+    };
+  }, [usuarioId, user?.displayName, user?.username]);
 
   const passwordExpirationDateLabel = useMemo(() => {
     if (!passwordExpiresAt) return "fecha no disponible";
@@ -615,41 +649,60 @@ export default function MainLayout() {
               </h2>
             </div>
 
-            <div ref={userMenuContainerRef} className="relative shrink-0">
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setUserMenuOpen((prev) => !prev)}
-                className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2 py-1.5 shadow-sm backdrop-blur-sm transition-colors hover:bg-white/20 sm:gap-3 sm:px-3 sm:py-2"
-                aria-expanded={userMenuOpen}
-                aria-haspopup="menu"
+                type="button"
+                className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
+                onClick={() =>
+                  navigate("/sales/html_capture/new?pagoVarios=1")
+                }
+                title="Pago varios"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-900 sm:h-9 sm:w-9">
-                  {userInitial}
-                </div>
-                <div className="hidden min-w-0 sm:flex flex-col text-left leading-tight text-white">
-                  <span className="text-sm font-semibold">
-                    {user?.displayName ?? user?.username ?? "Usuario"}
+                <Bell size={17} />
+                <span className="hidden sm:inline">Pago V</span>
+                {pagoVariosCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[11px] leading-none text-white">
+                    {pagoVariosCount}
                   </span>
-                  <span className="text-[11px] text-slate-200">
-                    {userSessionLabel}
-                  </span>
-                </div>
-                <ChevronDown size={16} className="text-white/80" />
+                ) : null}
               </button>
 
-              {userMenuOpen && (
-                <div className="absolute right-0 z-50 mt-2 w-44 rounded-lg border border-slate-100 bg-white text-slate-800 shadow-lg">
-                  <button
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50"
-                    onClick={() => {
-                      setUserMenuOpen(false);
-                      logout();
-                      navigate("/login", { replace: true });
-                    }}
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              )}
+              <div ref={userMenuContainerRef} className="relative shrink-0">
+                <button
+                  onClick={() => setUserMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2 py-1.5 shadow-sm backdrop-blur-sm transition-colors hover:bg-white/20 sm:gap-3 sm:px-3 sm:py-2"
+                  aria-expanded={userMenuOpen}
+                  aria-haspopup="menu"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-900 sm:h-9 sm:w-9">
+                    {userInitial}
+                  </div>
+                  <div className="hidden min-w-0 sm:flex flex-col text-left leading-tight text-white">
+                    <span className="text-sm font-semibold">
+                      {user?.displayName ?? user?.username ?? "Usuario"}
+                    </span>
+                    <span className="text-[11px] text-slate-200">
+                      {userSessionLabel}
+                    </span>
+                  </div>
+                  <ChevronDown size={16} className="text-white/80" />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 z-50 mt-2 w-44 rounded-lg border border-slate-100 bg-white text-slate-800 shadow-lg">
+                    <button
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        logout();
+                        navigate("/login", { replace: true });
+                      }}
+                    >
+                      Cerrar sesión
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>

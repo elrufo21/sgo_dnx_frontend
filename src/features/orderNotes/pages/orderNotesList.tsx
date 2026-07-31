@@ -8,7 +8,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { esES } from "@mui/x-date-pickers/locales";
-import { createColumnHelper } from "@tanstack/react-table";
+import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
 import { Workbook } from "exceljs";
@@ -583,7 +583,7 @@ const OrderNotesList = () => {
       </div>
 
       <DataTable
-        columns={columns}
+        columns={columns as ColumnDef<OrderNote, unknown>[]}
         data={notes}
         isLoading={loading}
         filterKeys={[

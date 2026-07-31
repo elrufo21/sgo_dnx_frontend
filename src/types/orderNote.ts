@@ -16,6 +16,8 @@ export interface OrderNoteApiItem {
   ClienteId?: string | number | null;
   clienteRazon?: string | null;
   ClienteRazon?: string | null;
+  miembro?: string | null;
+  Miembro?: string | null;
   formaPago?: string | null;
   notaFormaPago?: string | null;
   NotaFormaPago?: string | null;
@@ -34,6 +36,8 @@ export interface OrderNoteApiItem {
   estado?: string | null;
   notaEstado?: string | null;
   NotaEstado?: string | null;
+  estadoOBS?: string | null;
+  EstadoOBS?: string | null;
   estadoSunat?: string | null;
   EstadoSunat?: string | null;
   notaEstadoSunat?: string | null;

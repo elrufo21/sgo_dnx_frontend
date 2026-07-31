@@ -17,7 +17,7 @@ type SaleCaptureFormValues = {
   concept: "MERCADERIA" | "SERVICIO";
   docTypeCode: "03" | "01" | "101";
   correlativeDisplay: string;
-  condition: "ALCONTADO" | "CREDITO";
+  condition: "ALCONTADO" | "CREDITO" | "PAGO/VARIOS";
   delivery: "INMEDIATA" | "POR ENTREGAR";
   emissionDate: string;
   paymentMethod:
@@ -103,6 +103,7 @@ export function SaleCaptureFormFields({
     control,
   }) as SaleCaptureFormValues;
   const paymentMethod = values.paymentMethod ?? "EFECTIVO";
+  const isPagoVarios = values.condition === "PAGO/VARIOS";
   const paymentNeedsOperation = !["(SELECCIONE)", "EFECTIVO", "-"].includes(
     paymentMethod,
   );
@@ -505,13 +506,14 @@ export function SaleCaptureFormFields({
             options={[
               { value: "ALCONTADO", label: "AL CONTADO" },
               { value: "CREDITO", label: "CRÉDITO" },
+              { value: "PAGO/VARIOS", label: "PAGO/VARIOS" },
             ]}
           />
           <div className="sm:col-span-1">
             <HookFormSelect<SaleCaptureFormValues>
               name="paymentMethod"
               label="Forma pago"
-              disabled={disabled}
+              disabled={disabled || isPagoVarios}
               options={[
                 { value: "(SELECCIONE)", label: "(SELECCIONE)" },
                 { value: "EFECTIVO", label: "EFECTIVO" },
@@ -540,7 +542,7 @@ export function SaleCaptureFormFields({
           <HookFormSelect<SaleCaptureFormValues>
             name="bankEntity"
             label="Entidad"
-            disabled={disabled || !paymentNeedsOperation}
+            disabled={disabled || isPagoVarios || !paymentNeedsOperation}
             options={[
               { value: "-", label: "-" },
               { value: "BCP", label: "BCP" },
@@ -552,7 +554,7 @@ export function SaleCaptureFormFields({
           <HookFormInput<SaleCaptureFormValues>
             name="operationNumber"
             label="Nro Operación"
-            disabled={disabled || !paymentNeedsOperation}
+            disabled={disabled || isPagoVarios || !paymentNeedsOperation}
             placeholder="Número"
           />
         </div>

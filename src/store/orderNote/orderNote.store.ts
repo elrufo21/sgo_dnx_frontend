@@ -18,7 +18,7 @@ interface OrderNoteState {
   updateNoteDetail: (
     noteId: number,
     formData: Omit<SendNote, "id">,
-    current: SendNote
+    current: SendNote,
   ) => Promise<boolean>;
 }
 
@@ -92,7 +92,7 @@ const mapFormaPagoToOption = (formaPagoValue: string) => {
 
 const mapFormDocTypeToNotaDocu = (
   tipoDocumentoValue: string,
-  current?: SendNote
+  current?: SendNote,
 ) => {
   const normalized = normalizeLower(tipoDocumentoValue);
   if (normalized === "03" || normalized.includes("boleta")) return "BOLETA";
@@ -107,7 +107,11 @@ const mapFormFormaPagoToNotaFormaPago = (formaPagoValue: string) => {
   if (normalized.includes("efect")) return "CONTADO";
   if (normalized.includes("depo")) return "DEPOSITO";
   if (normalized.includes("trans")) return "TRANSFERENCIA";
-  return String(formaPagoValue ?? "").trim().toUpperCase() || "CONTADO";
+  return (
+    String(formaPagoValue ?? "")
+      .trim()
+      .toUpperCase() || "CONTADO"
+  );
 };
 
 const resolveSessionUsername = () => {
@@ -128,7 +132,10 @@ const resolveSessionUsername = () => {
   }
 };
 
-const mapApiToOrderNote = (item: OrderNoteApiItem, index: number): OrderNote => {
+const mapApiToOrderNote = (
+  item: OrderNoteApiItem,
+  index: number,
+): OrderNote => {
   const notaId = normalizeText(item?.notaId ?? item?.NotaId, "0");
   const notaDocu = normalizeText(
     item?.notaDocu ?? item?.NotaDocu ?? item?.documento,
@@ -152,14 +159,21 @@ const mapApiToOrderNote = (item: OrderNoteApiItem, index: number): OrderNote => 
     "",
   );
   const rawCliente = normalizeText(
-    item?.clienteRazon ?? item?.ClienteRazon ?? item?.cliente,
+    item?.clienteRazon ??
+      item?.ClienteRazon ??
+      item?.miembro ??
+      item?.Miembro ??
+      item?.cliente,
     "",
   );
   const rawFormaPago = normalizeText(
     item?.notaFormaPago ?? item?.NotaFormaPago ?? item?.formaPago,
     "",
   );
-  const rawTotal = normalizeText(item?.notaTotal ?? item?.NotaTotal ?? item?.total, "");
+  const rawTotal = normalizeText(
+    item?.notaTotal ?? item?.NotaTotal ?? item?.total,
+    "",
+  );
   const rawAcuenta = normalizeText(
     item?.notaAcuenta ?? item?.NotaAcuenta ?? item?.acuenta,
     "0.00",
@@ -173,7 +187,11 @@ const mapApiToOrderNote = (item: OrderNoteApiItem, index: number): OrderNote => 
     "",
   );
   const rawEstado = normalizeText(
-    item?.notaEstado ?? item?.NotaEstado ?? item?.estado,
+    item?.estadoOBS ??
+      item?.EstadoOBS ??
+      item?.notaEstado ??
+      item?.NotaEstado ??
+      item?.estado,
     "",
   );
   const rawEstadoSunat = normalizeText(
@@ -183,7 +201,10 @@ const mapApiToOrderNote = (item: OrderNoteApiItem, index: number): OrderNote => 
       item?.NotaEstadoSunat,
     "",
   );
-  const clienteFallbackId = normalizeText(item?.clienteId ?? item?.ClienteId, "");
+  const clienteFallbackId = normalizeText(
+    item?.clienteId ?? item?.ClienteId,
+    "",
+  );
 
   // Compatibilidad: algunos backends aún mapean con offsets antiguos y la fila llega corrida.
   const isShiftedResponse =
@@ -258,7 +279,10 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
         notaSerie || notaNumero
           ? `${notaSerie}${notaSerie && notaNumero ? "-" : ""}${notaNumero}`.trim()
           : "";
-      const documento = [notaDocu, documentNumber].filter(Boolean).join(" ").trim();
+      const documento = [notaDocu, documentNumber]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
       const cliente =
         clienteRazon || (clienteId ? `Cliente #${clienteId}` : "-");
 
@@ -282,7 +306,7 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
 const parseOrderNotesResponse = (payload: unknown): OrderNote[] => {
   if (Array.isArray(payload)) {
     return payload.map((item, index) =>
-      mapApiToOrderNote(item as OrderNoteApiItem, index)
+      mapApiToOrderNote(item as OrderNoteApiItem, index),
     );
   }
 
@@ -292,10 +316,15 @@ const parseOrderNotesResponse = (payload: unknown): OrderNote[] => {
 
   if (payload && typeof payload === "object") {
     const record = payload as Record<string, unknown>;
+    if (
+      "isAxiosError" in record ||
+      ("message" in record && "response" in record)
+    ) {
+      return [];
+    }
     const stringCandidate =
       (typeof record.resultado === "string" && record.resultado) ||
-      (typeof record.Resultado === "string" && record.Resultado) ||
-      Object.values(record).find((value) => typeof value === "string");
+      (typeof record.Resultado === "string" && record.Resultado);
 
     if (typeof stringCandidate === "string") {
       const parsedFromString = parseDelimitedOrderNotes(stringCandidate);
@@ -305,7 +334,7 @@ const parseOrderNotesResponse = (payload: unknown): OrderNote[] => {
     const arrayCandidate = Object.values(record).find(Array.isArray);
     if (Array.isArray(arrayCandidate)) {
       return arrayCandidate.map((item, index) =>
-        mapApiToOrderNote(item as OrderNoteApiItem, index)
+        mapApiToOrderNote(item as OrderNoteApiItem, index),
       );
     }
   }
@@ -393,11 +422,13 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
     const query = new URLSearchParams();
     query.set("fechaInicio", fechaInicio);
     query.set("fechaFin", fechaFin);
+    query.set("page", "1");
+    query.set("pageSize", "50");
 
     set({ loading: true });
     try {
       const response = await apiRequest<unknown>({
-        url: `${API_BASE_URL}/Nota/list?${query.toString()}`,
+        url: `${API_BASE_URL}/Nota/crud?${query.toString()}`,
         method: "GET",
         fallback: [],
       });
@@ -443,7 +474,7 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
     const nowDate = getLocalDateISO();
     const clienteId = toPositiveInt(
       formData.clienteId ?? current.clienteId ?? 0,
-      0
+      0,
     );
     const notaFecha =
       String(current.fechaEmitido ?? "").trim() ||
@@ -461,7 +492,9 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
         resolveSessionUsername(),
       notaFormaPago: mapFormFormaPagoToNotaFormaPago(formData.formaPago),
       notaCondicion:
-        String(current.notaCondicion ?? "").trim().toUpperCase() || "NORMAL",
+        String(current.notaCondicion ?? "")
+          .trim()
+          .toUpperCase() || "NORMAL",
     };
 
     const detallesPayload = (formData.items ?? [])

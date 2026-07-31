@@ -5,9 +5,11 @@ import {
   FileUp,
   Plus,
   Printer,
+  ReceiptText,
   RotateCcw,
-  Search,
+  Table2,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   useCallback,
@@ -66,7 +68,7 @@ type SaleForm = {
   concept: "MERCADERIA" | "SERVICIO";
   docTypeCode: "03" | "01" | "101";
   correlativeDisplay: string;
-  condition: "ALCONTADO" | "CREDITO";
+  condition: "ALCONTADO" | "CREDITO" | "PAGO/VARIOS";
   delivery: "INMEDIATA" | "POR ENTREGAR";
   emissionDate: string;
   paymentMethod:
@@ -105,16 +107,23 @@ type StoredTicket = {
   noteId: number;
   rows: SaleRow[];
 };
-type SaleListItem = {
-  noteId: number;
-  document: string;
-  date: string;
-  customer: string;
-  paymentMethod: string;
-  pvs: number;
-  total: number;
-  state: string;
+type PagoVariosItem = {
+  docuId: number;
+  notaId: number;
+  documento: string;
+  codigo: string;
+  razonSocial: string;
+  monto: number;
+  conceptoOBS: string;
 };
+type PagoVariosResponse = {
+  ok?: boolean;
+  count?: number;
+  items?: PagoVariosItem[];
+  mensaje?: string;
+  resultado?: string;
+};
+type ManualSaleType = "VENTA LIBRE" | "POR PASAR AL OBS";
 
 const DOC_CONFIG = {
   "03": { docu: "BOLETA", serie: "BA01", ticket: "boleta" as const },
@@ -378,70 +387,6 @@ const productToRow = (
   sv: Number(product.sv ?? 0),
   matched,
 });
-const pickValue = (source: unknown, ...keys: string[]) => {
-  const record = (source ?? {}) as Record<string, unknown>;
-  for (const key of keys) {
-    const value = record[key];
-    if (value !== undefined && value !== null && safeTrim(value)) return value;
-  }
-  return "";
-};
-const parseApiNumber = (value: unknown) => {
-  const parsed = Number(
-    String(value ?? "")
-      .replace(/[^\d,.-]/g, "")
-      .replace(",", "."),
-  );
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-const formatListDate = (value: unknown) => {
-  const raw = safeTrim(value);
-  if (!raw) return "-";
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleDateString("es-PE");
-};
-const parseSaleListResponse = (payload: unknown): SaleListItem[] => {
-  const items: unknown[] = Array.isArray(payload)
-    ? payload
-    : Array.isArray((payload as any)?.items)
-      ? (payload as any).items
-      : [];
-
-  return items
-    .map((item): SaleListItem | null => {
-      const noteId = Number(pickValue(item, "notaId", "NotaId"));
-      if (!Number.isFinite(noteId) || noteId <= 0) return null;
-      const serie = safeTrim(pickValue(item, "notaSerie", "NotaSerie"));
-      const numero = safeTrim(pickValue(item, "notaNumero", "NotaNumero"));
-      const doc = safeTrim(pickValue(item, "notaDocu", "NotaDocu"));
-      return {
-        noteId,
-        document: [doc, [serie, numero].filter(Boolean).join("-")]
-          .filter(Boolean)
-          .join(" "),
-        date: formatListDate(pickValue(item, "notaFecha", "NotaFecha")),
-        customer:
-          safeTrim(pickValue(item, "miembro", "Miembro")) ||
-          `Cliente #${safeTrim(pickValue(item, "clienteId", "ClienteId")) || "-"}`,
-        paymentMethod:
-          safeTrim(pickValue(item, "notaFormaPago", "NotaFormaPago")) || "-",
-        pvs: parseApiNumber(pickValue(item, "pv", "PV")),
-        total: parseApiNumber(pickValue(item, "notaTotal", "NotaTotal")),
-        state:
-          safeTrim(
-            pickValue(
-              item,
-              "estadoOBS",
-              "EstadoOBS",
-              "notaEstado",
-              "NotaEstado",
-            ),
-          ) || "-",
-      };
-    })
-    .filter((item): item is SaleListItem => Boolean(item));
-};
 const readSession = () => {
   if (typeof window === "undefined") {
     return {
@@ -451,6 +396,7 @@ const readSession = () => {
       companyRuc: "",
       companyAddress: "",
       companyDistrict: "",
+      userId: 0,
     };
   }
 
@@ -466,6 +412,7 @@ const readSession = () => {
       Number(
         parsed?.user?.companyId ?? localStorage.getItem("companiaId") ?? 1,
       ) || 1,
+    userId: Number(parsed?.user?.id ?? parsed?.id ?? 0) || 0,
     username:
       safeTrim(parsed?.user?.displayName) ||
       safeTrim(parsed?.user?.username) ||
@@ -517,21 +464,41 @@ export default function HtmlCaptureSalePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
   const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sale" | "ticket" | "list">(
-    isExistingRoute ? "ticket" : "sale",
+  const [manualSaleType, setManualSaleType] =
+    useState<ManualSaleType>("VENTA LIBRE");
+  const [activeTab, setActiveTab] = useState<"sale" | "ticket">("sale");
+  const [pagoVariosItems, setPagoVariosItems] = useState<PagoVariosItem[]>([]);
+  const [pagoVariosSelectedIds, setPagoVariosSelectedIds] = useState<number[]>(
+    [],
   );
-  const [listRows, setListRows] = useState<SaleListItem[]>([]);
-  const [isListLoading, setIsListLoading] = useState(false);
-  const [listFrom, setListFrom] = useState(localDate());
-  const [listTo, setListTo] = useState(localDate());
+  const [pagoVariosModalOpen, setPagoVariosModalOpen] = useState(false);
+  const [isPagoVariosLoading, setIsPagoVariosLoading] = useState(false);
+  const [isPagoVariosSaving, setIsPagoVariosSaving] = useState(false);
+  const [pagoVariosFormaPago, setPagoVariosFormaPago] = useState("EFECTIVO");
+  const [pagoVariosEntidad, setPagoVariosEntidad] = useState("-");
+  const [pagoVariosOperacion, setPagoVariosOperacion] = useState("");
+  const [pagoVariosDeposito, setPagoVariosDeposito] = useState("");
+  const [pagoVariosDescripcion, setPagoVariosDescripcion] =
+    useState("PAGO VARIOS");
   const session = useMemo(readSession, []);
   const openDialog = useDialogStore((state) => state.openDialog);
   const closeDialog = useDialogStore((state) => state.closeDialog);
+  const dialogOpen = useDialogStore((state) => state.open);
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
   const isCapturedSale = Boolean(capture);
-  const saleType = isCapturedSale ? "CASHBILL" : "VENTA LIBRE";
-  const saleTypeForDatabase = isCapturedSale ? "VENTA" : "VENTA LIBRE";
+  const saleType = isCapturedSale ? "CASHBILL" : manualSaleType;
+  const saleTypeForDatabase = isCapturedSale
+    ? "VENTA"
+    : manualSaleType === "POR PASAR AL OBS"
+      ? "POR PASAR"
+      : "VENTA LIBRE";
+
+  useEffect(() => {
+    if (dialogOpen || pagoVariosModalOpen) {
+      setManualProductSearchFocused(false);
+    }
+  }, [dialogOpen, pagoVariosModalOpen]);
 
   const resetDraft = useCallback(() => {
     externalCaptureKeyRef.current = "";
@@ -543,6 +510,7 @@ export default function HtmlCaptureSalePage() {
     setMonthlyPvs(0);
     setLastTicket(null);
     setFreeSaleReasonAsked(false);
+    setManualSaleType("VENTA LIBRE");
     setActiveTab("sale");
     formMethods.reset(defaultForm);
   }, [formMethods]);
@@ -564,7 +532,7 @@ export default function HtmlCaptureSalePage() {
     try {
       const stored = localStorage.getItem(ticketStorageKey(routeNoteId));
       if (!stored) {
-        setActiveTab("ticket");
+        setActiveTab("sale");
         return;
       }
 
@@ -636,38 +604,199 @@ export default function HtmlCaptureSalePage() {
     };
   }, [form.docTypeCode, session.companyId]);
 
-  const fetchListRows = useCallback(async () => {
-    if (listFrom && listTo && listFrom > listTo) {
-      toast.error("La fecha inicio no puede ser mayor que la fecha fin.");
+  const fetchPagoVarios = useCallback(async () => {
+    if (!session.userId) {
+      setPagoVariosItems([]);
+      setPagoVariosSelectedIds([]);
       return;
     }
 
-    const query = new URLSearchParams({
-      page: "1",
-      pageSize: "50",
-    });
-    if (listFrom) query.set("fechaInicio", listFrom);
-    if (listTo) query.set("fechaFin", listTo);
-
-    setIsListLoading(true);
+    setIsPagoVariosLoading(true);
     try {
-      const response = await apiRequest<unknown>({
-        url: buildApiUrl(`/Nota/crud?${query.toString()}`),
+      const response = (await apiRequest<PagoVariosResponse>({
+        url: buildApiUrl(
+          `/Nota/pago-varios?${new URLSearchParams({
+            usuarioId: String(session.userId),
+            usuario: session.username,
+          }).toString()}`,
+        ),
         method: "GET",
-        fallback: [],
-      });
-      setListRows(parseSaleListResponse(response));
+        fallback: { ok: false, items: [] },
+      })) as PagoVariosResponse;
+      const items = Array.isArray(response?.items) ? response.items : [];
+      setPagoVariosItems(items);
+      const firstConcept = safeTrim(items[0]?.conceptoOBS);
+      setPagoVariosSelectedIds(
+        items
+          .filter((item) => safeTrim(item.conceptoOBS) === firstConcept)
+          .map((item) => item.notaId),
+      );
     } catch (error) {
-      console.error("No se pudo cargar el listado de ventas", error);
-      toast.error("No se pudo cargar el listado.");
+      console.error("No se pudo cargar pago varios", error);
+      toast.error("No se pudo cargar Pago Varios.");
     } finally {
-      setIsListLoading(false);
+      setIsPagoVariosLoading(false);
     }
-  }, [listFrom, listTo]);
+  }, [session.userId]);
+
+  const openPagoVariosModal = useCallback(() => {
+    setPagoVariosModalOpen(true);
+    void fetchPagoVarios();
+  }, [fetchPagoVarios]);
 
   useEffect(() => {
-    if (activeTab === "list") void fetchListRows();
-  }, [activeTab, fetchListRows]);
+    void fetchPagoVarios();
+    window.addEventListener("sgo:pago-varios-updated", fetchPagoVarios);
+    return () =>
+      window.removeEventListener("sgo:pago-varios-updated", fetchPagoVarios);
+  }, [fetchPagoVarios]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("pagoVarios") !== "1") return;
+    openPagoVariosModal();
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, location.search, navigate, openPagoVariosModal]);
+
+  const selectedPagoVariosItems = useMemo(
+    () =>
+      pagoVariosItems.filter((item) =>
+        pagoVariosSelectedIds.includes(item.notaId),
+      ),
+    [pagoVariosItems, pagoVariosSelectedIds],
+  );
+  const pagoVariosTotal = useMemo(
+    () => selectedPagoVariosItems.reduce((sum, item) => sum + item.monto, 0),
+    [selectedPagoVariosItems],
+  );
+  const pagoVariosConceptos = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          selectedPagoVariosItems.map((item) => safeTrim(item.conceptoOBS)),
+        ),
+      ).filter(Boolean),
+    [selectedPagoVariosItems],
+  );
+  const isPagoVariosMixed = pagoVariosFormaPago.includes("/");
+  const pagoVariosRequiereOperacion = [
+    "DEPOSITO",
+    "TARJETA",
+    "EFECTIVO/DEPOSITO",
+    "TARJETA/EFECTIVO",
+  ].includes(pagoVariosFormaPago);
+  const pagoVariosEntidadEditable = ["DEPOSITO", "EFECTIVO/DEPOSITO"].includes(
+    pagoVariosFormaPago,
+  );
+  const pagoVariosDepositoIngresado = Math.max(
+    0,
+    Number(pagoVariosDeposito || 0),
+  );
+  const pagoVariosDepositoFinal = isPagoVariosMixed
+    ? Math.min(pagoVariosDepositoIngresado, pagoVariosTotal)
+    : pagoVariosFormaPago === "EFECTIVO"
+      ? 0
+      : pagoVariosTotal;
+  const pagoVariosEfectivoFinal = isPagoVariosMixed
+    ? Math.max(pagoVariosTotal - pagoVariosDepositoFinal, 0)
+    : pagoVariosFormaPago === "EFECTIVO"
+      ? pagoVariosTotal
+      : 0;
+  const pagoVariosEntidadFinal =
+    pagoVariosFormaPago === "EFECTIVO" ? "-" : pagoVariosEntidad || "BCP";
+
+  useEffect(() => {
+    if (pagoVariosFormaPago === "EFECTIVO") {
+      setPagoVariosEntidad("-");
+      setPagoVariosOperacion("");
+      setPagoVariosDeposito("");
+      return;
+    }
+    if (!pagoVariosEntidadEditable) setPagoVariosEntidad("BCP");
+    if (!isPagoVariosMixed) setPagoVariosDeposito("");
+    if (!pagoVariosRequiereOperacion) setPagoVariosOperacion("");
+  }, [
+    isPagoVariosMixed,
+    pagoVariosEntidadEditable,
+    pagoVariosFormaPago,
+    pagoVariosRequiereOperacion,
+  ]);
+
+  const registerPagoVarios = async () => {
+    if (!selectedPagoVariosItems.length) {
+      toast.error("Seleccione documentos para pagar.");
+      return;
+    }
+    if (pagoVariosConceptos.length !== 1) {
+      toast.error("Seleccione documentos con el mismo concepto OBS.");
+      return;
+    }
+    if (pagoVariosRequiereOperacion && !safeTrim(pagoVariosOperacion)) {
+      toast.error("Ingrese numero de operacion.");
+      return;
+    }
+    if (isPagoVariosMixed && pagoVariosDepositoIngresado <= 0) {
+      toast.error("Ingrese el monto por banco.");
+      return;
+    }
+    if (isPagoVariosMixed && pagoVariosDepositoIngresado > pagoVariosTotal) {
+      toast.error("El monto por banco no puede superar el total.");
+      return;
+    }
+    if (
+      Math.round((pagoVariosEfectivoFinal + pagoVariosDepositoFinal) * 100) !==
+      Math.round(pagoVariosTotal * 100)
+    ) {
+      toast.error("Efectivo + deposito debe cuadrar con el total.");
+      return;
+    }
+
+    setIsPagoVariosSaving(true);
+    try {
+      const response = (await apiRequest<PagoVariosResponse>({
+        url: buildApiUrl("/Nota/pago-varios"),
+        method: "POST",
+        data: {
+          usuarioId: session.userId,
+          usuario: session.username,
+          formaPago: pagoVariosFormaPago,
+          entidad: pagoVariosEntidadFinal,
+          efectivo: pagoVariosEfectivoFinal,
+          deposito: pagoVariosDepositoFinal,
+          nroOperacion: pagoVariosOperacion,
+          descripcion: pagoVariosDescripcion || "PAGO VARIOS",
+          conceptoOBS: pagoVariosConceptos[0],
+          detalles: selectedPagoVariosItems.map((item) => ({
+            docuId: item.docuId,
+            notaId: item.notaId,
+            monto: item.monto,
+            conceptoOBS: item.conceptoOBS,
+          })),
+        },
+        fallback: { ok: false, mensaje: "No se pudo registrar Pago Varios." },
+      })) as PagoVariosResponse;
+
+      const errorData = asRecord(asRecord(response)?.response)?.data;
+      const errorRecord = asRecord(errorData);
+      if (!response?.ok) {
+        toast.error(
+          safeTrim(response?.mensaje) ||
+            safeTrim(errorRecord?.mensaje) ||
+            "No se pudo registrar Pago Varios.",
+        );
+        return;
+      }
+
+      toast.success("Pago Varios registrado.");
+      setPagoVariosModalOpen(false);
+      setPagoVariosOperacion("");
+      setPagoVariosDeposito("");
+      window.dispatchEvent(new Event("sgo:pago-varios-updated"));
+      void fetchPagoVarios();
+    } finally {
+      setIsPagoVariosSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!clients.length) {
@@ -944,11 +1073,21 @@ export default function HtmlCaptureSalePage() {
             </p>
             <div className="space-y-3 text-sm font-semibold text-slate-700">
               <label className="flex items-center gap-3">
-                <input type="radio" name="free-sale-reason" />
+                <input
+                  type="radio"
+                  name="free-sale-reason"
+                  defaultChecked={manualSaleType === "POR PASAR AL OBS"}
+                  onChange={() => setManualSaleType("POR PASAR AL OBS")}
+                />
                 POR PASAR AL OBS
               </label>
               <label className="flex items-center gap-3">
-                <input type="radio" name="free-sale-reason" />
+                <input
+                  type="radio"
+                  name="free-sale-reason"
+                  defaultChecked={manualSaleType === "VENTA LIBRE"}
+                  onChange={() => setManualSaleType("VENTA LIBRE")}
+                />
                 VENTA LIBRE (SIN CODIGO)
               </label>
             </div>
@@ -1490,10 +1629,14 @@ export default function HtmlCaptureSalePage() {
     ) {
       return "El DNI debe tener 8 o 9 digitos.";
     }
-    if (form.paymentMethod === "(SELECCIONE)") {
+    if (
+      form.condition !== "PAGO/VARIOS" &&
+      form.paymentMethod === "(SELECCIONE)"
+    ) {
       return "Seleccione forma de pago.";
     }
     if (
+      form.condition !== "PAGO/VARIOS" &&
       !["EFECTIVO", "-"].includes(form.paymentMethod) &&
       !safeTrim(form.operationNumber)
     ) {
@@ -1683,8 +1826,12 @@ export default function HtmlCaptureSalePage() {
     const notaSerie = correlative?.serie || doc.serie;
     const notaNumero = correlative?.numero || "00000000";
     const total = Number(totals.total.toFixed(2));
-    const efectivo = form.paymentMethod === "EFECTIVO" ? total : 0;
-    const deposito = form.paymentMethod === "EFECTIVO" ? 0 : total;
+    const isPagoVariosSale = form.condition === "PAGO/VARIOS";
+    const notaFormaPago = isPagoVariosSale ? "-" : form.paymentMethod;
+    const efectivo =
+      !isPagoVariosSale && form.paymentMethod === "EFECTIVO" ? total : 0;
+    const deposito =
+      !isPagoVariosSale && form.paymentMethod !== "EFECTIVO" ? total : 0;
     if (!saleClient && form.docTypeCode === "01") {
       toast.error(
         "Para Factura debes registrar o seleccionar el cliente con + Cliente.",
@@ -1707,7 +1854,8 @@ export default function HtmlCaptureSalePage() {
             clienteId,
             notaFecha: `${localDate()}T00:00:00`,
             notaUsuario: session.username,
-            notaFormaPago: form.paymentMethod,
+            usuarioId: session.userId,
+            notaFormaPago,
             notaCondicion: form.condition,
             notaFechaPago: new Date().toISOString(),
             notaDireccion: form.address || "-",
@@ -1720,7 +1868,7 @@ export default function HtmlCaptureSalePage() {
             notaAdicional: 0,
             notaTarjeta: 0,
             notaPagar: total,
-            notaEstado: "CANCELADO",
+            notaEstado: isPagoVariosSale ? "PENDIENTE" : "CANCELADO",
             companiaId: session.companyId,
             notaEntrega: form.delivery,
             notaConcepto: form.concept || "MERCADERIA",
@@ -1728,8 +1876,8 @@ export default function HtmlCaptureSalePage() {
             notaNumero,
             notaGanancia: 0,
             icbper: 0,
-            entidadBancaria: form.bankEntity || "-",
-            nroOperacion: form.operationNumber,
+            entidadBancaria: isPagoVariosSale ? "-" : form.bankEntity || "-",
+            nroOperacion: isPagoVariosSale ? "" : form.operationNumber,
             efectivo,
             deposito,
             notaTransaccion: form.transactionNumber,
@@ -1796,7 +1944,12 @@ export default function HtmlCaptureSalePage() {
       setActiveTab("ticket");
       navigate(`/sales/html_capture/${parsed.noteId}`, { replace: true });
       await downloadTicket(documentNumber, parsed.noteId);
-      if (doc.docu === "FACTURA") {
+      if (isPagoVariosSale) {
+        toast.success(
+          `${doc.docu} registrada para Pago Varios: ${documentNumber}`,
+        );
+        window.dispatchEvent(new Event("sgo:pago-varios-updated"));
+      } else if (doc.docu === "FACTURA") {
         const sunat = parseSunatResult(result);
         const detail = [sunat.code, sunat.message].filter(Boolean).join(" - ");
         if (sunat.accepted) {
@@ -1825,6 +1978,256 @@ export default function HtmlCaptureSalePage() {
       registerSaleRef.current = false;
     }
   };
+
+  const PagoVariosModal = pagoVariosModalOpen ? (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/45 px-4 py-6">
+      <section className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+        <div className="flex justify-end border-b border-slate-100 px-5 py-4">
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-50"
+            onClick={() => setPagoVariosModalOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {pagoVariosConceptos.length > 1 ? (
+          <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+            Para pagar varios, seleccione documentos con el mismo Concepto OBS.
+          </div>
+        ) : null}
+
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_350px]">
+          <div className="min-h-0 overflow-auto">
+            <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3">
+              <label className="inline-flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+                <input
+                  type="checkbox"
+                  checked={
+                    pagoVariosItems.length > 0 &&
+                    pagoVariosItems.every((item) =>
+                      pagoVariosSelectedIds.includes(item.notaId),
+                    )
+                  }
+                  onChange={(event) =>
+                    setPagoVariosSelectedIds(
+                      event.target.checked
+                        ? pagoVariosItems.map((item) => item.notaId)
+                        : [],
+                    )
+                  }
+                />
+                Seleccionar todo
+              </label>
+              <span className="ml-auto text-xs font-medium text-slate-400">
+                {integer(pagoVariosItems.length)} pendientes
+              </span>
+            </div>
+
+            <table className="w-full min-w-[780px] border-collapse text-sm">
+              <thead className="bg-white text-xs uppercase text-slate-400">
+                <tr>
+                  <th className="w-12 border-b border-slate-100 px-5 py-3 text-left">
+                    Sel
+                  </th>
+                  <th className="border-b border-slate-100 px-3 py-3 text-left">
+                    Documento
+                  </th>
+                  <th className="border-b border-slate-100 px-3 py-3 text-left">
+                    Codigo
+                  </th>
+                  <th className="border-b border-slate-100 px-3 py-3 text-left">
+                    Cliente
+                  </th>
+                  <th className="border-b border-slate-100 px-3 py-3 text-left">
+                    Concepto OBS
+                  </th>
+                  <th className="border-b border-slate-100 px-5 py-3 text-right">
+                    Monto
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {isPagoVariosLoading ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-5 py-12 text-center text-slate-400"
+                    >
+                      Cargando Pago Varios...
+                    </td>
+                  </tr>
+                ) : pagoVariosItems.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-5 py-12 text-center text-slate-400"
+                    >
+                      No hay documentos pendientes para Pago Varios.
+                    </td>
+                  </tr>
+                ) : (
+                  pagoVariosItems.map((item) => (
+                    <tr
+                      key={`${item.docuId}-${item.notaId}`}
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                    >
+                      <td className="px-5 py-3">
+                        <input
+                          type="checkbox"
+                          checked={pagoVariosSelectedIds.includes(item.notaId)}
+                          onChange={(event) =>
+                            setPagoVariosSelectedIds((current) =>
+                              event.target.checked
+                                ? [...current, item.notaId]
+                                : current.filter(
+                                    (rowId) => rowId !== item.notaId,
+                                  ),
+                            )
+                          }
+                        />
+                      </td>
+                      <td className="px-3 py-3 font-semibold text-slate-700">
+                        {item.documento}
+                      </td>
+                      <td className="px-3 py-3 text-slate-500">
+                        {item.codigo}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {item.razonSocial}
+                      </td>
+                      <td className="px-3 py-3 text-slate-500">
+                        {item.conceptoOBS}
+                      </td>
+                      <td className="px-5 py-3 text-right font-black text-slate-800">
+                        S/ {money(item.monto)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <aside className="flex min-h-0 flex-col gap-4 border-t border-slate-100 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
+            <div className="rounded-md border border-red-100 bg-white p-4">
+              <p className="text-[11px] font-black uppercase text-red-600">
+                Total a pagar
+              </p>
+              <p className="mt-1 text-3xl font-black text-slate-900">
+                S/ {money(pagoVariosTotal)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {integer(selectedPagoVariosItems.length)} documentos
+                seleccionados
+              </p>
+            </div>
+
+            <label className="grid gap-1 text-xs font-bold text-slate-500">
+              Forma pago
+              <select
+                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                value={pagoVariosFormaPago}
+                onChange={(event) => setPagoVariosFormaPago(event.target.value)}
+              >
+                {[
+                  "EFECTIVO",
+                  "DEPOSITO",
+                  "TARJETA",
+                  "YAPE",
+                  "EFECTIVO/DEPOSITO",
+                  "TARJETA/EFECTIVO",
+                  "YAPE/EFECTIVO",
+                ].map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-bold uppercase text-slate-400">
+                  Efectivo
+                </p>
+                <p className="mt-1 text-lg font-black text-slate-800">
+                  S/ {money(pagoVariosEfectivoFinal)}
+                </p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-bold uppercase text-slate-400">
+                  Banco
+                </p>
+                <p className="mt-1 text-lg font-black text-slate-800">
+                  S/ {money(pagoVariosDepositoFinal)}
+                </p>
+              </div>
+            </div>
+
+            {isPagoVariosMixed ? (
+              <label className="grid gap-1 text-xs font-bold text-slate-500">
+                Monto por banco
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                  value={pagoVariosDeposito}
+                  onChange={(event) =>
+                    setPagoVariosDeposito(event.target.value)
+                  }
+                />
+              </label>
+            ) : null}
+
+            <label className="grid gap-1 text-xs font-bold text-slate-500">
+              Entidad
+              <input
+                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                value={pagoVariosEntidadFinal}
+                onChange={(event) => setPagoVariosEntidad(event.target.value)}
+                disabled={!pagoVariosEntidadEditable}
+              />
+            </label>
+
+            <label className="grid gap-1 text-xs font-bold text-slate-500">
+              Nro operacion
+              <input
+                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                value={pagoVariosRequiereOperacion ? pagoVariosOperacion : ""}
+                onChange={(event) => setPagoVariosOperacion(event.target.value)}
+                disabled={!pagoVariosRequiereOperacion}
+              />
+            </label>
+
+            <label className="grid gap-1 text-xs font-bold text-slate-500">
+              Descripcion
+              <textarea
+                className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                value={pagoVariosDescripcion}
+                onChange={(event) =>
+                  setPagoVariosDescripcion(event.target.value)
+                }
+              />
+            </label>
+
+            <button
+              type="button"
+              className="mt-auto inline-flex h-11 items-center justify-center rounded-md bg-red-700 px-4 text-sm font-black uppercase text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={registerPagoVarios}
+              disabled={
+                isPagoVariosSaving ||
+                isPagoVariosLoading ||
+                !selectedPagoVariosItems.length ||
+                pagoVariosConceptos.length !== 1
+              }
+            >
+              {isPagoVariosSaving ? "Guardando..." : "Pagar seleccionados"}
+            </button>
+          </aside>
+        </div>
+      </section>
+    </div>
+  ) : null;
 
   const TicketPreview = (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -1872,188 +2275,10 @@ export default function HtmlCaptureSalePage() {
     </section>
   );
 
-  const ListPanel = (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
-        <div className="mr-auto">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Listado de ventas
-          </h2>
-          <p className="text-xs text-slate-400">
-            {integer(listRows.length)} registros encontrados.
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 bg-slate-50/50 px-4 py-3">
-        <label className="grid gap-1 text-xs font-medium text-slate-500">
-          Fecha inicio
-          <input
-            type="date"
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition-colors focus:border-slate-400"
-            value={listFrom}
-            onChange={(event) => setListFrom(event.target.value)}
-          />
-        </label>
-        <label className="grid gap-1 text-xs font-medium text-slate-500">
-          Fecha fin
-          <input
-            type="date"
-            className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition-colors focus:border-slate-400"
-            value={listTo}
-            onChange={(event) => setListTo(event.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={fetchListRows}
-          disabled={isListLoading}
-        >
-          <Search
-            className={`h-4 w-4 ${isListLoading ? "animate-pulse" : ""}`}
-          />
-          Buscar
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={() => {
-            const today = localDate();
-            setListFrom(today);
-            setListTo(today);
-          }}
-          disabled={isListLoading}
-        >
-          <RotateCcw className="h-4 w-4" />
-          Hoy
-        </button>
-      </div>
-      <div className="overflow-auto">
-        <table className="w-full min-w-[860px] border-collapse text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400">
-            <tr>
-              {[
-                "Fecha",
-                "Documento",
-                "Cliente",
-                "Forma pago",
-                "PVS",
-                "Total",
-                "Estado",
-                "",
-              ].map((header, index) => (
-                <th
-                  key={header || "acciones"}
-                  className={`border-b border-slate-100 px-4 py-2 font-medium ${
-                    index >= 4 ? "text-right" : "text-left"
-                  }`}
-                >
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isListLoading ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-5 py-14 text-center text-sm text-slate-400"
-                >
-                  Cargando listado...
-                </td>
-              </tr>
-            ) : listRows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-5 py-14 text-center text-sm text-slate-400"
-                >
-                  No hay ventas para mostrar.
-                </td>
-              </tr>
-            ) : (
-              listRows.map((row) => (
-                <tr
-                  key={row.noteId}
-                  className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-                >
-                  <td className="px-4 py-2 text-slate-500">{row.date}</td>
-                  <td className="px-4 py-2 font-medium text-slate-700">
-                    {row.document || `Nota #${row.noteId}`}
-                  </td>
-                  <td className="px-4 py-2 text-slate-600">{row.customer}</td>
-                  <td className="px-4 py-2 text-slate-500">
-                    {row.paymentMethod}
-                  </td>
-                  <td className="px-4 py-2 text-right font-medium text-slate-700">
-                    {money(row.pvs)}
-                  </td>
-                  <td className="px-4 py-2 text-right font-semibold text-slate-800">
-                    S/ {money(row.total)}
-                  </td>
-                  <td className="px-4 py-2 text-right text-slate-500">
-                    {row.state}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <button
-                      type="button"
-                      className="inline-flex h-8 items-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-                      onClick={() =>
-                        navigate(`/sales/html_capture/${row.noteId}`)
-                      }
-                    >
-                      Abrir
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <div className="flex w-full rounded-lg border border-slate-200 bg-white p-1 shadow-sm sm:w-fit">
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-              activeTab === "sale"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-            onClick={() => setActiveTab("sale")}
-          >
-            Venta
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-              activeTab === "ticket"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
-            }`}
-            onClick={() => setActiveTab("ticket")}
-            disabled={!lastTicket && !isExistingRoute}
-          >
-            Ticket
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold transition-colors sm:flex-none ${
-              activeTab === "list"
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-            onClick={() => setActiveTab("list")}
-          >
-            Listado
-          </button>
-        </div>
+      {PagoVariosModal}
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
         {isExistingRoute ? (
           <button
             type="button"
@@ -2065,70 +2290,77 @@ export default function HtmlCaptureSalePage() {
           </button>
         ) : null}
       </div>
+
+      {/* Barra de acciones */}
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".html,.htm,text/html"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <button
+          type="button"
+          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading || isSaving || isReadOnly}
+        >
+          <FileUp className="h-4 w-4" />
+          Capturar datos
+        </button>
+        {lastTicket ? (
+          <button
+            type="button"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 sm:flex-none"
+            onClick={() =>
+              setActiveTab((current) =>
+                current === "ticket" ? "sale" : "ticket",
+              )
+            }
+          >
+            {activeTab === "ticket" ? (
+              <Table2 className="h-4 w-4" />
+            ) : (
+              <ReceiptText className="h-4 w-4" />
+            )}
+            {activeTab === "ticket" ? "Tabla" : "Ticket"}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+          onClick={clearForm}
+          disabled={isSaving || isReadOnly}
+        >
+          <RotateCcw className="h-4 w-4" />
+          Limpiar
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-red-800 bg-red-800 px-4 text-sm font-medium leading-none text-white transition-colors hover:border-red-900 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+          onClick={registerSale}
+          disabled={
+            isSaving ||
+            isReadOnly ||
+            !rows.length ||
+            rows.some((row) => !row.matched)
+          }
+        >
+          {isSaving ? (
+            <FileDown className="h-4 w-4 animate-pulse" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4" />
+          )}
+          {isSaving ? "Confirmando..." : "Confirmar"}
+        </button>
+      </div>
+
       {activeTab === "ticket" ? (
         TicketPreview
-      ) : activeTab === "list" ? (
-        ListPanel
       ) : (
         <>
-          {/* Barra de acciones */}
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".html,.htm,text/html"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <button
-              type="button"
-              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={loading || isSaving || isReadOnly}
-            >
-              <FileUp className="h-4 w-4" />
-              Capturar datos
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-              onClick={clearForm}
-              disabled={isSaving || isReadOnly}
-            >
-              <RotateCcw className="h-4 w-4" />
-              Limpiar
-            </button>
-            {lastTicket ? (
-              <button
-                type="button"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium leading-none text-slate-700 transition-colors hover:bg-slate-50 sm:flex-none"
-                onClick={printTicket}
-              >
-                <Printer className="h-4 w-4" />
-                Imprimir ticket
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-red-800 bg-red-800 px-4 text-sm font-medium leading-none text-white transition-colors hover:border-red-900 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-              onClick={registerSale}
-              disabled={
-                isSaving ||
-                isReadOnly ||
-                !rows.length ||
-                rows.some((row) => !row.matched)
-              }
-            >
-              {isSaving ? (
-                <FileDown className="h-4 w-4 animate-pulse" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
-              )}
-              {isSaving ? "Confirmando..." : "Confirmar"}
-            </button>
-          </div>
-
           <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_440px] xl:items-start">
             {/* Productos capturados */}
             <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
@@ -2143,6 +2375,7 @@ export default function HtmlCaptureSalePage() {
                     </span>
                   </span>
                 </h2>
+
                 <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
                   <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
                     <p className="text-[10px] font-semibold uppercase text-slate-400">
@@ -2190,7 +2423,9 @@ export default function HtmlCaptureSalePage() {
                       loading || isSaving || isReadOnly || isCapturedSale
                     }
                   />
-                  {manualProductSearchFocused ? (
+                  {manualProductSearchFocused &&
+                  !dialogOpen &&
+                  !pagoVariosModalOpen ? (
                     <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
                       {filteredManualProducts.length ? (
                         filteredManualProducts.map((product) => (
@@ -2383,20 +2618,29 @@ export default function HtmlCaptureSalePage() {
               </div>
 
               {/* Totales: barra compacta al pie de la misma tarjeta */}
-              <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-4 gap-y-1 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm sm:justify-end sm:gap-x-6">
-                <Summary label="Sub total" value={totals.subtotal} />
-                <Summary label="IGV" value={totals.igv} />
-                <Summary label="PVS" value={totals.pv} />
-                {totals.discount > 0 && (
-                  <Summary label="Descuento" value={totals.discount} negative />
-                )}
-                <div className="flex items-baseline gap-2 border-l border-slate-200 pl-4 sm:pl-6">
-                  <span className="text-sm font-semibold text-slate-700">
-                    Total
-                  </span>
-                  <span className="text-lg font-semibold text-slate-900">
-                    S/ {money(totals.total)}
-                  </span>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm">
+                <span className="font-semibold text-slate-600">
+                  Items: {integer(rows.length)}
+                </span>
+                <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-4 gap-y-1 sm:justify-end sm:gap-x-6">
+                  <Summary label="Sub total" value={totals.subtotal} />
+                  <Summary label="IGV" value={totals.igv} />
+                  <Summary label="PVS" value={totals.pv} />
+                  {totals.discount > 0 && (
+                    <Summary
+                      label="Descuento"
+                      value={totals.discount}
+                      negative
+                    />
+                  )}
+                  <div className="flex items-baseline gap-2 border-l border-slate-200 pl-4 sm:pl-6">
+                    <span className="text-sm font-semibold text-slate-700">
+                      Total
+                    </span>
+                    <span className="text-lg font-semibold text-slate-900">
+                      S/ {money(totals.total)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </section>
