@@ -500,6 +500,12 @@ export function HookFormAutocomplete<
                       event as unknown as KeyboardEvent<HTMLInputElement>,
                     );
                     if (event.defaultPrevented) return;
+                    if (
+                      event.key === "Enter" &&
+                      !(event as MuiKeyboardEvent).defaultMuiPrevented
+                    ) {
+                      event.currentTarget.blur();
+                    }
                     handleKeyDown(event as KeyboardEvent<HTMLInputElement>);
                   }}
                 />

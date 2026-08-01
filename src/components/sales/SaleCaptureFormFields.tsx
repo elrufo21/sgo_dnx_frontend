@@ -3,7 +3,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  type KeyboardEvent,
 } from "react";
 import { UserPlus } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
@@ -34,6 +33,8 @@ type SaleCaptureFormValues = {
     | "-";
   bankEntity: string;
   operationNumber: string;
+  paymentDeposit: string;
+  paymentCash: string;
   customerName: string;
   customerEmail: string;
   customerDoc: string;
@@ -54,6 +55,7 @@ interface SaleCaptureFormFieldsProps {
   clientOptions: ClientOption[];
   disabled?: boolean;
   correlative?: string;
+  totalAmount?: number;
   preserveMissingClientData?: boolean;
   onClientSelected?: (client: Client | null) => void;
   onCreateClient?: () => void;
@@ -72,6 +74,10 @@ const tokenizeSearchText = (value: unknown) =>
   normalizeSearchText(value).split(/\s+/).filter(Boolean);
 const normalizeDocumentText = (value: unknown) =>
   String(value ?? "").replace(/\D/g, "");
+const isPlaceholderDocument = (value: unknown) => {
+  const document = normalizeDocumentText(value);
+  return !document || /^0+$/.test(document) || /^0*1$/.test(document);
+};
 const clampDocumentValue = (type: "dni" | "ruc", value: unknown) =>
   normalizeDocumentText(value).slice(0, type === "ruc" ? 11 : 9);
 const todayValue = () => {
@@ -93,6 +99,7 @@ export function SaleCaptureFormFields({
   clientOptions,
   disabled = false,
   correlative,
+  totalAmount = 0,
   preserveMissingClientData = false,
   onClientSelected,
   onCreateClient,
@@ -104,6 +111,8 @@ export function SaleCaptureFormFields({
   }) as SaleCaptureFormValues;
   const paymentMethod = values.paymentMethod ?? "EFECTIVO";
   const isPagoVarios = values.condition === "PAGO/VARIOS";
+  const isMixedPayment =
+    paymentMethod.includes("/") && paymentMethod.includes("EFECTIVO");
   const paymentNeedsOperation = !["(SELECCIONE)", "EFECTIVO", "-"].includes(
     paymentMethod,
   );
@@ -114,6 +123,7 @@ export function SaleCaptureFormFields({
     docTypeCode === "01" ? "FA01" : docTypeCode === "101" ? "0001" : "BA01";
   const currentCorrelative = correlative ?? `${serie}-00000000`;
   const searchTimerRef = useRef<number | null>(null);
+  const focusedPaymentMethodRef = useRef("");
 
   useEffect(() => {
     if (correlativeDisplay !== currentCorrelative) {
@@ -121,6 +131,73 @@ export function SaleCaptureFormFields({
     }
     if (!emissionDate) setValue("emissionDate", todayValue());
   }, [correlativeDisplay, currentCorrelative, emissionDate, setValue]);
+
+  useEffect(() => {
+    if (isPagoVarios && paymentMethod !== "-") {
+      setValue("paymentMethod", "-", { shouldDirty: true });
+      return;
+    }
+    if (!isPagoVarios && paymentMethod === "-") {
+      setValue("paymentMethod", "(SELECCIONE)", { shouldDirty: true });
+    }
+  }, [isPagoVarios, paymentMethod, setValue]);
+
+  useEffect(() => {
+    const total = Math.max(0, Number(totalAmount) || 0);
+    const formatAmount = (value: number) =>
+      value <= 0 ? "" : String(Number(value.toFixed(2)));
+    const setPaymentSplit = (deposit: number, cash: number) => {
+      const nextDeposit = formatAmount(deposit);
+      const nextCash = formatAmount(cash);
+      if (values.paymentDeposit !== nextDeposit) {
+        setValue("paymentDeposit", nextDeposit, { shouldDirty: true });
+      }
+      if (values.paymentCash !== nextCash) {
+        setValue("paymentCash", nextCash, { shouldDirty: true });
+      }
+    };
+
+    if (isPagoVarios || paymentMethod === "(SELECCIONE)") {
+      setPaymentSplit(0, 0);
+      return;
+    }
+    if (paymentMethod === "EFECTIVO") {
+      setPaymentSplit(0, total);
+      return;
+    }
+    if (!isMixedPayment) {
+      setPaymentSplit(total, 0);
+      return;
+    }
+
+    const deposit = Math.min(
+      Math.max(0, Number(values.paymentDeposit) || 0),
+      total,
+    );
+    setPaymentSplit(deposit, Math.max(total - deposit, 0));
+  }, [
+    isMixedPayment,
+    isPagoVarios,
+    paymentMethod,
+    setValue,
+    totalAmount,
+    values.paymentCash,
+    values.paymentDeposit,
+  ]);
+
+  useEffect(() => {
+    if (!isMixedPayment || disabled || focusedPaymentMethodRef.current === paymentMethod) {
+      return;
+    }
+    focusedPaymentMethodRef.current = paymentMethod;
+    window.setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>(
+        "[data-payment-deposit-input]",
+      );
+      input?.focus();
+      input?.select();
+    }, 0);
+  }, [disabled, isMixedPayment, paymentMethod]);
 
   useEffect(
     () => () => {
@@ -195,39 +272,43 @@ export function SaleCaptureFormFields({
     return byName;
   }, [customerNameOptions]);
 
-  const customerDniOptions = useMemo(
-    () =>
-      normalizedClientOptions
-        .filter((opt) => safeTrim(opt.client.dni))
-        .map((opt) => ({
-          label: safeTrim(opt.client.dni),
-          value: safeTrim(opt.client.dni),
-          ruc: safeTrim(opt.client.ruc),
-          dni: safeTrim(opt.client.dni),
-          code: opt.code,
-          nombreRazon: opt.label,
-          id: opt.client.id,
-          client: opt.client,
-        })),
-    [normalizedClientOptions],
-  );
+  const customerDniOptions = useMemo(() => {
+    const byDni = new Map<string, (typeof normalizedClientOptions)[number]>();
+    normalizedClientOptions.forEach((opt) => {
+      const dni = normalizeDocumentText(opt.client.dni);
+      if (!isPlaceholderDocument(dni) && !byDni.has(dni)) byDni.set(dni, opt);
+    });
 
-  const customerRucOptions = useMemo(
-    () =>
-      normalizedClientOptions
-        .filter((opt) => safeTrim(opt.client.ruc))
-        .map((opt) => ({
-          label: safeTrim(opt.client.ruc),
-          value: safeTrim(opt.client.ruc),
-          ruc: safeTrim(opt.client.ruc),
-          dni: safeTrim(opt.client.dni),
-          code: opt.code,
-          nombreRazon: opt.label,
-          id: opt.client.id,
-          client: opt.client,
-        })),
-    [normalizedClientOptions],
-  );
+    return Array.from(byDni.entries()).map(([dni, opt]) => ({
+      label: dni,
+      value: dni,
+      ruc: safeTrim(opt.client.ruc),
+      dni,
+      code: opt.code,
+      nombreRazon: opt.label,
+      id: opt.client.id,
+      client: opt.client,
+    }));
+  }, [normalizedClientOptions]);
+
+  const customerRucOptions = useMemo(() => {
+    const byRuc = new Map<string, (typeof normalizedClientOptions)[number]>();
+    normalizedClientOptions.forEach((opt) => {
+      const ruc = normalizeDocumentText(opt.client.ruc);
+      if (!isPlaceholderDocument(ruc) && !byRuc.has(ruc)) byRuc.set(ruc, opt);
+    });
+
+    return Array.from(byRuc.entries()).map(([ruc, opt]) => ({
+      label: ruc,
+      value: ruc,
+      ruc: safeTrim(opt.client.ruc),
+      dni: safeTrim(opt.client.dni),
+      code: opt.code,
+      nombreRazon: opt.label,
+      id: opt.client.id,
+      client: opt.client,
+    }));
+  }, [normalizedClientOptions]);
 
   const customerCodeOptions = useMemo(
     () =>
@@ -405,35 +486,6 @@ export function SaleCaptureFormFields({
     return true;
   };
 
-  const selectOnlyDocumentMatch = (type: "dni" | "ruc", inputValue: string) => {
-    const options = type === "ruc" ? customerRucOptions : customerDniOptions;
-    const matches = filterDocumentOptions(options, inputValue);
-    if (matches.length !== 1) return false;
-    applyClientSelection(matches[0].client);
-    return true;
-  };
-
-  const handleCustomerKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey &&
-      selectOnlyCustomerMatch(event.currentTarget.value)
-    ) {
-      event.preventDefault();
-    }
-  };
-
-  const handleDocumentKeyDown =
-    (type: "dni" | "ruc") => (event: KeyboardEvent<HTMLInputElement>) => {
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey &&
-        selectOnlyDocumentMatch(type, event.currentTarget.value)
-      ) {
-        event.preventDefault();
-      }
-    };
-
   const handleDocumentBlur =
     (type: "dni" | "ruc") =>
     ({ inputValue }: { inputValue: string }) => {
@@ -525,7 +577,7 @@ export function SaleCaptureFormFields({
                 { value: "YAPE/EFECTIVO", label: "YAPE/EFECTIVO" },
                 { value: "YAPE/DEPOSITO", label: "YAPE/DEPOSITO" },
                 { value: "TARJETA/DEPOSITO", label: "TARJETA/DEPOSITO" },
-                { value: "-", label: "-" },
+                ...(isPagoVarios ? [{ value: "-", label: "-" }] : []),
               ]}
             />
           </div>
@@ -556,6 +608,25 @@ export function SaleCaptureFormFields({
             label="Nro Operación"
             disabled={disabled || isPagoVarios || !paymentNeedsOperation}
             placeholder="Número"
+          />
+          <HookFormInput<SaleCaptureFormValues>
+            name="paymentDeposit"
+            label="Depósito"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            disabled={disabled || isPagoVarios || !isMixedPayment}
+            data-payment-deposit-input="true"
+          />
+          <HookFormInput<SaleCaptureFormValues>
+            name="paymentCash"
+            label="Efectivo"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            disabled
           />
         </div>
       </div>
@@ -605,7 +676,6 @@ export function SaleCaptureFormFields({
               createLabel={(value) => `Usar cliente: ${value}`}
               syncInputToValue
               onInputValueChange={queueClientSearch}
-              onInputKeyDown={handleCustomerKeyDown}
               filterOptions={(options, state) =>
                 filterByClientData(options, state.inputValue)
               }
@@ -636,7 +706,6 @@ export function SaleCaptureFormFields({
               maxLength: 9,
             }}
             onInputValueChange={queueClientSearch}
-            onInputKeyDown={handleDocumentKeyDown("dni")}
             filterOptions={(options, state) =>
               filterDocumentOptions(options, state.inputValue)
             }
@@ -666,7 +735,6 @@ export function SaleCaptureFormFields({
               maxLength: 11,
             }}
             onInputValueChange={queueClientSearch}
-            onInputKeyDown={handleDocumentKeyDown("ruc")}
             filterOptions={(options, state) =>
               filterDocumentOptions(options, state.inputValue)
             }

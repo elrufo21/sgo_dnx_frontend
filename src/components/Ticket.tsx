@@ -106,7 +106,9 @@ const splitTicketDescriptionTwoLines = (
   value: string,
   topLineMaxChars = 36,
 ): [string, string] => {
-  const normalized = String(value ?? "").replace(/\s+/g, " ").trim();
+  const normalized = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!normalized) return ["", ""];
   if (normalized.length <= topLineMaxChars) return [normalized, ""];
 
@@ -117,10 +119,7 @@ const splitTicketDescriptionTwoLines = (
       ? lastSpace
       : topLineMaxChars;
 
-  return [
-    normalized.slice(0, cutAt).trim(),
-    normalized.slice(cutAt).trim(),
-  ];
+  return [normalized.slice(0, cutAt).trim(), normalized.slice(cutAt).trim()];
 };
 
 const UNITS = [
@@ -572,6 +571,15 @@ const TicketDocument = ({
       clientId?.trim() || (docLabel === "RUC" ? "00000000000" : "00000000");
     const now = new Date();
     const emissionDate = now.toLocaleDateString("es-PE");
+    const emissionDateTime = now.toLocaleString("es-PE", {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
     const emissionDateISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const amountInWords = numberToWords(safeTotal, "SOLES");
     const normalizedNoteId = String(noteId ?? "").trim();
@@ -650,6 +658,7 @@ const TicketDocument = ({
             : "BOLETA DE VENTA ELECTRONICA",
       documentNumber: documentNumber || "",
       emissionDate,
+      emissionDateTime,
       currency: "SOLES",
       paymentMethod: paymentMethod ?? "AL CONTADO",
       condition: condition || "AL CONTADO",
@@ -753,7 +762,9 @@ const TicketDocument = ({
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Fecha Emision</Text>
-          <Text style={styles.infoValueBold}>: {ticketData.emissionDate}</Text>
+          <Text style={styles.infoValueBold}>
+            : {ticketData.emissionDateTime}
+          </Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>F-Vencimiento</Text>
@@ -805,8 +816,10 @@ const TicketDocument = ({
           <Text style={styles.infoValue}>: {ticketData.saleType}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Nro Transacción</Text>
-          <Text style={styles.infoValueBold}>: {ticketData.transactionNumber}</Text>
+          <Text style={styles.infoLabel}>Nro Transac</Text>
+          <Text style={styles.infoValueBold}>
+            : {ticketData.transactionNumber}
+          </Text>
         </View>
 
         <View style={styles.divider} />

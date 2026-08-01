@@ -85,6 +85,8 @@ type SaleForm = {
     | "-";
   bankEntity: string;
   operationNumber: string;
+  paymentDeposit: string;
+  paymentCash: string;
   customerName: string;
   customerEmail: string;
   customerDoc: string;
@@ -141,6 +143,8 @@ const defaultForm: SaleForm = {
   paymentMethod: "(SELECCIONE)",
   bankEntity: "-",
   operationNumber: "",
+  paymentDeposit: "",
+  paymentCash: "",
   customerName: "",
   customerEmail: "",
   customerDoc: "",
@@ -236,6 +240,18 @@ const integer = (value: number) =>
   });
 const safeRowNumber = (value: number) => (Number.isFinite(value) ? value : 0);
 const minAllowedPrice = (row: SaleRow) => Math.max(0, safeRowNumber(row.cost));
+const moveCaretToEnd = (input: HTMLInputElement) => {
+  window.requestAnimationFrame(() => {
+    const length = input.value.length;
+    try {
+      input.setSelectionRange(length, length);
+    } catch {
+      const value = input.value;
+      input.value = "";
+      input.value = value;
+    }
+  });
+};
 const focusPriceInput = (code: string) => {
   window.setTimeout(() => {
     const input = Array.from(
@@ -262,13 +278,14 @@ const frameFileName = (html: string) => {
   return decodeURIComponent(src.replace(/\\/g, "/")).split("/").pop() ?? "";
 };
 const parseNotaResult = (result: unknown) => {
+  const resultRecord = asRecord(result);
   const raw =
     typeof result === "string"
       ? result
       : safeTrim(
-          (result as any)?.resultado ??
-            (result as any)?.Resultado ??
-            (result as any)?.data ??
+          resultRecord?.resultado ??
+            resultRecord?.Resultado ??
+            resultRecord?.data ??
             "",
         );
   const [idRaw = "", numberRaw = ""] = raw.split("¬");
@@ -400,29 +417,27 @@ const readSession = () => {
     };
   }
 
-  let parsed: any = null;
+  let parsed: Record<string, unknown> | null = null;
   try {
-    parsed = JSON.parse(localStorage.getItem("sgo.auth.session") ?? "null");
+    parsed = asRecord(
+      JSON.parse(localStorage.getItem("sgo.auth.session") ?? "null"),
+    );
   } catch {
     parsed = null;
   }
+  const user = asRecord(parsed?.user);
 
   return {
     companyId:
-      Number(
-        parsed?.user?.companyId ?? localStorage.getItem("companiaId") ?? 1,
-      ) || 1,
-    userId: Number(parsed?.user?.id ?? parsed?.id ?? 0) || 0,
+      Number(user?.companyId ?? localStorage.getItem("companiaId") ?? 1) || 1,
+    userId: Number(user?.id ?? parsed?.id ?? 0) || 0,
     username:
-      safeTrim(parsed?.user?.displayName) ||
-      safeTrim(parsed?.user?.username) ||
-      "USUARIO",
+      safeTrim(user?.displayName) || safeTrim(user?.username) || "USUARIO",
     companyName:
-      safeTrim(parsed?.user?.companyCommercialName) ||
-      safeTrim(parsed?.user?.companyName),
-    companyRuc: safeTrim(parsed?.user?.companyRuc),
-    companyAddress: safeTrim(parsed?.user?.companySunatAddress),
-    companyDistrict: safeTrim(parsed?.user?.companyUbigeoName),
+      safeTrim(user?.companyCommercialName) || safeTrim(user?.companyName),
+    companyRuc: safeTrim(user?.companyRuc),
+    companyAddress: safeTrim(user?.companySunatAddress),
+    companyDistrict: safeTrim(user?.companyUbigeoName),
   };
 };
 
@@ -449,6 +464,7 @@ export default function HtmlCaptureSalePage() {
     fetchClients,
     fetchClientByCodigo,
     addClient,
+    updateClient,
     fetchClientMonthlyPvs,
   } = useClientsStore();
   const [capture, setCapture] = useState<CaptureData | null>(null);
@@ -637,7 +653,7 @@ export default function HtmlCaptureSalePage() {
     } finally {
       setIsPagoVariosLoading(false);
     }
-  }, [session.userId]);
+  }, [session.userId, session.username]);
 
   const openPagoVariosModal = useCallback(() => {
     setPagoVariosModalOpen(true);
@@ -1004,6 +1020,48 @@ export default function HtmlCaptureSalePage() {
     [addClient, applyClient, closeDialog, fetchClients, session.username],
   );
 
+  const handleUpdateClientFromDialog = useCallback(
+    async (client: Client, data: Omit<Client, "id">) => {
+      const payload: Omit<Client, "id"> = {
+        clienteCodigo: safeTrim(data.clienteCodigo),
+        nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
+        ruc: safeTrim(data.ruc),
+        dni: safeTrim(data.dni),
+        direccionFiscal: safeTrim(data.direccionFiscal) || "-",
+        direccionDespacho: safeTrim(data.direccionDespacho),
+        telefonoMovil: safeTrim(data.telefonoMovil),
+        email: safeTrim(data.email),
+        registradoPor: safeTrim(data.registradoPor) || session.username,
+        estado: safeTrim(data.estado) || "ACTIVO",
+        fecha: data.fecha ?? null,
+      };
+
+      if (!payload.nombreRazon) {
+        toast.error("El nombre o razon social es obligatorio.");
+        return false;
+      }
+
+      const result = await updateClient(client.id, { ...client, ...payload });
+      if (!result.ok) {
+        toast.error(result.error ?? "No se pudo actualizar el cliente.");
+        return false;
+      }
+
+      await fetchClients("");
+      const updated =
+        useClientsStore
+          .getState()
+          .clients.find((item) => Number(item.id) === Number(client.id)) ??
+        ({ ...client, ...payload } as Client);
+
+      applyClient(updated);
+      toast.success("Cliente actualizado correctamente.");
+      closeDialog();
+      return true;
+    },
+    [applyClient, closeDialog, fetchClients, session.username, updateClient],
+  );
+
   const handleAddManualProduct = async (selectedProduct?: Product) => {
     if (isReadOnly) {
       toast.error("Este registro solo se puede visualizar.");
@@ -1204,41 +1262,16 @@ export default function HtmlCaptureSalePage() {
       hideCancelButton: true,
       content: (
         <CustomerDialogContent
-          initialData={{
-            clienteCodigo: safeTrim(form.memberCode),
-            nombreRazon: safeTrim(form.customerName),
-            email: safeTrim(form.customerEmail),
-            dni: [8, 9].includes(normalizeDocumentText(form.customerDoc).length)
-              ? normalizeDocumentText(form.customerDoc)
-              : "",
-            ruc: safeTrim(form.customerRuc),
-            direccionFiscal: safeTrim(form.address),
-            direccionDespacho: safeTrim(form.address),
-          }}
-          initialQuery={
-            safeTrim(form.customerName).toUpperCase() === "VARIOS"
-              ? ""
-              : safeTrim(
-                  form.customerName ||
-                    form.customerRuc ||
-                    form.customerDoc ||
-                    form.memberCode,
-                )
-          }
           onSelectClient={handleSelectClientFromDialog}
           onCreateClient={handleCreateClientFromDialog}
+          onUpdateClient={handleUpdateClientFromDialog}
         />
       ),
     });
   }, [
-    form.address,
-    form.customerDoc,
-    form.customerName,
-    form.customerEmail,
-    form.customerRuc,
-    form.memberCode,
     handleCreateClientFromDialog,
     handleSelectClientFromDialog,
+    handleUpdateClientFromDialog,
     isReadOnly,
     openDialog,
   ]);
@@ -1642,6 +1675,14 @@ export default function HtmlCaptureSalePage() {
     ) {
       return "Ingresa el numero de operacion.";
     }
+    if (
+      form.condition !== "PAGO/VARIOS" &&
+      form.paymentMethod.includes("/") &&
+      form.paymentMethod.includes("EFECTIVO") &&
+      Number(form.paymentDeposit || 0) <= 0
+    ) {
+      return "Ingresa el monto por banco.";
+    }
     return "";
   };
 
@@ -1828,10 +1869,22 @@ export default function HtmlCaptureSalePage() {
     const total = Number(totals.total.toFixed(2));
     const isPagoVariosSale = form.condition === "PAGO/VARIOS";
     const notaFormaPago = isPagoVariosSale ? "-" : form.paymentMethod;
+    const isCashSplitPayment =
+      form.paymentMethod.includes("/") &&
+      form.paymentMethod.includes("EFECTIVO");
+    const depositoIngresado = Math.max(0, Number(form.paymentDeposit || 0));
     const efectivo =
-      !isPagoVariosSale && form.paymentMethod === "EFECTIVO" ? total : 0;
+      !isPagoVariosSale && form.paymentMethod === "EFECTIVO"
+        ? total
+        : !isPagoVariosSale && isCashSplitPayment
+          ? Math.max(total - Math.min(depositoIngresado, total), 0)
+          : 0;
     const deposito =
-      !isPagoVariosSale && form.paymentMethod !== "EFECTIVO" ? total : 0;
+      !isPagoVariosSale && form.paymentMethod !== "EFECTIVO"
+        ? isCashSplitPayment
+          ? Math.min(depositoIngresado, total)
+          : total
+        : 0;
     if (!saleClient && form.docTypeCode === "01") {
       toast.error(
         "Para Factura debes registrar o seleccionar el cliente con + Cliente.",
@@ -2551,6 +2604,9 @@ export default function HtmlCaptureSalePage() {
                                 )
                               }
                               onKeyDown={handleNumberInputKeyDown}
+                              onFocus={(event) =>
+                                moveCaretToEnd(event.currentTarget)
+                              }
                               onBlur={() => handleRowPriceBlur(row.code)}
                               disabled={
                                 isSaving || isReadOnly || isCapturedSale
@@ -2576,6 +2632,9 @@ export default function HtmlCaptureSalePage() {
                                 )
                               }
                               onKeyDown={handleNumberInputKeyDown}
+                              onFocus={(event) =>
+                                moveCaretToEnd(event.currentTarget)
+                              }
                               disabled={
                                 isSaving || isReadOnly || isCapturedSale
                               }
@@ -2653,6 +2712,7 @@ export default function HtmlCaptureSalePage() {
                     clientOptions={clientOptions}
                     disabled={isSaving || isReadOnly}
                     correlative={correlative?.nroComprobante}
+                    totalAmount={totals.total}
                     preserveMissingClientData={isCapturedSale}
                     onClientSelected={applyClient}
                     onCreateClient={

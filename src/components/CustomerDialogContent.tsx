@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Plus, Save, X } from "lucide-react";
+import { Check, Pencil, Plus, Save, X } from "lucide-react";
 import CustomerFormBase from "@/components/CustomerFormBase";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
@@ -22,6 +22,11 @@ type CustomerDialogContentProps = {
   initialQuery?: string;
   onSelectClient: (client: Client) => void;
   onCreateClient: (client: Omit<Client, "id">) => Promise<boolean> | boolean;
+  onUpdateClient?: (
+    client: Client,
+    data: Omit<Client, "id">,
+  ) => Promise<boolean> | boolean;
+  initialEditingClient?: Client | null;
 };
 
 export default function CustomerDialogContent({
@@ -29,6 +34,8 @@ export default function CustomerDialogContent({
   initialQuery = "",
   onSelectClient,
   onCreateClient,
+  onUpdateClient,
+  initialEditingClient = null,
 }: CustomerDialogContentProps) {
   const clients = useClientsStore((state) => state.clients);
   const fetchClients = useClientsStore((state) => state.fetchClients);
@@ -36,6 +43,9 @@ export default function CustomerDialogContent({
   const closeDialog = useDialogStore((state) => state.closeDialog);
   const [activeTab, setActiveTab] = useState<"list" | "form">("form");
   const [query, setQuery] = useState(initialQuery);
+  const [editingClient, setEditingClient] = useState<Client | null>(
+    initialEditingClient,
+  );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -62,6 +72,7 @@ export default function CustomerDialogContent({
   }, [clients, query]);
 
   const openNewForm = () => {
+    setEditingClient(null);
     setQuery("");
     setActiveTab("form");
   };
@@ -186,15 +197,31 @@ export default function CustomerDialogContent({
                         <td className="px-3 py-2">{client.dni}</td>
                         <td className="px-3 py-2">{client.ruc}</td>
                         <td className="px-3 py-2 text-right">
-                          <button
-                            type="button"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#B23636] text-white hover:bg-[#9f2f2f]"
-                            onClick={() => onSelectClient(client)}
-                            title="Usar"
-                            aria-label="Usar"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            {onUpdateClient ? (
+                              <button
+                                type="button"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                                onClick={() => {
+                                  setEditingClient(client);
+                                  setActiveTab("form");
+                                }}
+                                title="Editar"
+                                aria-label="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#B23636] text-white hover:bg-[#9f2f2f]"
+                              onClick={() => onSelectClient(client)}
+                              title="Usar"
+                              aria-label="Usar"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -220,12 +247,17 @@ export default function CustomerDialogContent({
         ) : (
           <div className="h-full overflow-auto">
             <CustomerFormBase
-              mode="create"
+              key={editingClient?.id ?? "create"}
+              mode={editingClient ? "edit" : "create"}
               variant="modal"
-              initialData={initialData}
+              initialData={editingClient ?? initialData}
               formId={CUSTOMER_DIALOG_FORM_ID}
-              onSave={onCreateClient}
-              onNew={() => {}}
+              onSave={(data) =>
+                editingClient && onUpdateClient
+                  ? onUpdateClient(editingClient, data)
+                  : onCreateClient(data)
+              }
+              onNew={() => setEditingClient(null)}
             />
           </div>
         )}
