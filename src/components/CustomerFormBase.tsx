@@ -7,7 +7,7 @@ import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
-import { apiRequest } from "@/shared/helpers/apiRequest";
+import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -213,11 +213,36 @@ export default function CustomerFormBase({
 
   const handleSave = async (values: CustomerFormValues) => {
     const nombreRazonUpper = values.nombreRazon?.toUpperCase() ?? "";
+    const numeroDocumento = String(values.numeroDocumento ?? "")
+      .replace(/\D/g, "")
+      .trim();
+    if (
+      numeroDocumento &&
+      numeroDocumento.length !== (values.tipoDocumento === "dni" ? 8 : 11)
+    ) {
+      setError("numeroDocumento", {
+        type: "manual",
+        message:
+          values.tipoDocumento === "dni"
+            ? "Ingrese correctamente los 8 numeros del DNI"
+            : "Ingrese correctamente los 11 numeros del RUC",
+      });
+      setFocus("numeroDocumento");
+      return;
+    }
+    const ruc =
+      numeroDocumento && values.tipoDocumento === "ruc"
+        ? numeroDocumento
+        : values.ruc;
+    const dni =
+      numeroDocumento && values.tipoDocumento === "dni"
+        ? numeroDocumento
+        : values.dni;
     const payload: Omit<Client, "id"> = {
       clienteCodigo: values.clienteCodigo,
       nombreRazon: nombreRazonUpper,
-      ruc: values.ruc,
-      dni: values.dni,
+      ruc,
+      dni,
       direccionFiscal: values.direccionFiscal,
       direccionDespacho: values.direccionDespacho,
       telefonoMovil: values.telefonoMovil,
@@ -303,108 +328,19 @@ export default function CustomerFormBase({
 
     clearErrors("numeroDocumento");
 
-    const token = String(import.meta.env.VITE_API_DOCUMENTO ?? "").trim();
-    if (!token) {
-      console.error("Falta VITE_API_DOCUMENTO en .env");
-      toast.error("Falta configurar el token de consulta en .env");
-      return;
-    }
-
-    const endpoint = tipoDocumento === "dni" ? "dni" : "ruc";
-    const url = `https://dniruc.apisperu.com/api/v1/${endpoint}/${numeroDocumento}?token=${token}`;
-
-    const response = await apiRequest<unknown>({
-      url,
-      method: "GET",
-      fallback: null,
-    });
-
-    console.log(`[consulta ${endpoint}]`, response);
-
-    if (!response || typeof response !== "object") {
-      console.warn("Respuesta invalida del servicio de consulta");
-      toast.error("No se pudo consultar el documento");
-      return;
-    }
-
-    const responseRecord = response as Record<string, unknown>;
-    const responseContainer = responseRecord.response as
-      Record<string, unknown> | undefined;
-    const rawResponseData = responseContainer?.data;
-    const parsedResponseData =
-      typeof rawResponseData === "string"
-        ? (() => {
-            try {
-              return JSON.parse(rawResponseData) as unknown;
-            } catch {
-              return rawResponseData;
-            }
-          })()
-        : rawResponseData;
-    const data =
-      parsedResponseData && typeof parsedResponseData === "object"
-        ? (parsedResponseData as Record<string, unknown>)
-        : responseRecord;
-    const rawErrorData = (responseRecord as { response?: { data?: unknown } })
-      .response?.data;
-    const errorDataRecord =
-      rawErrorData && typeof rawErrorData === "object"
-        ? (rawErrorData as Record<string, unknown>)
-        : null;
-
-    const asText = (value: unknown) => String(value ?? "").trim();
-    const pickFirst = (...values: unknown[]) =>
-      values.map(asText).find((v) => v.length > 0) ?? "";
-
-    const apiMessage = pickFirst(
-      errorDataRecord?.message,
-      errorDataRecord?.error,
-      data.message,
-      data.error,
-      (data as { errors?: unknown }).errors,
-      (parsedResponseData as { message?: unknown })?.message,
-      (parsedResponseData as { error?: unknown })?.error,
-      rawResponseData,
-    );
-    const successFlag =
-      (data as { success?: unknown }).success ??
-      errorDataRecord?.success ??
-      (responseRecord as { success?: unknown }).success;
-    const hasExplicitFailure =
-      successFlag === false ||
-      String(successFlag ?? "")
-        .trim()
-        .toLowerCase() === "0" ||
-      String(successFlag ?? "")
-        .trim()
-        .toLowerCase() === "false";
-
-    if (hasExplicitFailure) {
-      toast.error(apiMessage || "No se encontraron datos del documento");
+    const result = await consultarDocumentoCliente(tipoDocumento, numeroDocumento);
+    if (!result.ok) {
+      toast.error(result.message);
       return;
     }
 
     if (tipoDocumento === "dni") {
-      const nombreCompleto = [
-        asText(data.nombres),
-        asText(data.apellidoPaterno),
-        asText(data.apellidoMaterno),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-
-      const dni = pickFirst(data.dni, numeroDocumento);
-
-      if (!nombreCompleto && !dni) {
-        toast.error(apiMessage || "No se encontraron datos para ese DNI");
-        return;
+      if (result.client.nombreRazon) {
+        setValue("nombreRazon", result.client.nombreRazon, {
+          shouldDirty: true,
+        });
       }
-
-      if (nombreCompleto) {
-        setValue("nombreRazon", nombreCompleto, { shouldDirty: true });
-      }
-      setValue("dni", dni, { shouldDirty: true });
+      setValue("dni", result.client.dni, { shouldDirty: true });
       setValue("ruc", "", { shouldDirty: true });
       setValue("direccionFiscal", "-", { shouldDirty: true });
       setValue("direccionDespacho", "-", { shouldDirty: true });
@@ -413,34 +349,19 @@ export default function CustomerFormBase({
       return;
     }
 
-    const razonSocial = pickFirst(
-      data.razonSocial,
-      data.nombreORazonSocial,
-      data.nombre_o_razon_social,
-      data.nombre,
-      data.nombreRazon,
-    );
-    const direccion = pickFirst(
-      data.direccion,
-      data.direccionCompleta,
-      data.domicilioFiscal,
-    );
-    const ruc = pickFirst(data.ruc, numeroDocumento);
-
-    if (!razonSocial && !ruc) {
-      toast.error(apiMessage || "No se encontraron datos para ese RUC");
-      return;
+    if (result.client.nombreRazon) {
+      setValue("nombreRazon", result.client.nombreRazon, {
+        shouldDirty: true,
+      });
     }
-
-    if (razonSocial) {
-      setValue("nombreRazon", razonSocial, { shouldDirty: true });
-    }
-    setValue("ruc", ruc, { shouldDirty: true });
+    setValue("ruc", result.client.ruc, { shouldDirty: true });
     setValue("dni", "", { shouldDirty: true });
-    if (direccion) {
-      setValue("direccionFiscal", direccion, { shouldDirty: true });
-      setValue("direccionDespacho", direccion, { shouldDirty: true });
-    }
+    setValue("direccionFiscal", result.client.direccionFiscal, {
+      shouldDirty: true,
+    });
+    setValue("direccionDespacho", result.client.direccionDespacho, {
+      shouldDirty: true,
+    });
     setValue("numeroDocumento", "", { shouldDirty: true });
     setFocus("nombreRazon");
   };

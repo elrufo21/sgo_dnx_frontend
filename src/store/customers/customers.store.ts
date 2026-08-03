@@ -32,7 +32,7 @@ interface ClientsState {
   updateClient: (
     id: number,
     data: Partial<Client>,
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; client?: Client }>;
   deleteClient: (id: number) => Promise<boolean>;
 }
 
@@ -330,14 +330,19 @@ export const useClientsStore = create<ClientsState>((set, get) => ({
   },
 
   fetchClientById: async (id) => {
-    const response = await apiRequest<ApiClient | null>({
-      url: `${API_BASE_URL}/Cliente/${id}`,
-      method: "GET",
-      fallback: null,
-    });
-    const client = response ? mapApiToClient(response) : null;
-    if (client) set((state) => ({ clients: mergeClients(state.clients, [client]) }));
-    return client;
+    try {
+      set({ loading: true });
+      const response = await apiRequest<ApiClient | null>({
+        url: `${API_BASE_URL}/Cliente/${id}`,
+        method: "GET",
+        fallback: null,
+      });
+      const client = response ? mapApiToClient(response) : null;
+      if (client) set((state) => ({ clients: mergeClients(state.clients, [client]) }));
+      return client;
+    } finally {
+      set({ loading: false });
+    }
   },
 
   fetchClientByCodigo: async (codigo) => {
@@ -440,12 +445,13 @@ export const useClientsStore = create<ClientsState>((set, get) => ({
       }
 
       const parsedClient = parseClientRegisterResponse(updated, payload);
+      const updatedClient = mapApiToClient(parsedClient);
       set((state) => ({
         clients: state.clients.map((c) =>
-          c.id === id ? mapApiToClient(parsedClient) : c,
+          c.id === id ? updatedClient : c,
         ),
       }));
-      return { ok: true };
+      return { ok: true, client: updatedClient };
     } catch (error) {
       console.error("Error updating client", error);
       return { ok: false, error: "No se pudo actualizar el cliente." };
@@ -455,21 +461,26 @@ export const useClientsStore = create<ClientsState>((set, get) => ({
   },
 
   deleteClient: async (id) => {
-    const result = await apiRequest({
-      url: `${API_BASE_URL}/Cliente/${id}`,
-      method: "DELETE",
-      config: { headers: { Accept: "*/*" } },
-      fallback: true,
-    });
+    try {
+      set({ loading: true });
+      const result = await apiRequest({
+        url: `${API_BASE_URL}/Cliente/${id}`,
+        method: "DELETE",
+        config: { headers: { Accept: "*/*" } },
+        fallback: false,
+      });
 
-    if (result === false) {
-      return false;
+      if (result !== true) {
+        return false;
+      }
+
+      set((state) => ({
+        clients: state.clients.filter((c) => c.id !== id),
+      }));
+
+      return true;
+    } finally {
+      set({ loading: false });
     }
-
-    set((state) => ({
-      clients: state.clients.filter((c) => c.id !== id),
-    }));
-
-    return result !== false;
   },
 }));

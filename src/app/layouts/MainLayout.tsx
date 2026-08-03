@@ -511,6 +511,19 @@ export default function MainLayout() {
     item.label.toUpperCase().includes(search.toUpperCase()),
   );
 
+  const pageTitle = useMemo(() => {
+    const overrides = [{ path: "/sales/order_notes", title: "Nota Pedido" }];
+    const override = overrides.find(
+      (item) => pathname === item.path || pathname.startsWith(`${item.path}/`),
+    );
+    if (override) return override.title;
+
+    const activeItem = [...navItems]
+      .sort((a, b) => b.to.length - a.to.length)
+      .find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
+    return activeItem?.label.trim() || "";
+  }, [navItems, pathname]);
+
   // Render de items del menú
   const renderNavItem = (
     item: (typeof navItems)[0],
@@ -645,7 +658,7 @@ export default function MainLayout() {
                 <Menu size={20} />
               </button>
               <h2 className="line-clamp-1 text-base font-semibold sm:text-lg lg:text-xl">
-                Panel de Control
+                {pageTitle}
               </h2>
             </div>
 

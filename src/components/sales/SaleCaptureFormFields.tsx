@@ -116,6 +116,7 @@ export function SaleCaptureFormFields({
   const paymentNeedsOperation = !["(SELECCIONE)", "EFECTIVO", "-"].includes(
     paymentMethod,
   );
+  const bankEntity = values.bankEntity ?? "-";
   const docTypeCode = values.docTypeCode ?? "03";
   const correlativeDisplay = values.correlativeDisplay ?? "";
   const emissionDate = values.emissionDate ?? "";
@@ -141,6 +142,18 @@ export function SaleCaptureFormFields({
       setValue("paymentMethod", "(SELECCIONE)", { shouldDirty: true });
     }
   }, [isPagoVarios, paymentMethod, setValue]);
+
+  useEffect(() => {
+    if (isPagoVarios || !paymentNeedsOperation) {
+      if (bankEntity !== "-") {
+        setValue("bankEntity", "-", { shouldDirty: true });
+      }
+      return;
+    }
+    if (bankEntity === "-" || !bankEntity) {
+      setValue("bankEntity", "(SELECCIONE)", { shouldDirty: true });
+    }
+  }, [bankEntity, isPagoVarios, paymentNeedsOperation, setValue]);
 
   useEffect(() => {
     const total = Math.max(0, Number(totalAmount) || 0);
@@ -596,6 +609,7 @@ export function SaleCaptureFormFields({
             label="Entidad"
             disabled={disabled || isPagoVarios || !paymentNeedsOperation}
             options={[
+              { value: "(SELECCIONE)", label: "(SELECCIONE)" },
               { value: "-", label: "-" },
               { value: "BCP", label: "BCP" },
               { value: "INTERBANK", label: "INTERBANK" },

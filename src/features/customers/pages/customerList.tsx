@@ -2,35 +2,57 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Pencil, PlusIcon, Search, Trash2 } from "lucide-react";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
+import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { toast } from "@/shared/ui/toast";
 
 const PAGE_SIZE = 50;
+const normalizeSearch = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+const formatCount = (value: number) =>
+  Number(value || 0).toLocaleString("en-US");
 
 const CustomerList = () => {
   const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { clients, totalClients, loading, fetchClients, deleteClient } =
-    useClientsStore();
+  const { clients, loading, fetchClients, deleteClient } = useClientsStore();
   const [estado, setEstado] = useState<"ACTIVO" | "INACTIVO">("ACTIVO");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void fetchClients({ estado, search, page, pageSize: PAGE_SIZE });
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [estado, fetchClients, page, search]);
+    void fetchClients("");
+  }, [fetchClients]);
 
-  const canGoNext = page * PAGE_SIZE < totalClients;
-  const from = useMemo(
-    () => (clients.length ? (page - 1) * PAGE_SIZE + 1 : 0),
-    [clients.length, page],
+  const filteredClients = useMemo(() => {
+    const tokens = normalizeSearch(search).split(" ").filter(Boolean);
+    return [...clients]
+      .sort((a, b) => Number(b.id) - Number(a.id))
+      .filter((client) => {
+        if (estado && client.estado !== estado) return false;
+        if (!tokens.length) return true;
+        const haystack = normalizeSearch(
+          `${client.clienteCodigo} ${client.nombreRazon} ${client.ruc} ${client.dni} ${client.telefonoMovil} ${client.email}`,
+        );
+        return tokens.every((token) => haystack.includes(token));
+      });
+  }, [clients, estado, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedClients = filteredClients.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
   );
-  const to = clients.length ? from + clients.length - 1 : 0;
-  const totalPages = Math.max(1, Math.ceil(totalClients / PAGE_SIZE));
+  const canGoNext = currentPage < totalPages;
+  const from = pagedClients.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const to = pagedClients.length ? from + pagedClients.length - 1 : 0;
 
   const askDelete = (id: number) =>
     openDialog({
@@ -43,12 +65,13 @@ const CustomerList = () => {
           return;
         }
         toast.success("Cliente eliminado.");
-        void fetchClients({ estado, search, page, pageSize: PAGE_SIZE });
+        void fetchClients("");
       },
     });
 
   return (
     <div className="space-y-4">
+      <BlockingSpinner show={loading} text="Cargando clientes..." />
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
         <BackArrowButton className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100" />
         <div className="relative min-w-[260px] flex-1">
@@ -105,14 +128,14 @@ const CustomerList = () => {
                     Cargando clientes...
                   </td>
                 </tr>
-              ) : clients.length === 0 ? (
+              ) : pagedClients.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
                     No se encontraron clientes.
                   </td>
                 </tr>
               ) : (
-                clients.map((client) => (
+                pagedClients.map((client) => (
                   <tr key={client.id} className="border-t border-slate-100">
                     <td className="px-4 py-3 font-medium text-slate-700">
                       {client.clienteCodigo || "-"}
@@ -152,8 +175,9 @@ const CustomerList = () => {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
           <span>
-            Mostrando {from} - {to} de {totalClients} clientes · Página {page} de{" "}
-            {totalPages}
+            Mostrando {formatCount(from)} - {formatCount(to)} de{" "}
+            {formatCount(filteredClients.length)} clientes · Página {currentPage} de{" "}
+            {formatCount(totalPages)}
           </span>
           <div className="flex gap-2">
             <button

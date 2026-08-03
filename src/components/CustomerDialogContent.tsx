@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Pencil, Plus, Save, X } from "lucide-react";
+import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import CustomerFormBase from "@/components/CustomerFormBase";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
@@ -15,6 +16,8 @@ const normalizeSearch = (value: unknown) =>
     .trim();
 const tokenizeSearch = (value: unknown) =>
   normalizeSearch(value).split(" ").filter(Boolean);
+const formatCount = (value: number) =>
+  Number(value || 0).toLocaleString("en-US");
 const CUSTOMER_DIALOG_FORM_ID = "customer-dialog-form";
 
 type CustomerDialogContentProps = {
@@ -26,6 +29,7 @@ type CustomerDialogContentProps = {
     client: Client,
     data: Omit<Client, "id">,
   ) => Promise<boolean> | boolean;
+  onDeleteClient?: (client: Client) => Promise<boolean> | boolean;
   initialEditingClient?: Client | null;
 };
 
@@ -35,9 +39,11 @@ export default function CustomerDialogContent({
   onSelectClient,
   onCreateClient,
   onUpdateClient,
+  onDeleteClient,
   initialEditingClient = null,
 }: CustomerDialogContentProps) {
   const clients = useClientsStore((state) => state.clients);
+  const totalClients = useClientsStore((state) => state.totalClients);
   const fetchClients = useClientsStore((state) => state.fetchClients);
   const loadingClients = useClientsStore((state) => state.loading);
   const closeDialog = useDialogStore((state) => state.closeDialog);
@@ -59,9 +65,10 @@ export default function CustomerDialogContent({
 
   const filteredClients = useMemo(() => {
     const tokens = tokenizeSearch(query);
-    if (!tokens.length) return clients.slice(0, 100);
+    const sorted = [...clients].sort((a, b) => Number(b.id) - Number(a.id));
+    if (!tokens.length) return sorted.slice(0, 100);
 
-    return clients
+    return sorted
       .filter((client) => {
         const haystack = normalizeSearch(
           `${client.clienteCodigo} ${client.nombreRazon} ${client.ruc} ${client.dni} ${client.telefonoMovil}`,
@@ -73,7 +80,6 @@ export default function CustomerDialogContent({
 
   const openNewForm = () => {
     setEditingClient(null);
-    setQuery("");
     setActiveTab("form");
   };
 
@@ -88,8 +94,21 @@ export default function CustomerDialogContent({
     });
   };
 
+  const deleteEditingClient = async () => {
+    if (!editingClient || !onDeleteClient) return;
+    const confirmed = window.confirm(
+      `¿Eliminar cliente ${editingClient.nombreRazon || editingClient.clienteCodigo}?`,
+    );
+    if (!confirmed) return;
+    const deleted = await onDeleteClient(editingClient);
+    if (!deleted) return;
+    setEditingClient(null);
+    setActiveTab("list");
+  };
+
   return (
     <div className="flex h-[68dvh] max-h-[38rem] flex-col overflow-hidden bg-white">
+      <BlockingSpinner show={loadingClients} text="Cargando clientes..." />
       <div className="shrink-0 bg-[#B23636] px-2 py-2 text-white sm:px-3">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="grid w-full grid-cols-2 rounded-md bg-white/10 p-1 lg:w-[28rem]">
@@ -126,14 +145,26 @@ export default function CustomerDialogContent({
               Nuevo
             </button>
             {activeTab === "form" ? (
-              <button
-                type="button"
-                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold hover:bg-red-700"
-                onClick={submitForm}
-              >
-                <Save className="h-4 w-4" />
-                Guardar
-              </button>
+              <>
+                {editingClient && onDeleteClient ? (
+                  <button
+                    type="button"
+                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-white/10 px-3 text-sm font-semibold hover:bg-white/20"
+                    onClick={deleteEditingClient}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-semibold hover:bg-red-700"
+                  onClick={submitForm}
+                >
+                  <Save className="h-4 w-4" />
+                  Guardar
+                </button>
+              </>
             ) : null}
             <button
               type="button"
@@ -240,7 +271,8 @@ export default function CustomerDialogContent({
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
               <span>
-                {filteredClients.length} de {clients.length} clientes
+                {formatCount(filteredClients.length)} de{" "}
+                {formatCount(totalClients || clients.length)} clientes
               </span>
             </div>
           </div>

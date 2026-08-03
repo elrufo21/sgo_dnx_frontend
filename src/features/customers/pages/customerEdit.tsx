@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
+import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import CustomerFormBase from "@/components/CustomerFormBase";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { useNavigate, useParams } from "react-router";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { toast } from "@/shared/ui/toast";
+import type { Client } from "@/types/customer";
 
 const CustomerEdit = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { fetchClientById, updateClient, deleteClient } = useClientsStore();
+  const { fetchClientById, updateClient, deleteClient, loading } =
+    useClientsStore();
 
-  const [form, setForm] = useState<Omit<any, "id">>({
+  const [form, setForm] = useState<Omit<Client, "id">>({
     clienteCodigo: "",
     nombreRazon: "",
     ruc: "",
@@ -29,8 +32,19 @@ const CustomerEdit = () => {
     if (!id) return;
     void fetchClientById(Number(id)).then((client) => {
       if (!client) return;
-      const { id: _id, ...rest } = client;
-      setForm(rest);
+      setForm({
+        clienteCodigo: client.clienteCodigo,
+        nombreRazon: client.nombreRazon,
+        ruc: client.ruc,
+        dni: client.dni,
+        direccionFiscal: client.direccionFiscal,
+        direccionDespacho: client.direccionDespacho,
+        telefonoMovil: client.telefonoMovil,
+        email: client.email,
+        registradoPor: client.registradoPor,
+        estado: client.estado,
+        fecha: client.fecha,
+      });
     });
   }, [fetchClientById, id]);
 
@@ -74,13 +88,16 @@ const CustomerEdit = () => {
   };
 
   return (
-    <CustomerFormBase
-      mode="edit"
-      initialData={form}
-      onSave={handleSave}
-      onDelete={handleDelete}
-      onNew={handleNew}
-    />
+    <>
+      <BlockingSpinner show={loading} text="Cargando cliente..." />
+      <CustomerFormBase
+        mode="edit"
+        initialData={form}
+        onSave={handleSave}
+        onDelete={handleDelete}
+        onNew={handleNew}
+      />
+    </>
   );
 };
 

@@ -14,6 +14,8 @@ export interface OrderNoteApiItem {
   cliente?: string | null;
   clienteId?: string | number | null;
   ClienteId?: string | number | null;
+  codigoCliente?: string | null;
+  CodigoCliente?: string | null;
   clienteRazon?: string | null;
   ClienteRazon?: string | null;
   miembro?: string | null;
@@ -21,6 +23,10 @@ export interface OrderNoteApiItem {
   formaPago?: string | null;
   notaFormaPago?: string | null;
   NotaFormaPago?: string | null;
+  efectivo?: string | number | null;
+  Efectivo?: string | number | null;
+  deposito?: string | number | null;
+  Deposito?: string | number | null;
   total?: string | number | null;
   notaTotal?: string | number | null;
   NotaTotal?: string | number | null;
@@ -49,8 +55,11 @@ export interface OrderNote {
   notaId: string;
   documento: string;
   fecha: string;
+  codigoCliente: string;
   cliente: string;
   formaPago: string;
+  efectivo: string;
+  deposito: string;
   total: string;
   acuenta: string;
   saldo: string;

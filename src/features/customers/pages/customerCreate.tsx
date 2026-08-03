@@ -1,11 +1,12 @@
 import React, { useState } from "react";
+import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import CustomerFormBase from "@/components/CustomerFormBase";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { useNavigate } from "react-router";
 import { toast } from "@/shared/ui/toast";
 
 const CustomerCreate = () => {
-  const { addClient } = useClientsStore();
+  const { addClient, loading } = useClientsStore();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -63,12 +64,15 @@ const CustomerCreate = () => {
   };
 
   return (
-    <CustomerFormBase
-      mode="create"
-      initialData={form}
-      onSave={handleSave}
-      onNew={handleNew}
-    />
+    <>
+      <BlockingSpinner show={loading} text="Guardando cliente..." />
+      <CustomerFormBase
+        mode="create"
+        initialData={form}
+        onSave={handleSave}
+        onNew={handleNew}
+      />
+    </>
   );
 };
 

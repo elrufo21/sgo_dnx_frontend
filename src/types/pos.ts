@@ -5,9 +5,11 @@ export interface PosCartItem {
   nombre: string;
   unidadMedida?: string;
   precio: number;
+  detalleCosto?: number;
   precioMinimo?: number;
   cantidad: number;
   valorUM?: number;
+  aplicaINV?: string;
   pv?: number;
   sv?: number;
   stock?: number;

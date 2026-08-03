@@ -335,10 +335,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   colCant: {
-    width: "22%",
+    width: "12%",
   },
   colDesc: {
-    width: "30%",
+    width: "44%",
     paddingLeft: 3,
   },
   colPUni: {
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   colImporte: {
-    width: "22%",
+    width: "24%",
     textAlign: "right",
   },
   tableRow: {
@@ -362,13 +362,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   tableItemDescriptionSecondRow: {
-    width: "58%",
+    width: "44%",
     fontSize: 9,
     fontWeight: "bold",
     textAlign: "left",
+    paddingLeft: 3,
   },
   tableItemDescriptionFull: {
-    width: "78%",
+    width: "88%",
     paddingLeft: 3,
     fontSize: 9,
     fontWeight: "bold",
@@ -570,10 +571,14 @@ const TicketDocument = ({
     const clientDoc =
       clientId?.trim() || (docLabel === "RUC" ? "00000000000" : "00000000");
     const now = new Date();
-    const emissionDate = now.toLocaleDateString("es-PE");
+    const emissionDate = now.toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
     const emissionDateTime = now.toLocaleString("es-PE", {
-      day: "numeric",
-      month: "numeric",
+      day: "2-digit",
+      month: "2-digit",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
@@ -840,7 +845,7 @@ const TicketDocument = ({
           const sv = formatTicketMoney(Number(item.sv ?? 0));
           const [descriptionLine1, descriptionLine2] =
             splitTicketDescriptionTwoLines(
-              `${formatUnitPrefix(item.unitMeasure)}${item.description} |***|PV:${pv} |***|SV:${sv}`,
+              `${formatUnitPrefix(item.unitMeasure)}${item.description} PV:${pv} SV:${sv}`,
             );
 
           return (
@@ -855,6 +860,7 @@ const TicketDocument = ({
                   </Text>
                 </View>
                 <View style={styles.tableItemMetaRow}>
+                  <Text style={styles.colCant}> </Text>
                   <Text style={styles.tableItemDescriptionSecondRow}>
                     {descriptionLine2}
                   </Text>

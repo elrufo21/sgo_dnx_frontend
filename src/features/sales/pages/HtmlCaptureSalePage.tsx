@@ -29,6 +29,7 @@ import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields"
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import {
   focusNextInput,
   focusPreviousInput,
@@ -126,12 +127,33 @@ type PagoVariosResponse = {
   resultado?: string;
 };
 type ManualSaleType = "VENTA LIBRE" | "POR PASAR AL OBS";
+type SaleValidationError = { message: string; field?: keyof SaleForm };
 
 const DOC_CONFIG = {
   "03": { docu: "BOLETA", serie: "BA01", ticket: "boleta" as const },
   "01": { docu: "FACTURA", serie: "FA01", ticket: "factura" as const },
   "101": { docu: "PROFORMA V", serie: "0001", ticket: "proforma" as const },
 };
+const PAYMENT_METHOD_OPTIONS = [
+  "(SELECCIONE)",
+  "EFECTIVO",
+  "DEPOSITO",
+  "TARJETA",
+  "YAPE",
+  "EFECTIVO/DEPOSITO",
+  "TARJETA/EFECTIVO",
+  "YAPE/EFECTIVO",
+  "YAPE/DEPOSITO",
+  "TARJETA/DEPOSITO",
+];
+const BANK_OPTIONS = [
+  "(SELECCIONE)",
+  "-",
+  "BCP",
+  "INTERBANK",
+  "SCOTIABANK",
+  "BBVA",
+];
 
 const defaultForm: SaleForm = {
   concept: "MERCADERIA",
@@ -458,6 +480,7 @@ export default function HtmlCaptureSalePage() {
   const appliedCaptureKeyRef = useRef("");
   const loadedRouteKeyRef = useRef("");
   const registerSaleRef = useRef(false);
+  const focusedPagoVariosPaymentMethodRef = useRef("");
   const { products, fetchProducts, loading } = useProductsStore();
   const {
     clients,
@@ -465,6 +488,7 @@ export default function HtmlCaptureSalePage() {
     fetchClientByCodigo,
     addClient,
     updateClient,
+    deleteClient,
     fetchClientMonthlyPvs,
   } = useClientsStore();
   const [capture, setCapture] = useState<CaptureData | null>(null);
@@ -490,18 +514,19 @@ export default function HtmlCaptureSalePage() {
   const [pagoVariosModalOpen, setPagoVariosModalOpen] = useState(false);
   const [isPagoVariosLoading, setIsPagoVariosLoading] = useState(false);
   const [isPagoVariosSaving, setIsPagoVariosSaving] = useState(false);
-  const [pagoVariosFormaPago, setPagoVariosFormaPago] = useState("EFECTIVO");
+  const [pagoVariosFormaPago, setPagoVariosFormaPago] =
+    useState("(SELECCIONE)");
   const [pagoVariosEntidad, setPagoVariosEntidad] = useState("-");
   const [pagoVariosOperacion, setPagoVariosOperacion] = useState("");
   const [pagoVariosDeposito, setPagoVariosDeposito] = useState("");
-  const [pagoVariosDescripcion, setPagoVariosDescripcion] =
-    useState("PAGO VARIOS");
+  const [pagoVariosDescripcion, setPagoVariosDescripcion] = useState("");
   const session = useMemo(readSession, []);
   const openDialog = useDialogStore((state) => state.openDialog);
   const closeDialog = useDialogStore((state) => state.closeDialog);
   const dialogOpen = useDialogStore((state) => state.open);
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
+  const manualProductSearchRef = useRef<HTMLInputElement | null>(null);
   const isCapturedSale = Boolean(capture);
   const saleType = isCapturedSale ? "CASHBILL" : manualSaleType;
   const saleTypeForDatabase = isCapturedSale
@@ -515,6 +540,35 @@ export default function HtmlCaptureSalePage() {
       setManualProductSearchFocused(false);
     }
   }, [dialogOpen, pagoVariosModalOpen]);
+
+  const focusSaleField = useCallback(
+    (field?: keyof SaleForm) => {
+      setActiveTab("sale");
+      window.setTimeout(() => {
+        if (field) {
+          formMethods.setFocus(field);
+          return;
+        }
+        manualProductSearchRef.current?.focus();
+      }, 0);
+    },
+    [formMethods],
+  );
+
+  const focusPagoVariosField = useCallback(
+    (
+      field: "forma" | "entidad" | "operacion" | "deposito" | "descripcion",
+    ) => {
+      window.setTimeout(() => {
+        const target = document.querySelector<HTMLElement>(
+          `[data-pago-varios-${field}]`,
+        );
+        target?.focus();
+        if (target instanceof HTMLInputElement) target.select();
+      }, 0);
+    },
+    [],
+  );
 
   const resetDraft = useCallback(() => {
     externalCaptureKeyRef.current = "";
@@ -694,23 +748,22 @@ export default function HtmlCaptureSalePage() {
       ).filter(Boolean),
     [selectedPagoVariosItems],
   );
-  const isPagoVariosMixed = pagoVariosFormaPago.includes("/");
-  const pagoVariosRequiereOperacion = [
-    "DEPOSITO",
-    "TARJETA",
-    "EFECTIVO/DEPOSITO",
-    "TARJETA/EFECTIVO",
+  const isPagoVariosMixed =
+    pagoVariosFormaPago.includes("/") &&
+    pagoVariosFormaPago.includes("EFECTIVO");
+  const pagoVariosRequiereOperacion = ![
+    "(SELECCIONE)",
+    "EFECTIVO",
+    "-",
   ].includes(pagoVariosFormaPago);
-  const pagoVariosEntidadEditable = ["DEPOSITO", "EFECTIVO/DEPOSITO"].includes(
-    pagoVariosFormaPago,
-  );
+  const pagoVariosEntidadEditable = pagoVariosRequiereOperacion;
   const pagoVariosDepositoIngresado = Math.max(
     0,
     Number(pagoVariosDeposito || 0),
   );
   const pagoVariosDepositoFinal = isPagoVariosMixed
     ? Math.min(pagoVariosDepositoIngresado, pagoVariosTotal)
-    : pagoVariosFormaPago === "EFECTIVO"
+    : ["(SELECCIONE)", "EFECTIVO"].includes(pagoVariosFormaPago)
       ? 0
       : pagoVariosTotal;
   const pagoVariosEfectivoFinal = isPagoVariosMixed
@@ -718,24 +771,47 @@ export default function HtmlCaptureSalePage() {
     : pagoVariosFormaPago === "EFECTIVO"
       ? pagoVariosTotal
       : 0;
-  const pagoVariosEntidadFinal =
-    pagoVariosFormaPago === "EFECTIVO" ? "-" : pagoVariosEntidad || "BCP";
+  const pagoVariosEntidadFinal = pagoVariosEntidadEditable
+    ? pagoVariosEntidad || "(SELECCIONE)"
+    : "-";
 
   useEffect(() => {
-    if (pagoVariosFormaPago === "EFECTIVO") {
+    if (!pagoVariosEntidadEditable) {
       setPagoVariosEntidad("-");
       setPagoVariosOperacion("");
       setPagoVariosDeposito("");
       return;
     }
-    if (!pagoVariosEntidadEditable) setPagoVariosEntidad("BCP");
+    if (pagoVariosEntidad === "-" || !pagoVariosEntidad) {
+      setPagoVariosEntidad("(SELECCIONE)");
+    }
     if (!isPagoVariosMixed) setPagoVariosDeposito("");
     if (!pagoVariosRequiereOperacion) setPagoVariosOperacion("");
   }, [
     isPagoVariosMixed,
+    pagoVariosEntidad,
     pagoVariosEntidadEditable,
     pagoVariosFormaPago,
     pagoVariosRequiereOperacion,
+  ]);
+
+  useEffect(() => {
+    if (focusedPagoVariosPaymentMethodRef.current === pagoVariosFormaPago) {
+      return;
+    }
+    focusedPagoVariosPaymentMethodRef.current = pagoVariosFormaPago;
+    if (isPagoVariosMixed) {
+      focusPagoVariosField("deposito");
+      return;
+    }
+    if (pagoVariosEntidadEditable) {
+      focusPagoVariosField("entidad");
+    }
+  }, [
+    focusPagoVariosField,
+    isPagoVariosMixed,
+    pagoVariosEntidadEditable,
+    pagoVariosFormaPago,
   ]);
 
   const registerPagoVarios = async () => {
@@ -747,22 +823,45 @@ export default function HtmlCaptureSalePage() {
       toast.error("Seleccione documentos con el mismo concepto OBS.");
       return;
     }
+    const descripcionPagoVarios = safeTrim(pagoVariosDescripcion);
+    if (!descripcionPagoVarios) {
+      focusPagoVariosField("descripcion");
+      toast.error("Ingrese descripcion.");
+      return;
+    }
+    if (pagoVariosFormaPago === "(SELECCIONE)") {
+      focusPagoVariosField("forma");
+      toast.error("Seleccione forma de pago.");
+      return;
+    }
+    if (
+      pagoVariosEntidadEditable &&
+      ["(SELECCIONE)", "-"].includes(pagoVariosEntidadFinal)
+    ) {
+      focusPagoVariosField("entidad");
+      toast.error("Seleccione entidad bancaria.");
+      return;
+    }
     if (pagoVariosRequiereOperacion && !safeTrim(pagoVariosOperacion)) {
+      focusPagoVariosField("operacion");
       toast.error("Ingrese numero de operacion.");
       return;
     }
     if (isPagoVariosMixed && pagoVariosDepositoIngresado <= 0) {
+      focusPagoVariosField("deposito");
       toast.error("Ingrese el monto por banco.");
       return;
     }
-    if (isPagoVariosMixed && pagoVariosDepositoIngresado > pagoVariosTotal) {
-      toast.error("El monto por banco no puede superar el total.");
+    if (isPagoVariosMixed && pagoVariosDepositoIngresado >= pagoVariosTotal) {
+      focusPagoVariosField("deposito");
+      toast.error("Efectivo y deposito deben ser mayores a 0.");
       return;
     }
     if (
       Math.round((pagoVariosEfectivoFinal + pagoVariosDepositoFinal) * 100) !==
       Math.round(pagoVariosTotal * 100)
     ) {
+      focusPagoVariosField("deposito");
       toast.error("Efectivo + deposito debe cuadrar con el total.");
       return;
     }
@@ -780,7 +879,7 @@ export default function HtmlCaptureSalePage() {
           efectivo: pagoVariosEfectivoFinal,
           deposito: pagoVariosDepositoFinal,
           nroOperacion: pagoVariosOperacion,
-          descripcion: pagoVariosDescripcion || "PAGO VARIOS",
+          descripcion: descripcionPagoVarios,
           conceptoOBS: pagoVariosConceptos[0],
           detalles: selectedPagoVariosItems.map((item) => ({
             docuId: item.docuId,
@@ -807,6 +906,7 @@ export default function HtmlCaptureSalePage() {
       setPagoVariosModalOpen(false);
       setPagoVariosOperacion("");
       setPagoVariosDeposito("");
+      setPagoVariosDescripcion("");
       window.dispatchEvent(new Event("sgo:pago-varios-updated"));
       void fetchPagoVarios();
     } finally {
@@ -1047,19 +1147,42 @@ export default function HtmlCaptureSalePage() {
         return false;
       }
 
-      await fetchClients("");
-      const updated =
-        useClientsStore
-          .getState()
-          .clients.find((item) => Number(item.id) === Number(client.id)) ??
-        ({ ...client, ...payload } as Client);
-
+      const updated = result.client ?? ({ ...client, ...payload } as Client);
       applyClient(updated);
       toast.success("Cliente actualizado correctamente.");
       closeDialog();
       return true;
     },
-    [applyClient, closeDialog, fetchClients, session.username, updateClient],
+    [applyClient, closeDialog, session.username, updateClient],
+  );
+
+  const handleDeleteClientFromDialog = useCallback(
+    async (client: Client) => {
+      if (!client.id) {
+        toast.error("No se encontró el cliente para eliminar.");
+        return false;
+      }
+
+      const deleted = await deleteClient(client.id);
+      if (!deleted) {
+        toast.error("No se pudo eliminar el cliente.");
+        return false;
+      }
+
+      if (Number(selectedClient?.id) === Number(client.id)) {
+        formMethods.setValue("customerName", "", { shouldDirty: true });
+        formMethods.setValue("customerEmail", "", { shouldDirty: true });
+        formMethods.setValue("customerDoc", "", { shouldDirty: true });
+        formMethods.setValue("customerRuc", "", { shouldDirty: true });
+        formMethods.setValue("memberCode", "", { shouldDirty: true });
+        formMethods.setValue("address", "", { shouldDirty: true });
+        setMonthlyPvs(0);
+      }
+
+      toast.success("Cliente eliminado correctamente.");
+      return true;
+    },
+    [deleteClient, formMethods, selectedClient?.id],
   );
 
   const handleAddManualProduct = async (selectedProduct?: Product) => {
@@ -1265,11 +1388,13 @@ export default function HtmlCaptureSalePage() {
           onSelectClient={handleSelectClientFromDialog}
           onCreateClient={handleCreateClientFromDialog}
           onUpdateClient={handleUpdateClientFromDialog}
+          onDeleteClient={handleDeleteClientFromDialog}
         />
       ),
     });
   }, [
     handleCreateClientFromDialog,
+    handleDeleteClientFromDialog,
     handleSelectClientFromDialog,
     handleUpdateClientFromDialog,
     isReadOnly,
@@ -1279,8 +1404,16 @@ export default function HtmlCaptureSalePage() {
   const createClientFromCapturedForm = useCallback(async () => {
     const customerDoc = normalizeDocumentText(form.customerDoc);
     const customerRuc = normalizeDocumentText(form.customerRuc);
+    const lookupType = form.docTypeCode === "01" ? "ruc" : "dni";
+    const lookupNumber = lookupType === "ruc" ? customerRuc : customerDoc;
+    const lookup =
+      (lookupType === "ruc" && lookupNumber.length === 11) ||
+      (lookupType === "dni" && lookupNumber.length === 8)
+        ? await consultarDocumentoCliente(lookupType, lookupNumber)
+        : null;
 
     if (form.docTypeCode === "01" && customerRuc.length !== 11) {
+      focusSaleField("customerRuc");
       toast.error("Factura requiere RUC de 11 digitos.");
       return null;
     }
@@ -1289,17 +1422,44 @@ export default function HtmlCaptureSalePage() {
       customerDoc &&
       ![8, 9].includes(customerDoc.length)
     ) {
+      focusSaleField("customerDoc");
       toast.error("El DNI debe tener 8 o 9 digitos.");
       return null;
     }
 
+    if (lookup && !lookup.ok && form.docTypeCode === "01") {
+      focusSaleField("customerRuc");
+      toast.error(lookup.message);
+      return null;
+    }
+    const lookupClient = lookup?.ok ? lookup.client : null;
+    if (lookupClient?.nombreRazon) {
+      formMethods.setValue("customerName", lookupClient.nombreRazon, {
+        shouldDirty: true,
+      });
+    }
+    if (lookupClient?.direccionFiscal) {
+      formMethods.setValue("address", lookupClient.direccionFiscal, {
+        shouldDirty: true,
+      });
+    }
+
     const result = await addClient({
       clienteCodigo: safeTrim(form.memberCode),
-      nombreRazon: safeTrim(form.customerName) || "VARIOS",
-      ruc: customerRuc,
-      dni: [8, 9].includes(customerDoc.length) ? customerDoc : "",
-      direccionFiscal: safeTrim(form.address) || "-",
-      direccionDespacho: safeTrim(form.address),
+      nombreRazon:
+        safeTrim(lookupClient?.nombreRazon) ||
+        safeTrim(form.customerName) ||
+        "VARIOS",
+      ruc: safeTrim(lookupClient?.ruc) || customerRuc,
+      dni:
+        safeTrim(lookupClient?.dni) ||
+        ([8, 9].includes(customerDoc.length) ? customerDoc : ""),
+      direccionFiscal:
+        safeTrim(lookupClient?.direccionFiscal) ||
+        safeTrim(form.address) ||
+        "-",
+      direccionDespacho:
+        safeTrim(lookupClient?.direccionDespacho) || safeTrim(form.address),
       telefonoMovil: "",
       email: safeTrim(form.customerEmail),
       registradoPor: session.username,
@@ -1320,7 +1480,6 @@ export default function HtmlCaptureSalePage() {
 
     if (created) {
       applyClient(created);
-      toast.success("Cliente creado correctamente.");
     }
 
     return created;
@@ -1335,6 +1494,8 @@ export default function HtmlCaptureSalePage() {
     form.customerRuc,
     form.docTypeCode,
     form.memberCode,
+    formMethods,
+    focusSaleField,
     session.username,
   ]);
 
@@ -1402,7 +1563,14 @@ export default function HtmlCaptureSalePage() {
         nextDocTypeCode === "01" || docValue.length === 8 ? docValue : "";
       const localClient =
         clientOptions.find(
-          (opt) => opt.code && opt.code === safeTrim(data.memberCode),
+          (opt) =>
+            (opt.code && opt.code === safeTrim(data.memberCode)) ||
+            (nextDocTypeCode === "01" &&
+              customerDocValue &&
+              normalizeDocumentText(opt.client.ruc) === customerDocValue) ||
+            (nextDocTypeCode !== "01" &&
+              customerDocValue &&
+              normalizeDocumentText(opt.client.dni) === customerDocValue),
         )?.client ?? null;
       const matchedClient =
         localClient ??
@@ -1422,9 +1590,18 @@ export default function HtmlCaptureSalePage() {
           });
         }
       } else {
+        const lookupType = nextDocTypeCode === "01" ? "ruc" : "dni";
+        const lookup =
+          (lookupType === "ruc" && customerDocValue.length === 11) ||
+          (lookupType === "dni" && customerDocValue.length === 8)
+            ? await consultarDocumentoCliente(lookupType, customerDocValue)
+            : null;
+        const lookupClient = lookup?.ok ? lookup.client : null;
         formMethods.setValue(
           "customerName",
-          data.customerName || formMethods.getValues("customerName"),
+          lookupClient?.nombreRazon ||
+            data.customerName ||
+            formMethods.getValues("customerName"),
           { shouldDirty: true },
         );
         if (customerDocValue) {
@@ -1433,6 +1610,11 @@ export default function HtmlCaptureSalePage() {
             customerDocValue,
             { shouldDirty: true },
           );
+        }
+        if (lookupClient?.direccionFiscal) {
+          formMethods.setValue("address", lookupClient.direccionFiscal, {
+            shouldDirty: true,
+          });
         }
         formMethods.setValue(
           "customerEmail",
@@ -1452,7 +1634,6 @@ export default function HtmlCaptureSalePage() {
       );
       setLastTicket(null);
       setActiveTab("sale");
-      toast.success(`Capturados ${nextRows.length} productos.`);
     },
     [
       applyClient,
@@ -1591,15 +1772,21 @@ export default function HtmlCaptureSalePage() {
     resetDraft();
   };
 
-  const validate = (candidateClient: Client | null = selectedClient) => {
+  const validate = (
+    candidateClient: Client | null = selectedClient,
+  ): SaleValidationError | null => {
     if (!rows.length)
-      return "Agrega productos o captura un HTML antes de vender.";
+      return {
+        message: "Agrega productos o captura un HTML antes de vender.",
+      };
     const missing = rows.filter((row) => !row.matched);
     if (missing.length) {
-      return `Productos no encontrados: ${missing
-        .slice(0, 5)
-        .map((row) => row.code)
-        .join(", ")}`;
+      return {
+        message: `Productos no encontrados: ${missing
+          .slice(0, 5)
+          .map((row) => row.code)
+          .join(", ")}`,
+      };
     }
 
     const customerName = safeTrim(form.customerName);
@@ -1638,52 +1825,89 @@ export default function HtmlCaptureSalePage() {
       null;
 
     if (customerName && !validatedClient) {
-      return "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.";
+      return {
+        message:
+          "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.",
+        field: "customerName",
+      };
     }
     if (customerDni && !validDniClient) {
-      return "El DNI no existe. Agrega el cliente y seleccionalo.";
+      return {
+        message: "El DNI no existe. Agrega el cliente y seleccionalo.",
+        field: "customerDoc",
+      };
     }
     if (customerRuc && !validRucClient) {
-      return "El RUC no existe. Agrega el cliente y seleccionalo.";
+      return {
+        message: "El RUC no existe. Agrega el cliente y seleccionalo.",
+        field: "customerRuc",
+      };
     }
     if (!validatedClient) {
-      return "Selecciona un cliente.";
+      return { message: "Selecciona un cliente.", field: "customerName" };
     }
     if (form.docTypeCode === "01" && !validatedClient) {
-      return "Para factura debes seleccionar un cliente registrado.";
+      return {
+        message: "Para factura debes seleccionar un cliente registrado.",
+        field: "customerName",
+      };
     }
     if (form.docTypeCode === "01" && customerRuc.length !== 11) {
-      return "Factura requiere RUC de 11 digitos.";
+      return {
+        message: "Factura requiere RUC de 11 digitos.",
+        field: "customerRuc",
+      };
     }
     if (
       form.docTypeCode !== "01" &&
       customerDni &&
       ![8, 9].includes(customerDni.length)
     ) {
-      return "El DNI debe tener 8 o 9 digitos.";
+      return {
+        message: "El DNI debe tener 8 o 9 digitos.",
+        field: "customerDoc",
+      };
     }
     if (
       form.condition !== "PAGO/VARIOS" &&
       form.paymentMethod === "(SELECCIONE)"
     ) {
-      return "Seleccione forma de pago.";
+      return { message: "Seleccione forma de pago.", field: "paymentMethod" };
     }
-    if (
+    const paymentNeedsBank =
       form.condition !== "PAGO/VARIOS" &&
-      !["EFECTIVO", "-"].includes(form.paymentMethod) &&
-      !safeTrim(form.operationNumber)
-    ) {
-      return "Ingresa el numero de operacion.";
-    }
+      !["(SELECCIONE)", "EFECTIVO", "-"].includes(form.paymentMethod);
     if (
+      paymentNeedsBank &&
+      ["(SELECCIONE)", "-"].includes(safeTrim(form.bankEntity))
+    ) {
+      return { message: "Seleccione entidad bancaria.", field: "bankEntity" };
+    }
+    if (paymentNeedsBank && !safeTrim(form.operationNumber)) {
+      return {
+        message: "Ingresa el numero de operacion.",
+        field: "operationNumber",
+      };
+    }
+    const isCashSplitPayment =
       form.condition !== "PAGO/VARIOS" &&
       form.paymentMethod.includes("/") &&
-      form.paymentMethod.includes("EFECTIVO") &&
-      Number(form.paymentDeposit || 0) <= 0
-    ) {
-      return "Ingresa el monto por banco.";
+      form.paymentMethod.includes("EFECTIVO");
+    const paymentDeposit = Number(form.paymentDeposit || 0);
+    const total = Number(totals.total.toFixed(2));
+    if (isCashSplitPayment && paymentDeposit <= 0) {
+      return {
+        message: "Ingresa el monto por banco.",
+        field: "paymentDeposit",
+      };
     }
-    return "";
+    if (isCashSplitPayment && paymentDeposit >= total) {
+      return {
+        message: "Efectivo y deposito deben ser mayores a 0.",
+        field: "paymentDeposit",
+      };
+    }
+    return null;
   };
 
   const renderTicketDocument = (
@@ -1811,6 +2035,7 @@ export default function HtmlCaptureSalePage() {
         (row) => !Number.isFinite(row.quantity) || !Number.isFinite(row.price),
       )
     ) {
+      focusSaleField();
       toast.error("Completa cantidad y precio de los productos.");
       return;
     }
@@ -1858,7 +2083,8 @@ export default function HtmlCaptureSalePage() {
 
     const error = validate(saleClient);
     if (error) {
-      toast.error(error);
+      focusSaleField(error.field);
+      toast.error(error.message);
       registerSaleRef.current = false;
       return;
     }
@@ -1894,6 +2120,8 @@ export default function HtmlCaptureSalePage() {
     }
 
     const clienteId = Number(saleClient?.id ?? 1) || 1;
+    const notaAcuenta = isPagoVariosSale ? 0 : total;
+    const notaSaldo = isPagoVariosSale ? total : 0;
 
     setIsSaving(true);
     try {
@@ -1916,8 +2144,8 @@ export default function HtmlCaptureSalePage() {
             notaMovilidad: 0,
             notaDescuento: Number(totals.discount.toFixed(2)),
             notaTotal: total,
-            notaAcuenta: 0,
-            notaSaldo: total,
+            notaAcuenta,
+            notaSaldo,
             notaAdicional: 0,
             notaTarjeta: 0,
             notaPagar: total,
@@ -1996,7 +2224,6 @@ export default function HtmlCaptureSalePage() {
       );
       setActiveTab("ticket");
       navigate(`/sales/html_capture/${parsed.noteId}`, { replace: true });
-      await downloadTicket(documentNumber, parsed.noteId);
       if (isPagoVariosSale) {
         toast.success(
           `${doc.docu} registrada para Pago Varios: ${documentNumber}`,
@@ -2179,72 +2406,77 @@ export default function HtmlCaptureSalePage() {
             <label className="grid gap-1 text-xs font-bold text-slate-500">
               Forma pago
               <select
+                data-pago-varios-forma="true"
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
                 value={pagoVariosFormaPago}
                 onChange={(event) => setPagoVariosFormaPago(event.target.value)}
               >
-                {[
-                  "EFECTIVO",
-                  "DEPOSITO",
-                  "TARJETA",
-                  "YAPE",
-                  "EFECTIVO/DEPOSITO",
-                  "TARJETA/EFECTIVO",
-                  "YAPE/EFECTIVO",
-                ].map((item) => (
+                {PAYMENT_METHOD_OPTIONS.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </select>
             </label>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-md border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-bold uppercase text-slate-400">
-                  Efectivo
-                </p>
-                <p className="mt-1 text-lg font-black text-slate-800">
-                  S/ {money(pagoVariosEfectivoFinal)}
-                </p>
-              </div>
-              <div className="rounded-md border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-bold uppercase text-slate-400">
-                  Banco
-                </p>
-                <p className="mt-1 text-lg font-black text-slate-800">
-                  S/ {money(pagoVariosDepositoFinal)}
-                </p>
-              </div>
-            </div>
-
-            {isPagoVariosMixed ? (
-              <label className="grid gap-1 text-xs font-bold text-slate-500">
-                Monto por banco
+            <div className="grid grid-cols-2 gap-3">
+              <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
+                Depósito
                 <input
                   type="number"
+                  inputMode="decimal"
+                  data-pago-varios-deposito="true"
                   min="0"
                   step="0.01"
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-right text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
-                  value={pagoVariosDeposito}
+                  className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                  value={
+                    isPagoVariosMixed
+                      ? pagoVariosDeposito
+                      : pagoVariosDepositoFinal > 0
+                        ? String(Number(pagoVariosDepositoFinal.toFixed(2)))
+                        : ""
+                  }
                   onChange={(event) =>
                     setPagoVariosDeposito(event.target.value)
                   }
+                  disabled={!isPagoVariosMixed}
                 />
               </label>
-            ) : null}
+              <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
+                Efectivo
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none disabled:bg-slate-100"
+                  value={
+                    pagoVariosEfectivoFinal > 0
+                      ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
+                      : ""
+                  }
+                  disabled
+                />
+              </label>
+            </div>
 
             <label className="grid gap-1 text-xs font-bold text-slate-500">
               Entidad
-              <input
+              <select
+                data-pago-varios-entidad="true"
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
                 value={pagoVariosEntidadFinal}
                 onChange={(event) => setPagoVariosEntidad(event.target.value)}
                 disabled={!pagoVariosEntidadEditable}
-              />
+              >
+                {BANK_OPTIONS.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
             </label>
 
             <label className="grid gap-1 text-xs font-bold text-slate-500">
               Nro operacion
               <input
+                data-pago-varios-operacion="true"
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
                 value={pagoVariosRequiereOperacion ? pagoVariosOperacion : ""}
                 onChange={(event) => setPagoVariosOperacion(event.target.value)}
@@ -2255,6 +2487,7 @@ export default function HtmlCaptureSalePage() {
             <label className="grid gap-1 text-xs font-bold text-slate-500">
               Descripcion
               <textarea
+                data-pago-varios-descripcion="true"
                 className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                 value={pagoVariosDescripcion}
                 onChange={(event) =>
@@ -2288,27 +2521,6 @@ export default function HtmlCaptureSalePage() {
         <h2 className="mr-auto text-sm font-semibold text-slate-700">
           Ticket {lastTicket ? lastTicket.documentNumber : ""}
         </h2>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={printTicket}
-          disabled={!lastTicket}
-        >
-          <Printer className="h-4 w-4" />
-          Imprimir ticket
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={() =>
-            lastTicket &&
-            downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
-          }
-          disabled={!lastTicket}
-        >
-          <FileDown className="h-4 w-4" />
-          Descargar
-        </button>
       </div>
       {lastTicket ? (
         <div className="h-[72vh] min-h-[420px] bg-slate-100 sm:h-[680px]">
@@ -2342,73 +2554,105 @@ export default function HtmlCaptureSalePage() {
             Nuevo registro
           </button>
         ) : null}
+        {activeTab === "ticket" && lastTicket ? (
+          <>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              onClick={() => setActiveTab("sale")}
+            >
+              <Table2 className="h-4 w-4" />
+              Tabla
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              onClick={printTicket}
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir ticket
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              onClick={() =>
+                downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
+              }
+            >
+              <FileDown className="h-4 w-4" />
+              Descargar
+            </button>
+          </>
+        ) : null}
       </div>
 
       {/* Barra de acciones */}
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".html,.htm,text/html"
-          multiple
-          className="hidden"
-          onChange={handleFileChange}
-        />
-        <button
-          type="button"
-          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={loading || isSaving || isReadOnly}
-        >
-          <FileUp className="h-4 w-4" />
-          Capturar datos
-        </button>
-        {lastTicket ? (
+      {activeTab !== "ticket" ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html,.htm,text/html"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
           <button
             type="button"
-            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 sm:flex-none"
-            onClick={() =>
-              setActiveTab((current) =>
-                current === "ticket" ? "sale" : "ticket",
-              )
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading || isSaving || isReadOnly}
+          >
+            <FileUp className="h-4 w-4" />
+            Capturar datos
+          </button>
+          {lastTicket ? (
+            <button
+              type="button"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 sm:flex-none"
+              onClick={() =>
+                setActiveTab((current) =>
+                  current === "ticket" ? "sale" : "ticket",
+                )
+              }
+            >
+              {activeTab === "ticket" ? (
+                <Table2 className="h-4 w-4" />
+              ) : (
+                <ReceiptText className="h-4 w-4" />
+              )}
+              {activeTab === "ticket" ? "Tabla" : "Ticket"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+            onClick={clearForm}
+            disabled={isSaving || isReadOnly}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Limpiar
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-red-800 bg-red-800 px-4 text-sm font-medium leading-none text-white transition-colors hover:border-red-900 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+            onClick={registerSale}
+            disabled={
+              isSaving ||
+              isReadOnly ||
+              !rows.length ||
+              rows.some((row) => !row.matched)
             }
           >
-            {activeTab === "ticket" ? (
-              <Table2 className="h-4 w-4" />
+            {isSaving ? (
+              <FileDown className="h-4 w-4 animate-pulse" />
             ) : (
-              <ReceiptText className="h-4 w-4" />
+              <CheckCircle2 className="h-4 w-4" />
             )}
-            {activeTab === "ticket" ? "Tabla" : "Ticket"}
+            {isSaving ? "Confirmando..." : "Confirmar"}
           </button>
-        ) : null}
-        <button
-          type="button"
-          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-          onClick={clearForm}
-          disabled={isSaving || isReadOnly}
-        >
-          <RotateCcw className="h-4 w-4" />
-          Limpiar
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-red-800 bg-red-800 px-4 text-sm font-medium leading-none text-white transition-colors hover:border-red-900 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-          onClick={registerSale}
-          disabled={
-            isSaving ||
-            isReadOnly ||
-            !rows.length ||
-            rows.some((row) => !row.matched)
-          }
-        >
-          {isSaving ? (
-            <FileDown className="h-4 w-4 animate-pulse" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4" />
-          )}
-          {isSaving ? "Confirmando..." : "Confirmar"}
-        </button>
-      </div>
+        </div>
+      ) : null}
 
       {activeTab === "ticket" ? (
         TicketPreview
@@ -2452,6 +2696,7 @@ export default function HtmlCaptureSalePage() {
               <div className="grid min-w-0 gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="relative min-w-0">
                   <input
+                    ref={manualProductSearchRef}
                     type="search"
                     data-no-uppercase="true"
                     className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"

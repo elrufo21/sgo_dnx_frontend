@@ -34,7 +34,8 @@ const normalizeText = (value: unknown, fallback = "-") => {
   return text || fallback;
 };
 
-const dateLikePattern = /^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})$/;
+const dateLikePattern =
+  /^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?)?)$/;
 const numberLikePattern = /^-?\d+(?:[.,]\d+)?$/;
 
 const isDateLike = (value: unknown) =>
@@ -62,6 +63,14 @@ const formatDateForList = (rawValue: unknown) => {
   if (isoMatch) {
     const [, year, month, day] = isoMatch;
     return `${day}/${month}/${year}`;
+  }
+
+  const isoDateTimeMatch = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}:\d{2}:\d{2})(?:\.\d+)?$/,
+  );
+  if (isoDateTimeMatch) {
+    const [, year, month, day, time] = isoDateTimeMatch;
+    return `${day}/${month}/${year} ${time}`;
   }
 
   return raw;
@@ -166,9 +175,21 @@ const mapApiToOrderNote = (
       item?.cliente,
     "",
   );
+  const rawCodigoCliente = normalizeText(
+    item?.codigoCliente ?? item?.CodigoCliente,
+    "",
+  );
   const rawFormaPago = normalizeText(
     item?.notaFormaPago ?? item?.NotaFormaPago ?? item?.formaPago,
     "",
+  );
+  const rawEfectivo = normalizeText(
+    item?.efectivo ?? item?.Efectivo,
+    "0.00",
+  );
+  const rawDeposito = normalizeText(
+    item?.deposito ?? item?.Deposito,
+    "0.00",
   );
   const rawTotal = normalizeText(
     item?.notaTotal ?? item?.NotaTotal ?? item?.total,
@@ -213,7 +234,7 @@ const mapApiToOrderNote = (
     !isNumberLike(rawTotal) &&
     rawTotal.length > 0;
 
-  const fecha = isShiftedResponse ? rawCliente : rawFecha || "-";
+  const fecha = formatDateForList(isShiftedResponse ? rawCliente : rawFecha);
   const cliente = isShiftedResponse
     ? rawFecha
       ? `Cliente #${rawFecha}`
@@ -235,8 +256,11 @@ const mapApiToOrderNote = (
     notaId,
     documento: documento || normalizeText(item?.documento),
     fecha,
+    codigoCliente: rawCodigoCliente || "-",
     cliente,
     formaPago,
+    efectivo: rawEfectivo || "0.00",
+    deposito: rawDeposito || "0.00",
     total,
     acuenta: rawAcuenta || "0.00",
     saldo: rawSaldo || "0.00",
@@ -267,6 +291,8 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
       const notaFecha = at(13);
       const notaUsuario = at(14);
       const notaFormaPago = at(15);
+      const efectivo = at(39);
+      const deposito = at(40);
       const notaTotal = at(23);
       const notaAcuenta = at(24);
       const notaSaldo = at(25);
@@ -291,8 +317,11 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
         notaId,
         documento: documento || "-",
         fecha: formatDateForList(notaFecha),
+        codigoCliente: "-",
         cliente,
         formaPago: notaFormaPago || "-",
+        efectivo: efectivo || "0.00",
+        deposito: deposito || "0.00",
         total: notaTotal || "0.00",
         acuenta: notaAcuenta || "0.00",
         saldo: notaSaldo || "0.00",

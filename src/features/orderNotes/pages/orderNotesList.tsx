@@ -501,6 +501,10 @@ const OrderNotesList = () => {
         header: "Fecha",
         cell: (info) => info.getValue(),
       }),
+      columnHelper.accessor("codigoCliente", {
+        header: "Codigo",
+        cell: (info) => info.getValue() || "-",
+      }),
       columnHelper.accessor("cliente", {
         header: "Cliente",
         cell: (info) => info.getValue(),
@@ -508,6 +512,16 @@ const OrderNotesList = () => {
       columnHelper.accessor("formaPago", {
         header: "Forma Pago",
         cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("efectivo", {
+        header: "Efectivo",
+        cell: (info) => formatAmount(parseAmount(info.getValue())),
+        meta: { tdClassName: "text-right" },
+      }),
+      columnHelper.accessor("deposito", {
+        header: "Deposito",
+        cell: (info) => formatAmount(parseAmount(info.getValue())),
+        meta: { tdClassName: "text-right" },
       }),
       columnHelper.accessor("total", {
         header: "Total",
@@ -522,7 +536,7 @@ const OrderNotesList = () => {
       }),
       columnHelper.accessor("saldo", {
         header: "Saldo",
-        cell: (info) => info.getValue(),
+        cell: (info) => formatAmount(parseAmount(info.getValue())),
         meta: { tdClassName: "text-right" },
       }),
       columnHelper.accessor("usuario", {
@@ -578,10 +592,6 @@ const OrderNotesList = () => {
 
   return (
     <div className="p-3 sm:p-4">
-      <div className="mb-3">
-        <h1 className="text-2xl font-semibold text-[#0f2748]">Nota Pedidos</h1>
-      </div>
-
       <DataTable
         columns={columns as ColumnDef<OrderNote, unknown>[]}
         data={notes}
@@ -593,10 +603,8 @@ const OrderNotesList = () => {
           "estadoSunat",
           "fecha",
           "documento",
+          "codigoCliente",
         ]}
-        toolbarLeading={
-          <BackArrowButton className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors" />
-        }
         renderFilters={
           <LocalizationProvider
             dateAdapter={AdapterDayjs}

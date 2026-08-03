@@ -224,7 +224,8 @@ const PaymentPage = () => {
   const clearCart = usePosStore((s) => s.clearCart);
   const openDialog = useDialogStore((s) => s.openDialog);
   const closeDialog = useDialogStore((s) => s.closeDialog);
-  const { clients, fetchClients, addClient } = useClientsStore();
+  const { clients, fetchClients, addClient, updateClient, deleteClient } =
+    useClientsStore();
   const { fetchProducts: refetchProducts } = useProductsStore();
   const fetchBoletaSummaryDocuments = useBoletasSummaryStore(
     (s) => s.fetchDocuments,
@@ -1582,6 +1583,12 @@ const PaymentPage = () => {
     const valorUM = Number(
       detalle?.valorUM ?? detalle?.ValorUM ?? detalle?.factor ?? 1,
     );
+    const detalleCosto = Number(
+      detalle?.detalleCosto ?? detalle?.DetalleCosto ?? detalle?.costo ?? 0,
+    );
+    const aplicaINV = safeTrim(
+      detalle?.aplicaINV ?? detalle?.AplicaINV ?? "S",
+    ).toUpperCase();
     const precioFromImporte =
       Number.isFinite(detalleImporte) &&
       Number.isFinite(cantidad) &&
@@ -1625,8 +1632,10 @@ const PaymentPage = () => {
       precioMinimo: Number.isFinite(precioMinimo)
         ? Math.max(precioMinimo, 0)
         : 0,
+      detalleCosto: Number.isFinite(detalleCosto) ? detalleCosto : 0,
       cantidad: Number.isFinite(cantidad) ? cantidad : 0,
       valorUM: Number.isFinite(valorUM) && valorUM > 0 ? valorUM : 1,
+      aplicaINV: aplicaINV === "N" ? "N" : "S",
       stock: Number(detalle?.stock ?? detalle?.cantidadSaldo ?? 0) || undefined,
       detalleId:
         Number.isFinite(detalleId) && detalleId > 0 ? detalleId : undefined,
@@ -2321,6 +2330,67 @@ const PaymentPage = () => {
     [addClient, fetchClients, resolvedNotaUsuario, selectClientFromDialog],
   );
 
+  const updateClientFromDialog = useCallback(
+    async (client: Client, data: Omit<Client, "id">) => {
+      const payload: Omit<Client, "id"> = {
+        clienteCodigo: safeTrim(data.clienteCodigo),
+        nombreRazon: safeTrim(data.nombreRazon).toUpperCase(),
+        ruc: safeTrim(data.ruc),
+        dni: safeTrim(data.dni),
+        direccionFiscal: safeTrim(data.direccionFiscal),
+        direccionDespacho: safeTrim(data.direccionDespacho),
+        telefonoMovil: safeTrim(data.telefonoMovil),
+        email: safeTrim(data.email),
+        registradoPor: safeTrim(data.registradoPor) || resolvedNotaUsuario,
+        estado: safeTrim(data.estado) || "ACTIVO",
+        fecha: data.fecha ?? null,
+      };
+
+      if (!payload.nombreRazon) {
+        toast.error("El nombre o razon social es obligatorio.");
+        return false;
+      }
+
+      const result = await updateClient(client.id, { ...client, ...payload });
+      if (!result.ok) {
+        toast.error(result.error ?? "No se pudo actualizar el cliente.");
+        return false;
+      }
+
+      selectClientFromDialog(
+        result.client ?? ({ ...client, ...payload } as Client),
+      );
+      toast.success("Cliente actualizado correctamente.");
+      return true;
+    },
+    [resolvedNotaUsuario, selectClientFromDialog, updateClient],
+  );
+
+  const deleteClientFromDialog = useCallback(
+    async (client: Client) => {
+      if (!client.id) {
+        toast.error("No se encontró el cliente para eliminar.");
+        return false;
+      }
+
+      const deleted = await deleteClient(client.id);
+      if (!deleted) {
+        toast.error("No se pudo eliminar el cliente.");
+        return false;
+      }
+
+      if (Number(clienteId) === Number(client.id)) {
+        setValue("customerName", "", { shouldDirty: true });
+        setValue("customerId", "", { shouldDirty: true });
+        setClienteIdFromOption(null, { shouldDirty: true });
+      }
+
+      toast.success("Cliente eliminado correctamente.");
+      return true;
+    },
+    [clienteId, deleteClient, setClienteIdFromOption, setValue],
+  );
+
   const handleOpenCreateClientModal = useCallback(() => {
     if (formLocked) return;
 
@@ -2344,6 +2414,8 @@ const PaymentPage = () => {
           }
           onSelectClient={selectClientFromDialog}
           onCreateClient={createClientFromDialog}
+          onUpdateClient={updateClientFromDialog}
+          onDeleteClient={deleteClientFromDialog}
         />
       ),
     });
@@ -2351,10 +2423,12 @@ const PaymentPage = () => {
     createClientFromDialog,
     customerId,
     customerName,
+    deleteClientFromDialog,
     docTypeCode,
     formLocked,
     openDialog,
     selectClientFromDialog,
+    updateClientFromDialog,
   ]);
 
   const confirmWithAppDialog = useCallback(
@@ -4130,11 +4204,15 @@ const PaymentPage = () => {
           const codigo = safeTrim(item.codigo) || String(idProducto || "");
           const cantidad = Number(item.cantidad ?? 0);
           const precio = Number(item.precio ?? 0);
-          const costo = Number(item.precio ?? 0);
+          const costo = Number(item.detalleCosto ?? item.precio ?? 0);
           const valorUM =
             Number.isFinite(Number(item.valorUM)) && Number(item.valorUM) > 0
               ? Number(item.valorUM)
               : 1;
+          const aplicaINV =
+            safeTrim(item.aplicaINV).toUpperCase() === "N" || idProducto <= 0
+              ? "N"
+              : "S";
 
           return [
             idProducto,
@@ -4143,7 +4221,7 @@ const PaymentPage = () => {
             Number.isFinite(precio) ? precio.toFixed(2) : "0.00",
             Number.isFinite(costo) ? costo.toFixed(2) : "0.00",
             Number.isFinite(valorUM) ? valorUM.toFixed(4) : "1.0000",
-            "S",
+            aplicaINV,
           ].join("|");
         })
         .join(";");
@@ -5875,18 +5953,6 @@ const PaymentPage = () => {
         )}
       </HookForm>
       <div className="hidden gap-2 sm:gap-3 md:grid">
-        {isConfirmed && (
-          <button
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-green-300 bg-green-50 py-2.5 text-green-800 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => {
-              void shareByWhatsApp();
-            }}
-            disabled={isNotaAnulada}
-          >
-            <MessageCircle className="w-5 h-5" />
-            Enviar por WhatsApp
-          </button>
-        )}
         {isConfirmed && (
           <button
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-50 py-2.5 text-blue-800 transition-colors hover:bg-blue-100 disabled:opacity-50"
