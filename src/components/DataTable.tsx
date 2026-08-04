@@ -53,11 +53,15 @@ interface DataTableProps<T extends RowData> {
   showSearch?: boolean;
   initialPageSize?: number;
   pageSizeOptions?: number[];
+  paginationPage?: number;
+  paginationPageSize?: number;
+  onPaginationChange?: (page: number, pageSize: number) => void;
   stickyHeader?: boolean;
   tableMaxHeight?: string;
   globalFilterValue?: string;
   onGlobalFilterValueChange?: (value: string) => void;
   footerContent?: ReactNode;
+  totalRows?: number;
   onFilteredDataChange?: (rows: T[]) => void;
   renderHeaderFilterCell?: (columnId: string) => ReactNode;
   rowClassName?: string | ((row: T) => string | undefined);
@@ -146,11 +150,15 @@ export default function DataTable<T extends RowData>({
   showSearch = true,
   initialPageSize = 10,
   pageSizeOptions = [10, 20, 50, 100],
+  paginationPage,
+  paginationPageSize,
+  onPaginationChange,
   stickyHeader = true,
   tableMaxHeight = "65vh",
   globalFilterValue,
   onGlobalFilterValueChange,
   footerContent,
+  totalRows,
   onFilteredDataChange,
   renderHeaderFilterCell,
   rowClassName,
@@ -325,6 +333,29 @@ export default function DataTable<T extends RowData>({
     previousDialogOpen.current = dialogOpen;
   }, [dialogOpen]);
 
+  const localTotalCount = filteredData.length;
+  const hasLocalSearch = String(globalFilter ?? "").trim().length > 0;
+  const externalTotalCount = Number(totalRows);
+  const totalCount =
+    !hasLocalSearch && Number.isFinite(externalTotalCount)
+      ? Math.max(0, Math.floor(externalTotalCount))
+      : localTotalCount;
+  const isRemotePagination =
+    !hasLocalSearch &&
+    typeof onPaginationChange === "function" &&
+    paginationPage !== undefined &&
+    paginationPageSize !== undefined;
+  const remotePageSize = Math.max(
+    1,
+    Math.floor(Number(paginationPageSize) || safePageSize),
+  );
+  const remotePage = Math.max(1, Math.floor(Number(paginationPage) || 1));
+  const remotePageCount = Math.max(1, Math.ceil(totalCount / remotePageSize));
+  const remotePagination = {
+    pageIndex: Math.min(remotePage - 1, remotePageCount - 1),
+    pageSize: remotePageSize,
+  };
+
   const table = useReactTable({
     data: filteredData,
     columns,
@@ -333,20 +364,78 @@ export default function DataTable<T extends RowData>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: safePageSize,
-      },
-    },
+    ...(isRemotePagination
+      ? {
+          manualPagination: true,
+          pageCount: remotePageCount,
+          state: { pagination: remotePagination },
+          onPaginationChange: (updater) => {
+            const next =
+              typeof updater === "function"
+                ? updater(remotePagination)
+                : updater;
+            onPaginationChange(next.pageIndex + 1, next.pageSize);
+          },
+        }
+      : {
+          initialState: {
+            pagination: {
+              pageSize: safePageSize,
+            },
+          },
+        }),
   });
 
-  const totalCount = filteredData.length;
   const visibleRows = table.getRowModel().rows;
-  const currentPage = table.getState().pagination.pageIndex + 1;
-  const totalPages = Math.max(table.getPageCount(), 1);
-  const pageSize = table.getState().pagination.pageSize;
+  const currentPage = isRemotePagination
+    ? remotePagination.pageIndex + 1
+    : table.getState().pagination.pageIndex + 1;
+  const totalPages = isRemotePagination
+    ? remotePageCount
+    : Math.max(table.getPageCount(), 1);
+  const pageSize = isRemotePagination
+    ? remotePageSize
+    : table.getState().pagination.pageSize;
   const start = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const end = Math.min(currentPage * pageSize, totalCount);
+  const end =
+    visibleRows.length === 0
+      ? 0
+      : Math.min(start + visibleRows.length - 1, totalCount);
+
+  const setTablePageSize = (nextPageSize: number) => {
+    if (isRemotePagination) {
+      onPaginationChange(1, nextPageSize);
+      return;
+    }
+    table.setPageSize(nextPageSize);
+  };
+
+  const setTablePageIndex = (nextPageIndex: number) => {
+    if (isRemotePagination) {
+      onPaginationChange(nextPageIndex + 1, pageSize);
+      return;
+    }
+    table.setPageIndex(nextPageIndex);
+  };
+
+  const previousPage = () => {
+    if (isRemotePagination) {
+      onPaginationChange(Math.max(currentPage - 1, 1), pageSize);
+      return;
+    }
+    table.previousPage();
+  };
+
+  const nextPage = () => {
+    if (isRemotePagination) {
+      onPaginationChange(Math.min(currentPage + 1, totalPages), pageSize);
+      return;
+    }
+    table.nextPage();
+  };
+
+  const canPreviousPage = currentPage > 1;
+  const canNextPage = currentPage < totalPages;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -619,7 +708,7 @@ export default function DataTable<T extends RowData>({
             <select
               className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none transition focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"
               value={pageSize}
-              onChange={(e) => table.setPageSize(Number(e.target.value))}
+              onChange={(e) => setTablePageSize(Number(e.target.value))}
             >
               {normalizedPageSizeOptions.map((size) => (
                 <option key={size} value={size}>
@@ -640,8 +729,8 @@ export default function DataTable<T extends RowData>({
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-45"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
+              onClick={() => setTablePageIndex(0)}
+              disabled={!canPreviousPage}
               aria-label="Primera página"
             >
               <ChevronFirst className="h-4 w-4" />
@@ -649,8 +738,8 @@ export default function DataTable<T extends RowData>({
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-45"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
+              onClick={previousPage}
+              disabled={!canPreviousPage}
               aria-label="Página anterior"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -658,8 +747,8 @@ export default function DataTable<T extends RowData>({
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-45"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
+              onClick={nextPage}
+              disabled={!canNextPage}
               aria-label="Siguiente página"
             >
               <ChevronRight className="h-4 w-4" />
@@ -667,10 +756,8 @@ export default function DataTable<T extends RowData>({
             <button
               type="button"
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-45"
-              onClick={() =>
-                table.setPageIndex(Math.max(table.getPageCount() - 1, 0))
-              }
-              disabled={!table.getCanNextPage()}
+              onClick={() => setTablePageIndex(Math.max(totalPages - 1, 0))}
+              disabled={!canNextPage}
               aria-label="Última página"
             >
               <ChevronLast className="h-4 w-4" />

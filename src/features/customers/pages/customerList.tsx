@@ -61,7 +61,7 @@ const CustomerList = () => {
       onConfirm: async () => {
         const ok = await deleteClient(id);
         if (ok === false) {
-          toast.error("No se pudo eliminar el cliente.");
+          toast.error("No se puede eliminar: el cliente tiene relacion con otros modulos.");
           return;
         }
         toast.success("Cliente eliminado.");

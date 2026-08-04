@@ -564,7 +564,12 @@ export default function HtmlCaptureSalePage() {
           `[data-pago-varios-${field}]`,
         );
         target?.focus();
-        if (target instanceof HTMLInputElement) target.select();
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement
+        ) {
+          target.select();
+        }
       }, 0);
     },
     [],
@@ -695,12 +700,7 @@ export default function HtmlCaptureSalePage() {
       })) as PagoVariosResponse;
       const items = Array.isArray(response?.items) ? response.items : [];
       setPagoVariosItems(items);
-      const firstConcept = safeTrim(items[0]?.conceptoOBS);
-      setPagoVariosSelectedIds(
-        items
-          .filter((item) => safeTrim(item.conceptoOBS) === firstConcept)
-          .map((item) => item.notaId),
-      );
+      setPagoVariosSelectedIds(items.map((item) => item.notaId));
     } catch (error) {
       console.error("No se pudo cargar pago varios", error);
       toast.error("No se pudo cargar Pago Varios.");
@@ -1165,7 +1165,7 @@ export default function HtmlCaptureSalePage() {
 
       const deleted = await deleteClient(client.id);
       if (!deleted) {
-        toast.error("No se pudo eliminar el cliente.");
+        toast.error("No se puede eliminar: el cliente tiene relacion con otros modulos.");
         return false;
       }
 
@@ -2464,7 +2464,10 @@ export default function HtmlCaptureSalePage() {
                 data-pago-varios-entidad="true"
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
                 value={pagoVariosEntidadFinal}
-                onChange={(event) => setPagoVariosEntidad(event.target.value)}
+                onChange={(event) => {
+                  setPagoVariosEntidad(event.target.value);
+                  focusPagoVariosField("operacion");
+                }}
                 disabled={!pagoVariosEntidadEditable}
               >
                 {BANK_OPTIONS.map((item) => (
@@ -2480,6 +2483,12 @@ export default function HtmlCaptureSalePage() {
                 className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
                 value={pagoVariosRequiereOperacion ? pagoVariosOperacion : ""}
                 onChange={(event) => setPagoVariosOperacion(event.target.value)}
+                onFocus={(event) => event.currentTarget.select()}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  focusPagoVariosField("descripcion");
+                }}
                 disabled={!pagoVariosRequiereOperacion}
               />
             </label>
@@ -2490,6 +2499,7 @@ export default function HtmlCaptureSalePage() {
                 data-pago-varios-descripcion="true"
                 className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                 value={pagoVariosDescripcion}
+                onFocus={(event) => event.currentTarget.select()}
                 onChange={(event) =>
                   setPagoVariosDescripcion(event.target.value)
                 }

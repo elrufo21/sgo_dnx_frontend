@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
 import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import CustomerFormBase from "@/components/CustomerFormBase";
@@ -52,6 +53,8 @@ export default function CustomerDialogContent({
   const [editingClient, setEditingClient] = useState<Client | null>(
     initialEditingClient,
   );
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [deletingClient, setDeletingClient] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -94,20 +97,59 @@ export default function CustomerDialogContent({
     });
   };
 
-  const deleteEditingClient = async () => {
+  const deleteEditingClient = () => {
     if (!editingClient || !onDeleteClient) return;
-    const confirmed = window.confirm(
-      `¿Eliminar cliente ${editingClient.nombreRazon || editingClient.clienteCodigo}?`,
-    );
-    if (!confirmed) return;
-    const deleted = await onDeleteClient(editingClient);
+    setClientToDelete(editingClient);
+  };
+
+  const confirmDeleteClient = async () => {
+    if (!clientToDelete || !onDeleteClient) return;
+    setDeletingClient(true);
+    const deleted = await onDeleteClient(clientToDelete);
+    setDeletingClient(false);
     if (!deleted) return;
+    setClientToDelete(null);
     setEditingClient(null);
     setActiveTab("list");
   };
 
   return (
     <div className="flex h-[68dvh] max-h-[38rem] flex-col overflow-hidden bg-white">
+      <Dialog
+        open={Boolean(clientToDelete)}
+        onClose={() => {
+          if (!deletingClient) setClientToDelete(null);
+        }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Eliminar cliente</DialogTitle>
+        <DialogContent>
+          <p className="text-sm text-slate-600">
+            ¿Seguro que deseas eliminar a{" "}
+            <strong className="text-slate-900">
+              {clientToDelete?.nombreRazon || clientToDelete?.clienteCodigo}
+            </strong>
+            ?
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setClientToDelete(null)}
+            disabled={deletingClient}
+          >
+            Cancelar
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={confirmDeleteClient}
+            disabled={deletingClient}
+          >
+            {deletingClient ? "Eliminando..." : "Eliminar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <BlockingSpinner show={loadingClients} text="Cargando clientes..." />
       <div className="shrink-0 bg-[#B23636] px-2 py-2 text-white sm:px-3">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -130,7 +172,7 @@ export default function CustomerDialogContent({
                   ? "bg-red-700 text-white shadow-sm"
                   : "text-white hover:bg-white/10"
               }`}
-              onClick={openNewForm}
+              onClick={() => setActiveTab("form")}
             >
               Formulario
             </button>

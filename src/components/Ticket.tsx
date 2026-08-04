@@ -84,14 +84,6 @@ const readCompanyPhoneFromStorage = (): string => {
   }
 };
 
-const formatUnitPrefix = (value: unknown): string => {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "";
-
-  const abbreviated = raw.slice(0, 3).toUpperCase();
-  return `${abbreviated}. `;
-};
-
 const formatTicketMoney = (value: number): string =>
   Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -101,26 +93,6 @@ const formatTicketInteger = (value: number): string =>
   Number(value || 0).toLocaleString("en-US", {
     maximumFractionDigits: 0,
   });
-
-const splitTicketDescriptionTwoLines = (
-  value: string,
-  topLineMaxChars = 36,
-): [string, string] => {
-  const normalized = String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!normalized) return ["", ""];
-  if (normalized.length <= topLineMaxChars) return [normalized, ""];
-
-  const probe = normalized.slice(0, topLineMaxChars + 1);
-  const lastSpace = probe.lastIndexOf(" ");
-  const cutAt =
-    lastSpace >= Math.floor(topLineMaxChars * 0.5)
-      ? lastSpace
-      : topLineMaxChars;
-
-  return [normalized.slice(0, cutAt).trim(), normalized.slice(cutAt).trim()];
-};
 
 const UNITS = [
   "",
@@ -360,13 +332,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     fontSize: 9,
     fontWeight: "bold",
-  },
-  tableItemDescriptionSecondRow: {
-    width: "44%",
-    fontSize: 9,
-    fontWeight: "bold",
-    textAlign: "left",
-    paddingLeft: 3,
   },
   tableItemDescriptionFull: {
     width: "88%",
@@ -843,10 +808,9 @@ const TicketDocument = ({
         {ticketData.items.map((item, index) => {
           const pv = formatTicketMoney(Number(item.pv ?? 0));
           const sv = formatTicketMoney(Number(item.sv ?? 0));
-          const [descriptionLine1, descriptionLine2] =
-            splitTicketDescriptionTwoLines(
-              `${formatUnitPrefix(item.unitMeasure)}${item.description} PV:${pv} SV:${sv}`,
-            );
+          const description = `${item.description} PV:${pv} SV:${sv}`
+            .replace(/\s+/g, " ")
+            .trim();
 
           return (
             <View key={index}>
@@ -856,14 +820,12 @@ const TicketDocument = ({
                     {formatTicketInteger(item.quantity)}
                   </Text>
                   <Text style={styles.tableItemDescriptionFull}>
-                    {descriptionLine1}
+                    {description}
                   </Text>
                 </View>
                 <View style={styles.tableItemMetaRow}>
                   <Text style={styles.colCant}> </Text>
-                  <Text style={styles.tableItemDescriptionSecondRow}>
-                    {descriptionLine2}
-                  </Text>
+                  <Text style={styles.colDesc}> </Text>
                   <Text style={styles.colPUni}>
                     {formatTicketMoney(item.unitPrice)}
                   </Text>

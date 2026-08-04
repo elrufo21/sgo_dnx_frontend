@@ -8,10 +8,13 @@ import type { SendNote, SendNoteItem } from "@/types/sendNote";
 interface FetchOrderNotesParams {
   fechaInicio?: string;
   fechaFin?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 interface OrderNoteState {
   notes: OrderNote[];
+  totalNotes: number;
   loading: boolean;
   fetchNotes: (params?: FetchOrderNotesParams) => Promise<void>;
   fetchNoteDetail: (noteId: number | string) => Promise<SendNote | null>;
@@ -332,15 +335,19 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
     });
 };
 
-const parseOrderNotesResponse = (payload: unknown): OrderNote[] => {
+const parseOrderNotesResponse = (
+  payload: unknown,
+): { rows: OrderNote[]; total: number } => {
   if (Array.isArray(payload)) {
-    return payload.map((item, index) =>
+    const rows = payload.map((item, index) =>
       mapApiToOrderNote(item as OrderNoteApiItem, index),
     );
+    return { rows, total: rows.length };
   }
 
   if (typeof payload === "string") {
-    return parseDelimitedOrderNotes(payload);
+    const rows = parseDelimitedOrderNotes(payload);
+    return { rows, total: rows.length };
   }
 
   if (payload && typeof payload === "object") {
@@ -349,26 +356,35 @@ const parseOrderNotesResponse = (payload: unknown): OrderNote[] => {
       "isAxiosError" in record ||
       ("message" in record && "response" in record)
     ) {
-      return [];
+      return { rows: [], total: 0 };
     }
+    const total = Number(
+      record.total ?? record.Total ?? record.count ?? record.Count,
+    );
     const stringCandidate =
       (typeof record.resultado === "string" && record.resultado) ||
       (typeof record.Resultado === "string" && record.Resultado);
 
     if (typeof stringCandidate === "string") {
       const parsedFromString = parseDelimitedOrderNotes(stringCandidate);
-      if (parsedFromString.length > 0) return parsedFromString;
+      if (parsedFromString.length > 0) {
+        return {
+          rows: parsedFromString,
+          total: Number.isFinite(total) ? total : parsedFromString.length,
+        };
+      }
     }
 
     const arrayCandidate = Object.values(record).find(Array.isArray);
     if (Array.isArray(arrayCandidate)) {
-      return arrayCandidate.map((item, index) =>
+      const rows = arrayCandidate.map((item, index) =>
         mapApiToOrderNote(item as OrderNoteApiItem, index),
       );
+      return { rows, total: Number.isFinite(total) ? total : rows.length };
     }
   }
 
-  return [];
+  return { rows: [], total: 0 };
 };
 
 const parseResultStringToSendNote = (resultString: string): SendNote | null => {
@@ -442,17 +458,20 @@ const parseResultStringToSendNote = (resultString: string): SendNote | null => {
 
 export const useOrderNoteStore = create<OrderNoteState>((set) => ({
   notes: [],
+  totalNotes: 0,
   loading: false,
   fetchNotes: async (params) => {
     const today = getLocalDateISO();
     const fechaInicio = String(params?.fechaInicio ?? "").trim() || today;
     const fechaFin = String(params?.fechaFin ?? "").trim() || today;
+    const page = Math.max(1, Math.floor(Number(params?.page) || 1));
+    const pageSize = Math.max(1, Math.floor(Number(params?.pageSize) || 50));
 
     const query = new URLSearchParams();
     query.set("fechaInicio", fechaInicio);
     query.set("fechaFin", fechaFin);
-    query.set("page", "1");
-    query.set("pageSize", "50");
+    query.set("page", String(page));
+    query.set("pageSize", String(pageSize));
 
     set({ loading: true });
     try {
@@ -462,10 +481,11 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
         fallback: [],
       });
 
-      const rows = parseOrderNotesResponse(response);
+      const { rows, total } = parseOrderNotesResponse(response);
 
       set({
         notes: rows,
+        totalNotes: total,
         loading: false,
       });
     } catch (error) {

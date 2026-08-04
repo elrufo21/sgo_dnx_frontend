@@ -1,5 +1,4 @@
 import DataTable from "@/components/DataTable";
-import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
 import { useOrderNoteStore } from "@/store/orderNote/orderNote.store";
@@ -50,6 +49,8 @@ const formatAmount = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+const formatCount = (value: number) =>
+  Number(value || 0).toLocaleString("en-US");
 
 const splitDocumentLabel = (value: unknown) => {
   const raw = String(value ?? "").trim();
@@ -132,7 +133,7 @@ const getSignedTotal = (
 const OrderNotesList = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { notes, fetchNotes, loading } = useOrderNoteStore();
+  const { notes, totalNotes, fetchNotes, loading } = useOrderNoteStore();
   const initialDate = useMemo(() => getLocalDateISO(), []);
   const resetRangeFromMainLayout = useMemo(() => {
     if (!state || typeof state !== "object") return false;
@@ -166,8 +167,11 @@ const OrderNotesList = () => {
   }, [initialDate, resetRangeFromMainLayout]);
   const [fechaInicio, setFechaInicio] = useState(initialRange.from);
   const [fechaFin, setFechaFin] = useState(initialRange.to);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const fechaInicioRef = useRef(fechaInicio);
   const fechaFinRef = useRef(fechaFin);
+  const pageSizeRef = useRef(pageSize);
   const endDateAcceptedRef = useRef(false);
   const lastFetchedRangeRef = useRef<{ from: string; to: string } | null>({
     from: initialRange.from,
@@ -182,10 +186,20 @@ const OrderNotesList = () => {
     fechaFinRef.current = fechaFin;
   }, [fechaFin]);
 
+  useEffect(() => {
+    pageSizeRef.current = pageSize;
+  }, [pageSize]);
+
   const requestNotesByRange = useCallback(
-    (fromValue: string, toValue: string) => {
+    (
+      fromValue: string,
+      toValue: string,
+      nextPage = 1,
+      nextPageSize?: number,
+    ) => {
       const from = String(fromValue ?? "").trim();
       const to = String(toValue ?? "").trim();
+      const requestedPageSize = nextPageSize ?? pageSizeRef.current;
 
       if (!from || !to) {
         toast.error("Debes seleccionar fecha inicio y fecha fin.");
@@ -197,7 +211,14 @@ const OrderNotesList = () => {
         return false;
       }
 
-      void fetchNotes({ fechaInicio: from, fechaFin: to });
+      setPage(nextPage);
+      setPageSize(requestedPageSize);
+      void fetchNotes({
+        fechaInicio: from,
+        fechaFin: to,
+        page: nextPage,
+        pageSize: requestedPageSize,
+      });
       lastFetchedRangeRef.current = { from, to };
       return true;
     },
@@ -227,6 +248,18 @@ const OrderNotesList = () => {
   const handleSearch = useCallback(() => {
     requestNotesByRange(fechaInicio, fechaFin);
   }, [fechaFin, fechaInicio, requestNotesByRange]);
+
+  const handlePaginationChange = useCallback(
+    (nextPage: number, nextPageSize: number) => {
+      requestNotesByRange(
+        fechaInicioRef.current,
+        fechaFinRef.current,
+        nextPage,
+        nextPageSize,
+      );
+    },
+    [requestNotesByRange],
+  );
 
   const parsePickerDate = useCallback((value: Dayjs | null) => {
     const formatted = value?.format("YYYY-MM-DD") ?? "";
@@ -493,7 +526,7 @@ const OrderNotesList = () => {
       }),
       columnHelper.display({
         id: "Número",
-        header: "N° Documento",
+        header: "Número",
         cell: ({ row }) =>
           splitDocumentLabel(row.original.documento).numeroDocumento || "-",
       }),
@@ -513,16 +546,7 @@ const OrderNotesList = () => {
         header: "Forma Pago",
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor("efectivo", {
-        header: "Efectivo",
-        cell: (info) => formatAmount(parseAmount(info.getValue())),
-        meta: { tdClassName: "text-right" },
-      }),
-      columnHelper.accessor("deposito", {
-        header: "Deposito",
-        cell: (info) => formatAmount(parseAmount(info.getValue())),
-        meta: { tdClassName: "text-right" },
-      }),
+
       columnHelper.accessor("total", {
         header: "Total",
         cell: ({ row }) =>
@@ -531,7 +555,7 @@ const OrderNotesList = () => {
       }),
       columnHelper.accessor("acuenta", {
         header: "A cuenta",
-        cell: (info) => info.getValue(),
+        cell: (info) => formatAmount(parseAmount(info.getValue())),
         meta: { tdClassName: "text-right" },
       }),
       columnHelper.accessor("saldo", {
@@ -586,6 +610,16 @@ const OrderNotesList = () => {
           );
         },
       }),
+      columnHelper.accessor("efectivo", {
+        header: "Efectivo",
+        cell: (info) => formatAmount(parseAmount(info.getValue())),
+        meta: { tdClassName: "text-right" },
+      }),
+      columnHelper.accessor("deposito", {
+        header: "Deposito",
+        cell: (info) => formatAmount(parseAmount(info.getValue())),
+        meta: { tdClassName: "text-right" },
+      }),
     ],
     [navigate],
   );
@@ -595,6 +629,10 @@ const OrderNotesList = () => {
       <DataTable
         columns={columns as ColumnDef<OrderNote, unknown>[]}
         data={notes}
+        totalRows={totalNotes}
+        paginationPage={page}
+        paginationPageSize={pageSize}
+        onPaginationChange={handlePaginationChange}
         isLoading={loading}
         filterKeys={[
           "notaId",
@@ -724,7 +762,7 @@ const OrderNotesList = () => {
             <div className="grid w-full max-w-3xl grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-3">
               <div className="border-b border-slate-200 px-4 py-3 text-right sm:border-b-0 sm:border-r">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  SOLES - EFECTIVO
+                  EFECTIVO
                 </p>
                 <p className="text-xl font-semibold text-slate-800">
                   {formatAmount(solesTotals.efectivo)}
@@ -733,7 +771,7 @@ const OrderNotesList = () => {
 
               <div className="border-b border-slate-200 px-4 py-3 text-right sm:border-b-0 sm:border-r">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  SOLES - DEP/TAR/YAPE
+                  DEPOSITO
                 </p>
                 <p className="text-xl font-semibold text-slate-800">
                   {formatAmount(solesTotals.depTarYape)}
@@ -742,7 +780,7 @@ const OrderNotesList = () => {
 
               <div className="px-4 py-3 text-right">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  SOLES - TOTAL
+                  TOTAL
                 </p>
                 <p className="text-xl font-semibold text-slate-900">
                   {formatAmount(solesTotals.total)}

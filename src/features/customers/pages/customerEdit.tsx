@@ -70,7 +70,7 @@ const CustomerEdit = () => {
         try {
           const result = await deleteClient(Number(id));
           if (result === false) {
-            toast.error("No se pudo eliminar el cliente.");
+            toast.error("No se puede eliminar: el cliente tiene relacion con otros modulos.");
             return;
           }
           toast.success("Cliente eliminado correctamente");
