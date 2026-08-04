@@ -26,7 +26,7 @@ export default [
     handle: {
       breadcrumb: [
         { label: "Configuración", to: "/configuration" },
-        { label: "Envío de boletas" },
+        { label: "Ventas y boletas" },
       ],
     },
   },

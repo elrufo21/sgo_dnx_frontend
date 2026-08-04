@@ -26,6 +26,7 @@ export interface AuthUser {
   entorno: string;
   maxDiscount: number;
   boletaPorLote: boolean;
+  flagCaptura: boolean;
 }
 
 export interface AuthSession {
@@ -81,6 +82,7 @@ interface LoginResponse {
   FechaVencimientoClave?: string | null;
   DescuentoMax?: string | number | null;
   BoletaPorLote?: string | number | boolean | null;
+  FlagCaptura?: string | number | boolean | null;
   Token?: string | null;
   ExpiresAtUtc?: string | null;
   ExpiresInSeconds?: number | null;
@@ -226,6 +228,17 @@ const resolveBoletaPorLoteFlag = (payload: LoginResponse): boolean =>
     ),
   );
 
+const resolveFlagCaptura = (payload: LoginResponse): boolean =>
+  normalizeBooleanFlag(
+    readLoginValue(
+      payload,
+      "FlagCaptura",
+      "flagCaptura",
+      "CompaniaFlagCaptura",
+      "companiaFlagCaptura",
+    ),
+  );
+
 const normalizeAuthUser = (user: AuthUser): AuthUser => ({
   ...user,
   companyRuc: normalizeText(
@@ -262,6 +275,9 @@ const normalizeAuthUser = (user: AuthUser): AuthUser => ({
   ),
   boletaPorLote: normalizeBooleanFlag(
     (user as AuthUser & { boletaPorLote?: unknown }).boletaPorLote,
+  ),
+  flagCaptura: normalizeBooleanFlag(
+    (user as AuthUser & { flagCaptura?: unknown }).flagCaptura,
   ),
 });
 
@@ -401,6 +417,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
               1000
           : null);
       const boletaPorLote = resolveBoletaPorLoteFlag(parsed);
+      const flagCaptura = resolveFlagCaptura(parsed);
 
       const session: AuthSession = {
         token,
@@ -458,6 +475,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             readLoginValue(parsed, "DescuentoMax", "descuentoMax"),
           ),
           boletaPorLote,
+          flagCaptura,
         },
         loginPayload: {
           ...parsed,
@@ -502,6 +520,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             return raw === null || raw === undefined ? null : String(raw);
           })(),
           BoletaPorLote: boletaPorLote,
+          FlagCaptura: flagCaptura,
 
           // Compatibilidad temporal con consumidores legacy.
           companiaRuc: normalizeText(readLoginValue(parsed, "CompaniaRuc", "companiaRuc")),
@@ -545,6 +564,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             return raw === null || raw === undefined ? null : String(raw);
           })(),
           boletaPorLote: boletaPorLote ? "1" : "0",
+          flagCaptura: flagCaptura ? "1" : "0",
         },
       };
 

@@ -5,19 +5,18 @@ import { Layers3, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function BoletaBatchSettingsPage() {
-  const { boletaPorLote, loading, saving, fetchConfig, saveConfig } =
+  const { boletaPorLote, flagCaptura, loading, saving, fetchConfig, saveConfig } =
     useBoletaBatchConfigStore();
-  const [nextValue, setNextValue] = useState<boolean>(false);
-  const [touched, setTouched] = useState(false);
+  const [draft, setDraft] = useState<{
+    boletaPorLote: boolean;
+    flagCaptura: boolean;
+  } | null>(null);
+  const nextValue = draft?.boletaPorLote ?? boletaPorLote;
+  const nextFlagCaptura = draft?.flagCaptura ?? flagCaptura;
 
   useEffect(() => {
     void fetchConfig();
   }, [fetchConfig]);
-
-  useEffect(() => {
-    if (touched) return;
-    setNextValue(boletaPorLote);
-  }, [boletaPorLote, touched]);
 
   const currentLabel = useMemo(
     () => (boletaPorLote ? "Envío por lote habilitado" : "Boleta individual"),
@@ -25,22 +24,24 @@ export default function BoletaBatchSettingsPage() {
   );
 
   const nextLabel = nextValue ? "Envío por lote" : "Boleta individual";
-  const hasChanges = nextValue !== boletaPorLote;
+  const captureLabel = flagCaptura ? "Captura habilitada" : "Captura oculta";
+  const nextCaptureLabel = nextFlagCaptura ? "Captura habilitada" : "Captura oculta";
+  const hasChanges = nextValue !== boletaPorLote || nextFlagCaptura !== flagCaptura;
 
   const handleRefresh = useCallback(() => {
-    setTouched(false);
+    setDraft(null);
     void fetchConfig();
   }, [fetchConfig]);
 
   const handleSave = useCallback(async () => {
-    const ok = await saveConfig(nextValue);
+    const ok = await saveConfig(nextValue, nextFlagCaptura);
     if (!ok) {
-      toast.error("No se pudo guardar el modo de envío de boleta.");
+      toast.error("No se pudo guardar la configuración.");
       return;
     }
-    setTouched(false);
-    toast.success("Modo de envío de boleta actualizado.");
-  }, [nextValue, saveConfig]);
+    setDraft(null);
+    toast.success("Configuración actualizada.");
+  }, [nextFlagCaptura, nextValue, saveConfig]);
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
@@ -49,10 +50,10 @@ export default function BoletaBatchSettingsPage() {
           <BackArrowButton />
           <div>
             <h1 className="text-2xl font-semibold text-slate-800">
-              Envío de boletas
+              Ventas y boletas
             </h1>
             <p className="text-sm text-slate-500">
-              Elige si las boletas se envían por lote o de forma individual.
+              Configura el envío de boletas y la captura de datos.
             </p>
           </div>
         </div>
@@ -76,6 +77,9 @@ export default function BoletaBatchSettingsPage() {
           <p className="mt-2 text-sm font-semibold text-slate-800">
             {loading ? "Cargando..." : currentLabel}
           </p>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            {loading ? "" : captureLabel}
+          </p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
@@ -83,6 +87,9 @@ export default function BoletaBatchSettingsPage() {
             Próxima configuración
           </p>
           <p className="mt-2 text-sm font-semibold text-slate-800">{nextLabel}</p>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            {nextCaptureLabel}
+          </p>
         </div>
       </div>
 
@@ -99,8 +106,7 @@ export default function BoletaBatchSettingsPage() {
           <button
             type="button"
             onClick={() => {
-              setTouched(true);
-              setNextValue(true);
+              setDraft({ boletaPorLote: true, flagCaptura: nextFlagCaptura });
             }}
             className={`rounded-xl border px-4 py-4 text-left transition ${
               nextValue
@@ -117,8 +123,7 @@ export default function BoletaBatchSettingsPage() {
           <button
             type="button"
             onClick={() => {
-              setTouched(true);
-              setNextValue(false);
+              setDraft({ boletaPorLote: false, flagCaptura: nextFlagCaptura });
             }}
             className={`rounded-xl border px-4 py-4 text-left transition ${
               !nextValue
@@ -131,6 +136,32 @@ export default function BoletaBatchSettingsPage() {
               Envía boleta por boleta al momento de emitir.
             </p>
           </button>
+        </div>
+
+        <div className="mt-6 border-t border-slate-100 pt-5">
+          <p className="text-sm font-semibold text-slate-900">
+            Capturar datos en nota de venta
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            Controla si aparece el botón Capturar datos.
+          </p>
+
+          <label className="mt-4 flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4">
+            <span className="text-sm font-medium text-slate-800">
+              Mostrar botón Capturar datos
+            </span>
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-[#B23636]"
+              checked={nextFlagCaptura}
+              onChange={(event) => {
+                setDraft({
+                  boletaPorLote: nextValue,
+                  flagCaptura: event.target.checked,
+                });
+              }}
+            />
+          </label>
         </div>
 
         <div className="mt-6 flex justify-end">
@@ -148,4 +179,3 @@ export default function BoletaBatchSettingsPage() {
     </div>
   );
 }
-

@@ -12,8 +12,8 @@ export default function ConfigurationDashboard() {
       route: "/configuration/billing",
     },
     {
-      title: "Envío de boletas",
-      desc: "Define si la boleta se envía por lote o individual.",
+      title: "Ventas y boletas",
+      desc: "Define envío de boletas y captura de datos.",
       icon: <Layers3 className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/boleta-batch",
     },

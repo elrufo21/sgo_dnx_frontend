@@ -11,6 +11,25 @@ if (import.meta.env.PROD && !String(import.meta.env.VITE_API_BASE_URL ?? "").tri
   );
 }
 
+const buildRootUrl = (baseUrl: string) => {
+  try {
+    return new URL("/", baseUrl).origin;
+  } catch {
+    return baseUrl;
+  }
+};
+
+export const API_ROOT_URL = buildRootUrl(API_BASE_URL);
+
+export const buildRootApiUrl = (path: string) => {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  try {
+    return new URL(normalizedPath, API_ROOT_URL).toString();
+  } catch {
+    return `${API_ROOT_URL}${normalizedPath}`;
+  }
+};
+
 export const buildApiUrl = (path: string) => {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${API_BASE_URL}${normalizedPath}`;

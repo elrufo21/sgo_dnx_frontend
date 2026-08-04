@@ -211,11 +211,13 @@ const mapApiToOrderNote = (
     "",
   );
   const rawEstado = normalizeText(
-    item?.estadoOBS ??
-      item?.EstadoOBS ??
+    item?.docuEstado ??
+      item?.DocuEstado ??
       item?.notaEstado ??
       item?.NotaEstado ??
-      item?.estado,
+      item?.estado ??
+      item?.estadoOBS ??
+      item?.EstadoOBS,
     "",
   );
   const rawEstadoSunat = normalizeText(
@@ -251,6 +253,7 @@ const mapApiToOrderNote = (
   const estado = isShiftedResponse
     ? rawUsuario || rawEstado || "PENDIENTE"
     : rawEstado || "PENDIENTE";
+  const estadoSunat = rawEstadoSunat;
 
   const parsedId = Number(notaId);
 
@@ -269,7 +272,7 @@ const mapApiToOrderNote = (
     saldo: rawSaldo || "0.00",
     usuario,
     estado,
-    estadoSunat: rawEstadoSunat,
+    estadoSunat,
   };
 };
 

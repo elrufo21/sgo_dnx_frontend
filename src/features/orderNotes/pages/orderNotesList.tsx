@@ -49,8 +49,6 @@ const formatAmount = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-const formatCount = (value: number) =>
-  Number(value || 0).toLocaleString("en-US");
 
 const splitDocumentLabel = (value: unknown) => {
   const raw = String(value ?? "").trim();
@@ -529,10 +527,18 @@ const OrderNotesList = () => {
         header: "Número",
         cell: ({ row }) =>
           splitDocumentLabel(row.original.documento).numeroDocumento || "-",
+        meta: {
+          thClassName: "min-w-[9rem] whitespace-nowrap",
+          tdClassName: "min-w-[9rem] whitespace-nowrap",
+        },
       }),
       columnHelper.accessor("fecha", {
         header: "Fecha",
         cell: (info) => info.getValue(),
+        meta: {
+          thClassName: "min-w-[9rem] whitespace-nowrap",
+          tdClassName: "min-w-[9rem] whitespace-nowrap",
+        },
       }),
       columnHelper.accessor("codigoCliente", {
         header: "Codigo",
@@ -541,6 +547,10 @@ const OrderNotesList = () => {
       columnHelper.accessor("cliente", {
         header: "Cliente",
         cell: (info) => info.getValue(),
+        meta: {
+          thClassName: "min-w-[240px]",
+          tdClassName: "min-w-[240px] whitespace-normal",
+        },
       }),
       columnHelper.accessor("formaPago", {
         header: "Forma Pago",
@@ -566,6 +576,10 @@ const OrderNotesList = () => {
       columnHelper.accessor("usuario", {
         header: "Usuario",
         cell: (info) => info.getValue(),
+        meta: {
+          thClassName: "min-w-[9rem] whitespace-nowrap",
+          tdClassName: "min-w-[9rem] whitespace-nowrap",
+        },
       }),
       columnHelper.accessor("estado", {
         header: "Estado",

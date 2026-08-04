@@ -40,6 +40,8 @@ export interface OrderNoteApiItem {
   notaUsuario?: string | null;
   NotaUsuario?: string | null;
   estado?: string | null;
+  docuEstado?: string | null;
+  DocuEstado?: string | null;
   notaEstado?: string | null;
   NotaEstado?: string | null;
   estadoOBS?: string | null;

@@ -1,13 +1,11 @@
-import { PDFViewer, pdf } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 import {
   CheckCircle2,
   FileDown,
   FileUp,
   Plus,
   Printer,
-  ReceiptText,
   RotateCcw,
-  Table2,
   Trash2,
   X,
 } from "lucide-react";
@@ -27,7 +25,7 @@ import TicketDocument from "@/components/Ticket";
 import { HookForm } from "@/components/forms/HookForm";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
-import { buildApiUrl } from "@/config";
+import { buildApiUrl, buildRootApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import {
@@ -36,6 +34,7 @@ import {
 } from "@/shared/helpers/focusNextInput";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
+import { useAuthStore } from "@/store/auth/auth.store";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { useProductsStore } from "@/store/products/products.store";
 import type { Client } from "@/types/customer";
@@ -506,7 +505,6 @@ export default function HtmlCaptureSalePage() {
   const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
   const [manualSaleType, setManualSaleType] =
     useState<ManualSaleType>("VENTA LIBRE");
-  const [activeTab, setActiveTab] = useState<"sale" | "ticket">("sale");
   const [pagoVariosItems, setPagoVariosItems] = useState<PagoVariosItem[]>([]);
   const [pagoVariosSelectedIds, setPagoVariosSelectedIds] = useState<number[]>(
     [],
@@ -524,6 +522,7 @@ export default function HtmlCaptureSalePage() {
   const openDialog = useDialogStore((state) => state.openDialog);
   const closeDialog = useDialogStore((state) => state.closeDialog);
   const dialogOpen = useDialogStore((state) => state.open);
+  const canCaptureData = useAuthStore((state) => state.user?.flagCaptura) === true;
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
   const manualProductSearchRef = useRef<HTMLInputElement | null>(null);
@@ -543,7 +542,6 @@ export default function HtmlCaptureSalePage() {
 
   const focusSaleField = useCallback(
     (field?: keyof SaleForm) => {
-      setActiveTab("sale");
       window.setTimeout(() => {
         if (field) {
           formMethods.setFocus(field);
@@ -586,7 +584,6 @@ export default function HtmlCaptureSalePage() {
     setLastTicket(null);
     setFreeSaleReasonAsked(false);
     setManualSaleType("VENTA LIBRE");
-    setActiveTab("sale");
     formMethods.reset(defaultForm);
   }, [formMethods]);
 
@@ -607,7 +604,6 @@ export default function HtmlCaptureSalePage() {
     try {
       const stored = localStorage.getItem(ticketStorageKey(routeNoteId));
       if (!stored) {
-        setActiveTab("sale");
         return;
       }
 
@@ -625,7 +621,6 @@ export default function HtmlCaptureSalePage() {
         documentNumber: ticket.documentNumber,
         noteId: ticket.noteId,
       });
-      setActiveTab("ticket");
     } catch {
       toast.error("No se pudo cargar el ticket guardado.");
     }
@@ -1242,7 +1237,6 @@ export default function HtmlCaptureSalePage() {
     setManualProductSearch("");
     setManualProductSearchFocused(false);
     setLastTicket(null);
-    setActiveTab("sale");
     if (shouldAskFreeSaleReason) {
       setFreeSaleReasonAsked(true);
       openDialog({
@@ -1633,7 +1627,6 @@ export default function HtmlCaptureSalePage() {
         { shouldDirty: true },
       );
       setLastTicket(null);
-      setActiveTab("sale");
     },
     [
       applyClient,
@@ -1994,21 +1987,36 @@ export default function HtmlCaptureSalePage() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1200);
   };
 
-  const printTicket = async () => {
-    if (!lastTicket) return;
-    const blob = await buildTicketBlob(
-      lastTicket.documentNumber,
-      lastTicket.noteId,
-    );
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, "_blank");
-    if (!win) {
-      toast.error("No se pudo abrir la ventana de impresión.");
-      URL.revokeObjectURL(url);
-      return;
+  const printTicket = async (ticket = lastTicket) => {
+    if (!ticket) return;
+    const blob = await buildTicketBlob(ticket.documentNumber, ticket.noteId);
+    const file = new File([blob], `${ticket.documentNumber || "ticket"}.pdf`, {
+      type: "application/pdf",
+    });
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const result = await apiRequest({
+      url: buildRootApiUrl("/api/print/pdf"),
+      method: "POST",
+      data: formData,
+      config: { headers: { Accept: "application/json" } },
+      fallback: null,
+    });
+
+    const resultRecord = asRecord(result);
+    if (!resultRecord?.ok) {
+      const responseData = asRecord(asRecord(resultRecord?.response)?.data);
+      const printMessage =
+        safeTrim(
+          responseData?.message ??
+            responseData?.error ??
+            resultRecord?.message,
+        ) || "No se pudo enviar a la tiketera.";
+      throw new Error(printMessage);
     }
-    win.addEventListener("load", () => win.print(), { once: true });
-    window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+
+    toast.success("Impresión enviada.");
   };
 
   const registerSale = async () => {
@@ -2210,7 +2218,8 @@ export default function HtmlCaptureSalePage() {
         return;
       }
 
-      setLastTicket({ documentNumber, noteId: parsed.noteId });
+      const ticket = { documentNumber, noteId: parsed.noteId };
+      setLastTicket(ticket);
       localStorage.setItem(
         ticketStorageKey(parsed.noteId),
         JSON.stringify({
@@ -2222,8 +2231,14 @@ export default function HtmlCaptureSalePage() {
           rows,
         } satisfies StoredTicket),
       );
-      setActiveTab("ticket");
       navigate(`/sales/html_capture/${parsed.noteId}`, { replace: true });
+      void printTicket(ticket).catch((error) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "No se pudo enviar a la tiketera.",
+        );
+      });
       if (isPagoVariosSale) {
         toast.success(
           `${doc.docu} registrada para Pago Varios: ${documentNumber}`,
@@ -2525,31 +2540,6 @@ export default function HtmlCaptureSalePage() {
     </div>
   ) : null;
 
-  const TicketPreview = (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
-        <h2 className="mr-auto text-sm font-semibold text-slate-700">
-          Ticket {lastTicket ? lastTicket.documentNumber : ""}
-        </h2>
-      </div>
-      {lastTicket ? (
-        <div className="h-[72vh] min-h-[420px] bg-slate-100 sm:h-[680px]">
-          <PDFViewer
-            key={`${lastTicket.noteId}-${lastTicket.documentNumber}`}
-            style={{ width: "100%", height: "100%" }}
-            showToolbar={false}
-          >
-            {renderTicketDocument(lastTicket.documentNumber, lastTicket.noteId)}
-          </PDFViewer>
-        </div>
-      ) : (
-        <div className="px-5 py-16 text-center text-sm text-slate-400">
-          Registra la venta para habilitar el ticket.
-        </div>
-      )}
-    </section>
-  );
-
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
       {PagoVariosModal}
@@ -2564,20 +2554,20 @@ export default function HtmlCaptureSalePage() {
             Nuevo registro
           </button>
         ) : null}
-        {activeTab === "ticket" && lastTicket ? (
+        {lastTicket ? (
           <>
             <button
               type="button"
               className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-              onClick={() => setActiveTab("sale")}
-            >
-              <Table2 className="h-4 w-4" />
-              Tabla
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-              onClick={printTicket}
+              onClick={() =>
+                void printTicket().catch((error) => {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "No se pudo enviar a la tiketera.",
+                  );
+                })
+              }
             >
               <Printer className="h-4 w-4" />
               Imprimir ticket
@@ -2597,7 +2587,7 @@ export default function HtmlCaptureSalePage() {
       </div>
 
       {/* Barra de acciones */}
-      {activeTab !== "ticket" ? (
+      {!isReadOnly ? (
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           <input
             ref={fileInputRef}
@@ -2607,31 +2597,15 @@ export default function HtmlCaptureSalePage() {
             className="hidden"
             onChange={handleFileChange}
           />
-          <button
-            type="button"
-            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading || isSaving || isReadOnly}
-          >
-            <FileUp className="h-4 w-4" />
-            Capturar datos
-          </button>
-          {lastTicket ? (
+          {canCaptureData ? (
             <button
               type="button"
-              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 sm:flex-none"
-              onClick={() =>
-                setActiveTab((current) =>
-                  current === "ticket" ? "sale" : "ticket",
-                )
-              }
+              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || isSaving || isReadOnly}
             >
-              {activeTab === "ticket" ? (
-                <Table2 className="h-4 w-4" />
-              ) : (
-                <ReceiptText className="h-4 w-4" />
-              )}
-              {activeTab === "ticket" ? "Tabla" : "Ticket"}
+              <FileUp className="h-4 w-4" />
+              Capturar datos
             </button>
           ) : null}
           <button
@@ -2664,11 +2638,7 @@ export default function HtmlCaptureSalePage() {
         </div>
       ) : null}
 
-      {activeTab === "ticket" ? (
-        TicketPreview
-      ) : (
-        <>
-          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_440px] xl:items-start">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_440px] xl:items-start">
             {/* Productos capturados */}
             <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
               <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
@@ -2977,9 +2947,7 @@ export default function HtmlCaptureSalePage() {
                 </div>
               </HookForm>
             </section>
-          </div>
-        </>
-      )}
+      </div>
     </div>
   );
 }
