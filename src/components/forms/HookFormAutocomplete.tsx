@@ -115,6 +115,8 @@ export function HookFormAutocomplete<
   const watchedValue = useWatch({ control: ctrl, name });
   const [inputValue, setInputValue] = useState("");
   const inputElementRef = useRef<HTMLInputElement | null>(null);
+  const skipNextBlurRef = useRef(false);
+  const blurTimerRef = useRef<number | null>(null);
   const rawInputId = useId();
   const safeInputId = rawInputId.replace(/[^a-zA-Z0-9_-]/g, "");
   const fieldKey = String(name ?? "field")
@@ -198,6 +200,12 @@ export function HookFormAutocomplete<
   };
 
   useEffect(() => {
+    return () => {
+      if (blurTimerRef.current) window.clearTimeout(blurTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     const activeElement = inputElementRef.current?.ownerDocument?.activeElement;
     const isInputFocused = activeElement === inputElementRef.current;
     if (isInputFocused) return;
@@ -268,8 +276,8 @@ export function HookFormAutocomplete<
     }
 
     if (event.key !== "Enter") return;
+    if (isPopupOpen) return;
 
-    // Let MUI handle option selection first
     if (
       event.defaultPrevented ||
       (event as MuiKeyboardEvent).defaultMuiPrevented
@@ -314,6 +322,7 @@ export function HookFormAutocomplete<
               value={normalizedValue}
               inputValue={inputValue}
               freeSolo={allowCreate}
+              autoHighlight
               disabled={disabled}
               disableClearable={disableClearable}
               getOptionLabel={(option) => {
@@ -326,12 +335,24 @@ export function HookFormAutocomplete<
               isOptionEqualToValue={defaultIsEqual}
               filterOptions={appliedFilterOptions}
               onBlur={() => {
+                const currentInputValue =
+                  inputElementRef.current?.value ?? inputValue;
                 field.onBlur();
-                onInputBlur?.({
-                  inputValue,
-                  selectedOption,
-                  value: field.value,
-                });
+                if (blurTimerRef.current) window.clearTimeout(blurTimerRef.current);
+                blurTimerRef.current = window.setTimeout(() => {
+                  blurTimerRef.current = null;
+                  if (skipNextBlurRef.current) {
+                    skipNextBlurRef.current = false;
+                    return;
+                  }
+                  onInputBlur?.({
+                    inputValue: transformInputValue
+                      ? transformInputValue(currentInputValue)
+                      : currentInputValue,
+                    selectedOption,
+                    value: field.value,
+                  });
+                }, 0);
               }}
               onInputChange={(_, newInputValue, reason) => {
                 if (reason === "clear") {
@@ -395,6 +416,7 @@ export function HookFormAutocomplete<
                   typeof option.inputValue === "string"
                 ) {
                   const inputVal = option.inputValue;
+                  skipNextBlurRef.current = true;
                   field.onChange(inputVal);
                   setInputValue(inputVal);
                   onCreateOption?.(inputVal);
@@ -413,6 +435,7 @@ export function HookFormAutocomplete<
                     ? option.value
                     : option;
                 field.onChange(nextValue);
+                skipNextBlurRef.current = true;
                 setInputValue(defaultGetOptionLabel(option as TOption));
                 onOptionSelected?.(option as TOption);
                 window.requestAnimationFrame(moveToNext);
@@ -500,12 +523,6 @@ export function HookFormAutocomplete<
                       event as unknown as KeyboardEvent<HTMLInputElement>,
                     );
                     if (event.defaultPrevented) return;
-                    if (
-                      event.key === "Enter" &&
-                      !(event as MuiKeyboardEvent).defaultMuiPrevented
-                    ) {
-                      event.currentTarget.blur();
-                    }
                     handleKeyDown(event as KeyboardEvent<HTMLInputElement>);
                   }}
                 />

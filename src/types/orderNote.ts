@@ -23,6 +23,10 @@ export interface OrderNoteApiItem {
   formaPago?: string | null;
   notaFormaPago?: string | null;
   NotaFormaPago?: string | null;
+  condicion?: string | null;
+  Condicion?: string | null;
+  notaCondicion?: string | null;
+  NotaCondicion?: string | null;
   efectivo?: string | number | null;
   Efectivo?: string | number | null;
   deposito?: string | number | null;
@@ -68,4 +72,5 @@ export interface OrderNote {
   usuario: string;
   estado: string;
   estadoSunat?: string;
+  notaCondicion?: string;
 }

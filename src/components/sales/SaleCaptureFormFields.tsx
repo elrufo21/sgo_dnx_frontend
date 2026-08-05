@@ -232,31 +232,40 @@ export function SaleCaptureFormFields({
     [onSearchClients],
   );
 
+  const validClientOptions = useMemo(
+    () =>
+      clientOptions
+        .filter((opt) => Number(opt.client.id) > 0)
+        .map((opt) => ({
+          ...opt,
+          label: safeTrim(opt.label) || `Cliente ${opt.client.id}`,
+        })),
+    [clientOptions],
+  );
+
   const normalizedClientOptions = useMemo(() => {
     const byLabel = new Map<string, ClientOption>();
 
-    clientOptions
-      .filter((opt) => Number(opt.client.id) > 0)
-      .forEach((opt) => {
-        const label = safeTrim(opt.label) || `Cliente ${opt.client.id}`;
-        const option = { ...opt, label };
-        const key = normalizeSearchText(label);
-        const current = byLabel.get(key);
-        const optionScore =
-          Number(Boolean(safeTrim(option.client.ruc))) * 2 +
-          Number(Boolean(safeTrim(option.client.dni)));
-        const currentScore = current
-          ? Number(Boolean(safeTrim(current.client.ruc))) * 2 +
-            Number(Boolean(safeTrim(current.client.dni)))
-          : -1;
+    validClientOptions.forEach((opt) => {
+      const label = safeTrim(opt.label) || `Cliente ${opt.client.id}`;
+      const option = { ...opt, label };
+      const key = normalizeSearchText(label);
+      const current = byLabel.get(key);
+      const optionScore =
+        Number(Boolean(safeTrim(option.client.ruc))) * 2 +
+        Number(Boolean(safeTrim(option.client.dni)));
+      const currentScore = current
+        ? Number(Boolean(safeTrim(current.client.ruc))) * 2 +
+          Number(Boolean(safeTrim(current.client.dni)))
+        : -1;
 
-        if (!current || optionScore > currentScore) byLabel.set(key, option);
-      });
+      if (!current || optionScore > currentScore) byLabel.set(key, option);
+    });
 
     return Array.from(byLabel.values()).sort((a, b) =>
       a.label.localeCompare(b.label, "es", { sensitivity: "base" }),
     );
-  }, [clientOptions]);
+  }, [validClientOptions]);
 
   const customerNameOptions = useMemo(() => {
     const baseOptions = normalizedClientOptions
@@ -286,8 +295,8 @@ export function SaleCaptureFormFields({
   }, [customerNameOptions]);
 
   const customerDniOptions = useMemo(() => {
-    const byDni = new Map<string, (typeof normalizedClientOptions)[number]>();
-    normalizedClientOptions.forEach((opt) => {
+    const byDni = new Map<string, (typeof validClientOptions)[number]>();
+    validClientOptions.forEach((opt) => {
       const dni = normalizeDocumentText(opt.client.dni);
       if (!isPlaceholderDocument(dni) && !byDni.has(dni)) byDni.set(dni, opt);
     });
@@ -302,11 +311,11 @@ export function SaleCaptureFormFields({
       id: opt.client.id,
       client: opt.client,
     }));
-  }, [normalizedClientOptions]);
+  }, [validClientOptions]);
 
   const customerRucOptions = useMemo(() => {
-    const byRuc = new Map<string, (typeof normalizedClientOptions)[number]>();
-    normalizedClientOptions.forEach((opt) => {
+    const byRuc = new Map<string, (typeof validClientOptions)[number]>();
+    validClientOptions.forEach((opt) => {
       const ruc = normalizeDocumentText(opt.client.ruc);
       if (!isPlaceholderDocument(ruc) && !byRuc.has(ruc)) byRuc.set(ruc, opt);
     });
@@ -321,11 +330,11 @@ export function SaleCaptureFormFields({
       id: opt.client.id,
       client: opt.client,
     }));
-  }, [normalizedClientOptions]);
+  }, [validClientOptions]);
 
   const customerCodeOptions = useMemo(
     () =>
-      normalizedClientOptions
+      validClientOptions
         .filter((opt) => safeTrim(opt.code))
         .map((opt) => ({
           label: opt.code,
@@ -336,7 +345,7 @@ export function SaleCaptureFormFields({
           id: opt.client.id,
           client: opt.client,
         })),
-    [normalizedClientOptions],
+    [validClientOptions],
   );
 
   const filterByClientData = <
@@ -465,7 +474,7 @@ export function SaleCaptureFormFields({
     const code = safeTrim(inputValue);
     if (!code) return;
     const match =
-      normalizedClientOptions.find(
+      validClientOptions.find(
         (opt) => normalizeSearchText(opt.code) === normalizeSearchText(code),
       )?.client ?? null;
     if (match) {
@@ -504,13 +513,14 @@ export function SaleCaptureFormFields({
     ({ inputValue }: { inputValue: string }) => {
       const document = normalizeDocumentText(inputValue);
       if (!document) return;
-      const options = type === "ruc" ? customerRucOptions : customerDniOptions;
       const match =
-        options.find(
-          (option) => normalizeDocumentText(option.value) === document,
-        ) ?? null;
+        validClientOptions.find((option) =>
+          type === "ruc"
+            ? normalizeDocumentText(option.client.ruc) === document
+            : normalizeDocumentText(option.client.dni) === document,
+        )?.client ?? null;
       if (match) {
-        applyClientSelection(match.client);
+        applyClientSelection(match);
         return;
       }
       toast.error(
@@ -657,6 +667,7 @@ export function SaleCaptureFormFields({
             disabled={disabled}
             placeholder="Código"
             allowCreate
+            showCreateOption={false}
             createLabel={(value) => `Usar código: ${value}`}
             syncInputToValue
             onInputValueChange={queueClientSearch}

@@ -15,7 +15,7 @@ import type { Client } from "@/types/customer";
 
 type CustomerFormValues = Omit<Client, "id"> & {
   tipoDocumento: "ruc" | "dni";
-  numeroDocumento?: string;
+  numeroDocumentoConsulta?: string;
 };
 
 const buildRegistradoPorDefault = (preferredName?: string | null) => {
@@ -55,7 +55,7 @@ const buildDefaults = (
   estado: data?.estado ?? "ACTIVO",
   fecha: data?.fecha ?? null,
   tipoDocumento: data?.dni ? "dni" : "ruc",
-  numeroDocumento: data?.dni ?? data?.ruc ?? "",
+  numeroDocumentoConsulta: "",
 });
 
 export default function CustomerFormBase({
@@ -148,13 +148,13 @@ export default function CustomerFormBase({
       shouldDirty: true,
       shouldValidate: true,
     });
-    setValue("numeroDocumento", "", {
+    setValue("numeroDocumentoConsulta", "", {
       shouldDirty: true,
       shouldValidate: false,
     });
-    clearErrors("numeroDocumento");
+    clearErrors("numeroDocumentoConsulta");
     window.requestAnimationFrame(() => {
-      setFocus("numeroDocumento");
+      setFocus("numeroDocumentoConsulta");
     });
   };
 
@@ -167,18 +167,18 @@ export default function CustomerFormBase({
   }, [defaults, reset]);
 
   useEffect(() => {
-    const current = String(getValues("numeroDocumento") ?? "")
+    const current = String(getValues("numeroDocumentoConsulta") ?? "")
       .replace(/\D/g, "")
       .trim();
 
     if (current.length > documentMaxLength) {
-      setValue("numeroDocumento", current.slice(0, documentMaxLength), {
+      setValue("numeroDocumentoConsulta", current.slice(0, documentMaxLength), {
         shouldDirty: true,
         shouldValidate: true,
       });
     }
 
-    clearErrors("numeroDocumento");
+    clearErrors("numeroDocumentoConsulta");
   }, [
     selectedTipoDocumento,
     documentMaxLength,
@@ -194,7 +194,7 @@ export default function CustomerFormBase({
       return;
     }
     if (previousTipoDocumentoRef.current !== selectedTipoDocumento) {
-      clearErrors("numeroDocumento");
+      clearErrors("numeroDocumentoConsulta");
     }
     previousTipoDocumentoRef.current = selectedTipoDocumento;
   }, [selectedTipoDocumento, clearErrors]);
@@ -213,36 +213,11 @@ export default function CustomerFormBase({
 
   const handleSave = async (values: CustomerFormValues) => {
     const nombreRazonUpper = values.nombreRazon?.toUpperCase() ?? "";
-    const numeroDocumento = String(values.numeroDocumento ?? "")
-      .replace(/\D/g, "")
-      .trim();
-    if (
-      numeroDocumento &&
-      numeroDocumento.length !== (values.tipoDocumento === "dni" ? 8 : 11)
-    ) {
-      setError("numeroDocumento", {
-        type: "manual",
-        message:
-          values.tipoDocumento === "dni"
-            ? "Ingrese correctamente los 8 numeros del DNI"
-            : "Ingrese correctamente los 11 numeros del RUC",
-      });
-      setFocus("numeroDocumento");
-      return;
-    }
-    const ruc =
-      numeroDocumento && values.tipoDocumento === "ruc"
-        ? numeroDocumento
-        : values.ruc;
-    const dni =
-      numeroDocumento && values.tipoDocumento === "dni"
-        ? numeroDocumento
-        : values.dni;
     const payload: Omit<Client, "id"> = {
       clienteCodigo: values.clienteCodigo,
       nombreRazon: nombreRazonUpper,
-      ruc,
-      dni,
+      ruc: values.ruc,
+      dni: values.dni,
       direccionFiscal: values.direccionFiscal,
       direccionDespacho: values.direccionDespacho,
       telefonoMovil: values.telefonoMovil,
@@ -294,12 +269,12 @@ export default function CustomerFormBase({
   const handleConsultarDocumento = async () => {
     const tipoDocumento: "ruc" | "dni" =
       selectedTipoDocumento === "dni" ? "dni" : "ruc";
-    const numeroDocumento = String(getValues("numeroDocumento") ?? "")
+    const numeroDocumento = String(getValues("numeroDocumentoConsulta") ?? "")
       .replace(/\D/g, "")
       .trim();
 
     if (!numeroDocumento) {
-      setError("numeroDocumento", {
+      setError("numeroDocumentoConsulta", {
         type: "manual",
         message: "Ingrese un numero de documento",
       });
@@ -307,7 +282,7 @@ export default function CustomerFormBase({
     }
 
     if (!/^\d+$/.test(numeroDocumento)) {
-      setError("numeroDocumento", {
+      setError("numeroDocumentoConsulta", {
         type: "manual",
         message: "Solo se permiten numeros",
       });
@@ -316,7 +291,7 @@ export default function CustomerFormBase({
 
     const expectedLength = tipoDocumento === "dni" ? 8 : 11;
     if (numeroDocumento.length !== expectedLength) {
-      setError("numeroDocumento", {
+      setError("numeroDocumentoConsulta", {
         type: "manual",
         message:
           tipoDocumento === "dni"
@@ -326,7 +301,7 @@ export default function CustomerFormBase({
       return;
     }
 
-    clearErrors("numeroDocumento");
+    clearErrors("numeroDocumentoConsulta");
 
     const result = await consultarDocumentoCliente(tipoDocumento, numeroDocumento);
     if (!result.ok) {
@@ -344,7 +319,7 @@ export default function CustomerFormBase({
       setValue("ruc", "", { shouldDirty: true });
       setValue("direccionFiscal", "-", { shouldDirty: true });
       setValue("direccionDespacho", "-", { shouldDirty: true });
-      setValue("numeroDocumento", "", { shouldDirty: true });
+      setValue("numeroDocumentoConsulta", "", { shouldDirty: true });
       setFocus("nombreRazon");
       return;
     }
@@ -362,7 +337,7 @@ export default function CustomerFormBase({
     setValue("direccionDespacho", result.client.direccionDespacho, {
       shouldDirty: true,
     });
-    setValue("numeroDocumento", "", { shouldDirty: true });
+    setValue("numeroDocumentoConsulta", "", { shouldDirty: true });
     setFocus("nombreRazon");
   };
 
@@ -573,7 +548,7 @@ export default function CustomerFormBase({
                             .replace(/\D/g, "")
                             .slice(0, documentMaxLength);
                         }}
-                        name="numeroDocumento"
+                        name="numeroDocumentoConsulta"
                         label="Numero de documento"
                         placeholder={
                           selectedTipoDocumento === "dni"

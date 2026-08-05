@@ -480,6 +480,7 @@ export default function HtmlCaptureSalePage() {
   const loadedRouteKeyRef = useRef("");
   const registerSaleRef = useRef(false);
   const focusedPagoVariosPaymentMethodRef = useRef("");
+  const appliedClientRef = useRef<Client | null>(null);
   const { products, fetchProducts, loading } = useProductsStore();
   const {
     clients,
@@ -518,6 +519,7 @@ export default function HtmlCaptureSalePage() {
   const [pagoVariosOperacion, setPagoVariosOperacion] = useState("");
   const [pagoVariosDeposito, setPagoVariosDeposito] = useState("");
   const [pagoVariosDescripcion, setPagoVariosDescripcion] = useState("");
+  const pagoVariosDescripcionRef = useRef<HTMLTextAreaElement | null>(null);
   const session = useMemo(readSession, []);
   const openDialog = useDialogStore((state) => state.openDialog);
   const closeDialog = useDialogStore((state) => state.closeDialog);
@@ -799,6 +801,10 @@ export default function HtmlCaptureSalePage() {
       focusPagoVariosField("deposito");
       return;
     }
+    if (pagoVariosFormaPago === "EFECTIVO") {
+      focusPagoVariosField("descripcion");
+      return;
+    }
     if (pagoVariosEntidadEditable) {
       focusPagoVariosField("entidad");
     }
@@ -818,7 +824,9 @@ export default function HtmlCaptureSalePage() {
       toast.error("Seleccione documentos con el mismo concepto OBS.");
       return;
     }
-    const descripcionPagoVarios = safeTrim(pagoVariosDescripcion);
+    const descripcionPagoVarios = safeTrim(
+      pagoVariosDescripcionRef.current?.value ?? pagoVariosDescripcion,
+    );
     if (!descripcionPagoVarios) {
       focusPagoVariosField("descripcion");
       toast.error("Ingrese descripcion.");
@@ -953,6 +961,24 @@ export default function HtmlCaptureSalePage() {
       })),
     [clients],
   );
+  const formMatchesClient = useCallback(
+    (client: Client | null) => {
+      if (!client) return false;
+      const code = safeTrim(form.memberCode);
+      const name = safeTrim(form.customerName);
+      const dni = normalizeDocumentText(form.customerDoc);
+      const ruc = normalizeDocumentText(form.customerRuc);
+      return Boolean(
+        (code && getClientCode(client) === code) ||
+          (dni && normalizeDocumentText(client.dni) === dni) ||
+          (ruc && normalizeDocumentText(client.ruc) === ruc) ||
+          (name &&
+            name.toUpperCase() !== "VARIOS" &&
+            normalizeLabelText(client.nombreRazon) === normalizeLabelText(name)),
+      );
+    },
+    [form.customerDoc, form.customerName, form.customerRuc, form.memberCode],
+  );
   const selectedClient = useMemo(
     () =>
       clientOptions.find(
@@ -964,13 +990,17 @@ export default function HtmlCaptureSalePage() {
             opt.client.dni === safeTrim(form.customerDoc)) ||
           (safeTrim(form.customerRuc) &&
             opt.client.ruc === safeTrim(form.customerRuc)),
-      )?.client ?? null,
+      )?.client ??
+      (formMatchesClient(appliedClientRef.current)
+        ? appliedClientRef.current
+        : null),
     [
       clientOptions,
       form.customerDoc,
       form.customerName,
       form.customerRuc,
       form.memberCode,
+      formMatchesClient,
     ],
   );
   const findClientFromForm = useCallback(
@@ -1019,6 +1049,7 @@ export default function HtmlCaptureSalePage() {
 
   const applyClient = useCallback(
     (client: Client | null) => {
+      appliedClientRef.current = client;
       if (!client) return;
       formMethods.setValue("customerName", client.nombreRazon ?? "", {
         shouldDirty: true,
@@ -1160,7 +1191,7 @@ export default function HtmlCaptureSalePage() {
 
       const deleted = await deleteClient(client.id);
       if (!deleted) {
-        toast.error("No se puede eliminar: el cliente tiene relacion con otros modulos.");
+        toast.error("No se puede eliminar.");
         return false;
       }
 
@@ -2512,6 +2543,7 @@ export default function HtmlCaptureSalePage() {
               Descripcion
               <textarea
                 data-pago-varios-descripcion="true"
+                ref={pagoVariosDescripcionRef}
                 className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                 value={pagoVariosDescripcion}
                 onFocus={(event) => event.currentTarget.select()}

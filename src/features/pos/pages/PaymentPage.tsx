@@ -2375,7 +2375,7 @@ const PaymentPage = () => {
 
       const deleted = await deleteClient(client.id);
       if (!deleted) {
-        toast.error("No se puede eliminar: el cliente tiene relacion con otros modulos.");
+        toast.error("No se puede eliminar.");
         return false;
       }
 

@@ -83,6 +83,9 @@ const isAnnulledStatus = (value: unknown) =>
     .toUpperCase()
     .includes("ANULAD");
 
+const isCancelledStatus = (value: unknown) =>
+  String(value ?? "").trim().toUpperCase() === "CANCELADO";
+
 const isCreditNoteDocument = (value: unknown) => {
   const normalized = String(value ?? "")
     .normalize("NFD")
@@ -298,6 +301,7 @@ const OrderNotesList = () => {
         { header: "N° Documento", key: "numeroDocumento", width: 18 },
         { header: "Fecha", key: "fecha", width: 14 },
         { header: "Cliente", key: "cliente", width: 34 },
+        { header: "Condicion", key: "notaCondicion", width: 14 },
         { header: "Forma Pago", key: "formaPago", width: 18 },
         { header: "Total", key: "total", width: 14 },
         { header: "A cuenta", key: "acuenta", width: 14 },
@@ -340,6 +344,7 @@ const OrderNotesList = () => {
           numeroDocumento: toExcelSafeText(numeroDocumento || "-"),
           fecha: toExcelSafeText(note.fecha),
           cliente: toExcelSafeText(note.cliente),
+          notaCondicion: toExcelSafeText(note.notaCondicion || "-"),
           formaPago: toExcelSafeText(note.formaPago),
           total: Number(getSignedTotal(note, note.total).toFixed(2)),
           acuenta: Number(parseAmount(note.acuenta).toFixed(2)),
@@ -349,7 +354,7 @@ const OrderNotesList = () => {
         });
 
         excelRow.eachCell((cell, colNumber) => {
-          const isAmountColumn = colNumber >= 7 && colNumber <= 9;
+          const isAmountColumn = colNumber >= 8 && colNumber <= 10;
 
           cell.border = {
             top: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -406,8 +411,8 @@ const OrderNotesList = () => {
       });
 
       totalsRow.eachCell((cell, colNumber) => {
-        const isAmountColumn = colNumber >= 7 && colNumber <= 9;
-        const isLabelColumn = colNumber === 1 || colNumber === 6;
+        const isAmountColumn = colNumber >= 8 && colNumber <= 10;
+        const isLabelColumn = colNumber === 1 || colNumber === 7;
 
         cell.font = { bold: true };
         cell.border = {
@@ -465,19 +470,11 @@ const OrderNotesList = () => {
   const solesTotals = useMemo(() => {
     const totals = notes.reduce(
       (acc, note) => {
-        if (isAnnulledStatus(note.estado)) {
+        if (!isCancelledStatus(note.estado)) {
           return acc;
         }
-        const amount = parseAmount(note.total);
-        const formaPago = String(note.formaPago ?? "").toUpperCase();
-        const isCash =
-          formaPago.includes("EFECT") || formaPago.includes("CONTADO");
-
-        if (isCash) {
-          acc.efectivo += amount;
-        } else {
-          acc.depTarYape += amount;
-        }
+        acc.efectivo += parseAmount(note.efectivo);
+        acc.depTarYape += parseAmount(note.deposito);
         return acc;
       },
       { efectivo: 0, depTarYape: 0 },
@@ -552,6 +549,10 @@ const OrderNotesList = () => {
           tdClassName: "min-w-[240px] whitespace-normal",
         },
       }),
+      columnHelper.accessor("notaCondicion", {
+        header: "Condicion",
+        cell: (info) => info.getValue(),
+      }),
       columnHelper.accessor("formaPago", {
         header: "Forma Pago",
         cell: (info) => info.getValue(),
@@ -563,11 +564,11 @@ const OrderNotesList = () => {
           formatAmount(getSignedTotal(row.original, row.original.total)),
         meta: { tdClassName: "text-right" },
       }),
-      columnHelper.accessor("acuenta", {
+      /*columnHelper.accessor("acuenta", {
         header: "A cuenta",
         cell: (info) => formatAmount(parseAmount(info.getValue())),
         meta: { tdClassName: "text-right" },
-      }),
+      }),*/
       columnHelper.accessor("saldo", {
         header: "Saldo",
         cell: (info) => formatAmount(parseAmount(info.getValue())),

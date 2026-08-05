@@ -186,6 +186,13 @@ const mapApiToOrderNote = (
     item?.notaFormaPago ?? item?.NotaFormaPago ?? item?.formaPago,
     "",
   );
+  const rawNotaCondicion = normalizeText(
+    item?.notaCondicion ??
+      item?.NotaCondicion ??
+      item?.condicion ??
+      item?.Condicion,
+    "",
+  );
   const rawEfectivo = normalizeText(
     item?.efectivo ?? item?.Efectivo,
     "0.00",
@@ -211,11 +218,11 @@ const mapApiToOrderNote = (
     "",
   );
   const rawEstado = normalizeText(
-    item?.docuEstado ??
-      item?.DocuEstado ??
-      item?.notaEstado ??
+    item?.notaEstado ??
       item?.NotaEstado ??
       item?.estado ??
+      item?.docuEstado ??
+      item?.DocuEstado ??
       item?.estadoOBS ??
       item?.EstadoOBS,
     "",
@@ -273,6 +280,7 @@ const mapApiToOrderNote = (
     usuario,
     estado,
     estadoSunat,
+    notaCondicion: rawNotaCondicion || "-",
   };
 };
 
@@ -297,6 +305,7 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
       const notaFecha = at(13);
       const notaUsuario = at(14);
       const notaFormaPago = at(15);
+      const notaCondicion = at(16);
       const efectivo = at(39);
       const deposito = at(40);
       const notaTotal = at(23);
@@ -325,6 +334,7 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
         fecha: formatDateForList(notaFecha),
         codigoCliente: "-",
         cliente,
+        notaCondicion: notaCondicion || "-",
         formaPago: notaFormaPago || "-",
         efectivo: efectivo || "0.00",
         deposito: deposito || "0.00",

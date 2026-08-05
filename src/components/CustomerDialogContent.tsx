@@ -107,8 +107,8 @@ export default function CustomerDialogContent({
     setDeletingClient(true);
     const deleted = await onDeleteClient(clientToDelete);
     setDeletingClient(false);
-    if (!deleted) return;
     setClientToDelete(null);
+    if (!deleted) return;
     setEditingClient(null);
     setActiveTab("list");
   };
