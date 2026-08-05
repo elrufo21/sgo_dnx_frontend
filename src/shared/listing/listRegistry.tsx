@@ -55,7 +55,7 @@ const useCategoryListDeps = () => {
 
   const onCreate = useCallback(() => {
     openDialog({
-      title: "Crear categoria",
+      title: "Crear sublinea",
       content: <CategoriaForm variant="modal" mode="create" onSave={() => {}} />,
       confirmText: "Crear",
       cancelText: "Cancelar",
@@ -65,7 +65,7 @@ const useCategoryListDeps = () => {
         const data = (rawData ?? {}) as Partial<Category>;
         const nombreSublinea = (data.nombreSublinea ?? "").trim().toUpperCase();
         if (!nombreSublinea) {
-          toast.error("El nombre de la categoria es obligatorio");
+          toast.error("El nombre de la sublinea es obligatorio");
           return false;
         }
         const created = await addCategory({
@@ -76,7 +76,7 @@ const useCategoryListDeps = () => {
           return false;
         }
         await refetch();
-        toast.success("Categoria creada correctamente");
+        toast.success("Sublinea creada correctamente");
         return true;
       },
     });
@@ -85,7 +85,7 @@ const useCategoryListDeps = () => {
   const onEdit = useCallback(
     (row: Category, id: number) => {
       openDialog({
-        title: "Editar categoria",
+        title: "Editar sublinea",
         content: (
           <CategoriaForm
             variant="modal"
@@ -102,7 +102,7 @@ const useCategoryListDeps = () => {
           const data = (rawData ?? {}) as Partial<Category>;
           const nombreSublinea = (data.nombreSublinea ?? "").trim().toUpperCase();
           if (!nombreSublinea) {
-            toast.error("El nombre de la categoria es obligatorio");
+            toast.error("El nombre de la sublinea es obligatorio");
             return false;
           }
           const updated = await updateCategory(id, {
@@ -113,7 +113,7 @@ const useCategoryListDeps = () => {
             return false;
           }
           await refetch();
-          toast.success("Categoria actualizada");
+          toast.success("Sublinea actualizada");
           return true;
         },
       });

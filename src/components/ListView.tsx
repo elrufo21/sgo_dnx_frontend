@@ -70,7 +70,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
   const isMaintenanceList = basePath.startsWith("/maintenance/");
   const maintenanceSegment = basePath.split("/").filter(Boolean)[1] ?? "";
   const maintenanceTitleBySegment: Record<string, string> = {
-    categories: "Categorías",
+    categories: "SubLineas",
     areas: "Áreas",
     providers: "Proveedores",
     holidays: "Feriados",

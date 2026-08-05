@@ -20,8 +20,8 @@ export default function MaintenanceDashboard() {
   const items = useMemo(() => {
     const baseItems = [
       {
-        title: "Categorías",
-        desc: "Gestiona categorías y códigos SUNAT.",
+        title: "SubLineas",
+        desc: "Gestiona sublineas y códigos SUNAT.",
         icon: <Grid3X3 className="w-10 h-10 text-blue-600" />,
         route: "/maintenance/categories",
       },

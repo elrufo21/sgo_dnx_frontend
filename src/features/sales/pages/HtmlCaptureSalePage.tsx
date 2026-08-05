@@ -697,7 +697,7 @@ export default function HtmlCaptureSalePage() {
       })) as PagoVariosResponse;
       const items = Array.isArray(response?.items) ? response.items : [];
       setPagoVariosItems(items);
-      setPagoVariosSelectedIds(items.map((item) => item.notaId));
+      setPagoVariosSelectedIds([]);
     } catch (error) {
       console.error("No se pudo cargar pago varios", error);
       toast.error("No se pudo cargar Pago Varios.");

@@ -5529,15 +5529,7 @@ const PaymentPage = () => {
                   {orderNotesDocumentActionLabel}
                 </button>
               )}
-              {isConfirmed && isProforma && !isNotaAnulada && (
-                <button
-                  type="button"
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-orange-300 bg-white px-3 py-2 text-xs font-medium text-orange-800 transition-colors hover:bg-orange-50"
-                  onClick={handleEnableEditing}
-                >
-                  {isReadOnlyNoteView ? "Ir a edición" : "Editar"}
-                </button>
-              )}
+
               {isConfirmed && (
                 <button
                   type="button"
@@ -6016,15 +6008,6 @@ const PaymentPage = () => {
                 <Trash2 className="h-4 w-4" />
               )}
               {orderNotesDocumentActionLabel}
-            </button>
-          )}
-          {isConfirmed && isProforma && !isNotaAnulada && (
-            <button
-              type="button"
-              className="hidden items-center justify-center gap-2 rounded-lg border border-orange-300 bg-white px-3 py-2 text-sm text-orange-800 transition-colors hover:bg-orange-50 md:inline-flex"
-              onClick={handleEnableEditing}
-            >
-              {isReadOnlyNoteView ? "Ir a edición" : "Editar"}
             </button>
           )}
         </div>

@@ -64,6 +64,9 @@ const isDuplicateHoliday = (result: unknown) => {
 const isDuplicateCategoryResponse = (result: unknown) =>
   typeof result === "string" && result.toLowerCase().includes("existe");
 
+const asCategories = (items: unknown): Category[] =>
+  Array.isArray(items) ? items : [];
+
 const parseCategoryRegisterResponse = (
   result: unknown,
   fallback: { id: number; nombreSublinea: string; codigoSunat: string }
@@ -274,7 +277,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     holidays: [],
     bankEntities: [],
     loading: false,
-    setCategories: (items) => set({ categories: items }),
+    setCategories: (items) => set({ categories: asCategories(items) }),
     setAreas: (items) => set({ areas: items }),
     setComputers: (items) => set({ computers: items }),
     setProviders: (items) => set({ providers: items }),
@@ -290,7 +293,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
           queryFn: fetchCategoriesApi,
         });
         set({
-          categories: response ?? [],
+          categories: asCategories(response),
           loading: false,
         });
       } catch (err) {
@@ -398,7 +401,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       const nextCategory = parseCategoryRegisterResponse(created, fallbackCategory);
 
       set((state) => ({
-        categories: [...state.categories, nextCategory],
+        categories: [...asCategories(state.categories), nextCategory],
       }));
 
       await queryClient.invalidateQueries({ queryKey: categoriesQueryKey });
@@ -406,7 +409,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
 
     updateCategory: async (id, data) => {
-      const previousCategory = get().categories.find(
+      const previousCategory = asCategories(get().categories).find(
         (c) => String(c.id ?? c.idSubLinea) === String(id)
       );
       const fallbackCategory = {
@@ -446,7 +449,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       const nextCategory = parseCategoryRegisterResponse(updated, fallbackCategory);
 
       set((state) => ({
-        categories: state.categories.map((c) =>
+        categories: asCategories(state.categories).map((c) =>
           String(c.id ?? c.idSubLinea) === String(id)
             ? {
                 ...c,
@@ -476,7 +479,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         return false;
       } else {
         set((state) => ({
-          categories: state.categories.filter(
+          categories: asCategories(state.categories).filter(
             (c) => String(c.id) !== String(idSubLinea)
           ),
         }));

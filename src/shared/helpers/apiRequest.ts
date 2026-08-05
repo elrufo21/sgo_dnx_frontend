@@ -107,6 +107,9 @@ export async function apiRequest<
     return result;
   } catch (err) {
     console.error("⚠️ Error del api", err);
+    if (fallback !== undefined) {
+      return fallback as TFallback;
+    }
     return err as TResponse | TFallback;
   }
 }

@@ -4,11 +4,12 @@ import type { Category } from "@/types/maintenance";
 export const categoryListConfig: ModuleListConfig<Category> = {
   basePath: "/maintenance/categories",
   idKey: "id",
-  createLabel: "Anadir categoria",
-  deleteMessage: "Seguro deseas eliminar esta categoria?",
+  createLabel: "Anadir sublinea",
+  deleteMessage: "Seguro deseas eliminar esta sublinea?",
   columns: [
-    { key: "nombreSublinea", header: "Nombre sublinea" },
-    { key: "codigoSunat", header: "Codigo SUNAT" },
+    { key: "id", header: "Id" },
+    { key: "nombreSublinea", header: "SubLinea" },
+    { key: "codigoSunat", header: "CodigoSunat" },
   ],
-  filterKeys: ["nombreSublinea"],
+  filterKeys: ["id", "nombreSublinea", "codigoSunat"],
 };

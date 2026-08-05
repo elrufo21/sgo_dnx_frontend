@@ -94,7 +94,7 @@ const toNumberValue = (value: unknown, fallback = 0) => {
 
 const normalizeSegment = (value: unknown) =>
   String(value ?? "")
-    .replace(/[|;\[\]\r\n]/g, " ")
+    .replace(/[|;[\]\r\n]/g, " ")
     .trim();
 const normalizePersistedImageSegment = (value: unknown) => {
   const normalized = normalizeSegment(value);
@@ -240,6 +240,7 @@ const mapApiToProduct = (item: ApiProduct): Product => ({
   pv: toNumberValue(item.productoPV, 0),
   sv: toNumberValue(item.productoSV, 0),
   usuario: item.productoUsuario ?? "",
+  fechaRegistro: item.productoFecha ?? "",
   estado: normalizeEstado(item.productoEstado),
   images: item.productoImagen ? [item.productoImagen] : [],
   idSubLinea: item.idSubLinea,
@@ -368,13 +369,15 @@ const mapProductToApi = (
   productoObs: "",
   productoEstado: product.estado ?? "BUENO",
   productoUsuario: product.usuario ?? "",
-  productoFecha: new Date().toISOString(),
+  productoFecha: product.fechaRegistro ?? new Date().toISOString(),
   productoImagen: product.images?.[0] ?? "",
   productoTipoCambio: 0,
   productoCostoDolar: 0,
   aplicaTC: null,
   fechaVencimiento: null,
   aplicaFechaV: false,
+  productoPV: product.pv ?? 0,
+  productoSV: product.sv ?? 0,
   aplicaINV:
     product.aplicaINV === "N" || product.aplicaINV === "servicio" ? "N" : "S",
   cantidadANT: product.cantidad ?? 0,
@@ -533,8 +536,7 @@ const buildProductFormData = (
   Object.entries(payload).forEach(([key, value]) => {
     // El backend asigna la imagen; no enviar productoImagen.
     if (key === "productoImagen") return;
-    const normalized =
-      value === undefined || value === null ? "" : (value as any).toString();
+    const normalized = value === undefined || value === null ? "" : String(value);
     formData.append(key, normalized);
   });
 
@@ -572,7 +574,7 @@ const toSavedApiProduct = (
   return { ...payload, idProducto: idFallback };
 };
 
-export const useProductsStore = create<ProductsState>((set, get) => ({
+export const useProductsStore = create<ProductsState>((set) => ({
   products: [],
   loading: false,
 

@@ -130,7 +130,7 @@ export default function CategoriaForm({
         <div className="flex items-center gap-3">
           <BackArrowButton />
           <h1 className="text-base font-semibold">
-            {mode === "create" ? "Crear Categoria" : "Editar Categoria"}
+            {mode === "create" ? "Crear SubLinea" : "Editar SubLinea"}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export default function CategoriaForm({
                 <HookFormInput<Category>
                   data-focus-first
                   name="nombreSublinea"
-                  label="Nombre de categoria"
+                  label="Nombre de sublinea"
                   placeholder="Ingrese nombre"
                   rules={{ required: "El nombre es obligatorio" }}
                 />

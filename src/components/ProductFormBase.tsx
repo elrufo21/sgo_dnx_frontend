@@ -58,6 +58,14 @@ const parseUnitsPerPackage = (value: unknown) => {
   return Number(normalized);
 };
 const formatMoney = (value: number) => `S/ ${value.toFixed(2)}`;
+const toDateInputValue = (value: unknown) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return getLocalDateISO();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return isoMatch[0];
+  const dateMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return dateMatch ? `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}` : raw;
+};
 
 const deriveInitialUnitsPerPackage = (
   initialData?: Partial<Product>,
@@ -462,7 +470,7 @@ function OtherUnitDialogContent() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <TextField
           fullWidth
           autoFocus
@@ -563,7 +571,7 @@ function OtherUnitDialogContent() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
           <p className="text-slate-500">
             Precio total ({dialogData.unidadPrincipal})
@@ -697,6 +705,10 @@ export default function ProductFormBase({
   const { categories, fetchCategories, addCategory, updateCategory } =
     useMaintenanceStore();
   const { products, fetchProducts } = useProductsStore();
+  const safeCategories = useMemo(
+    () => (Array.isArray(categories) ? categories : []),
+    [categories],
+  );
   const fallbackUser = useMemo(
     () => authUser?.displayName ?? authUser?.username ?? buildUserDate(),
     [authUser],
@@ -835,12 +847,15 @@ export default function ProductFormBase({
       preCosto: initialData?.preCosto ?? null,
       preVenta: initialData?.preVenta ?? null,
       preVentaB: 0,
+      pv: initialData?.pv ?? 0,
+      sv: initialData?.sv ?? 0,
       aplicaINV:
         initialData?.aplicaINV === "N" || initialData?.aplicaINV === "S"
           ? initialData.aplicaINV
           : "S",
       cantidad: initialData?.cantidad ?? null,
       usuario: initialData?.usuario ?? fallbackUser,
+      fechaRegistro: toDateInputValue(initialData?.fechaRegistro),
       estado: initialData?.estado ?? "ACTIVO",
       images: initialData?.images ?? [],
       imageFile: null,
@@ -943,10 +958,10 @@ export default function ProductFormBase({
   }, [mode, initialData, focusCategoryField]);
 
   useEffect(() => {
-    if (!categories.length) {
+    if (!safeCategories.length) {
       fetchCategories();
     }
-  }, [categories.length, fetchCategories]);
+  }, [safeCategories.length, fetchCategories]);
 
   useEffect(() => {
     if (!products.length) {
@@ -980,7 +995,6 @@ export default function ProductFormBase({
   const selectedSubLineaId = watch("idSubLinea");
   const unidadMedidaActual = watch("unidadMedida");
   const aplicaINV = watch("aplicaINV");
-  const aplicaOtraUnidad = Boolean(watch("aplicaOtraUnidad"));
   const preVentaActual = toSafePositiveNumber(watch("preVenta"));
   const preCostoActual = toSafePositiveNumber(watch("preCosto"));
   const isServiceProduct = aplicaINV === "N";
@@ -989,7 +1003,6 @@ export default function ProductFormBase({
   const currentImage = (watch("images")?.[0] ?? "").trim();
   const displayImage = currentImage !== "" ? currentImage : placeholderImage;
   const hasImage = currentImage !== "";
-  const unidadAlternaActual = normalizeUnitLabel(watch("unidadAlterna"));
 
   const unidadMedidaOptions = useMemo(() => {
     const opciones = new Set<string>();
@@ -1012,11 +1025,11 @@ export default function ProductFormBase({
       setValue("categoria", "");
       return;
     }
-    const selected = categories.find(
+    const selected = safeCategories.find(
       (cat) => String(cat.id ?? cat.idSubLinea) === String(selectedSubLineaId),
     );
     setValue("categoria", selected?.nombreSublinea ?? "");
-  }, [categories, selectedSubLineaId, setValue]);
+  }, [safeCategories, selectedSubLineaId, setValue]);
 
   useEffect(() => {
     if (!isServiceProduct) return;
@@ -1440,6 +1453,7 @@ export default function ProductFormBase({
       reset({
         ...defaults,
         codigo: generateCode(),
+        fechaRegistro: getLocalDateISO(),
       });
     } else {
       reset(defaults);
@@ -1458,7 +1472,7 @@ export default function ProductFormBase({
       return;
     }
 
-    const appliesOtherUnit = Boolean(values.aplicaOtraUnidad);
+    const appliesOtherUnit = false;
     const unidadAlterna = String(values.unidadAlterna ?? "").trim();
     const unidadPrincipal = normalizeUnitLabel(
       values.unidadMedida,
@@ -1494,6 +1508,7 @@ export default function ProductFormBase({
       codigo: trimmedCode,
       aplicaINV: values.aplicaINV ?? "S",
       valorCritico: 0,
+      preCosto: values.preVenta ?? 0,
       preVentaB: 0,
       cantidad: values.aplicaINV === "N" ? 0 : values.cantidad,
       nombre: values.nombre?.toUpperCase() ?? "",
@@ -1632,10 +1647,10 @@ export default function ProductFormBase({
                   >
                     <HookFormAutocomplete<ProductFormValues>
                       name="idSubLinea"
-                      label="Categoria"
+                      label="SubLinea"
                       options={[
                         { value: "", label: "Seleccionar..." },
-                        ...categories.map((cat) => ({
+                        ...safeCategories.map((cat) => ({
                           value:
                             cat.idSubLinea !== undefined &&
                             cat.idSubLinea !== null
@@ -1649,11 +1664,11 @@ export default function ProductFormBase({
                       rules={{
                         setValueAs: (v) =>
                           v === "" ? null : Number((v as any)?.value ?? v),
-                        required: "La categoria es obligatoria",
+                        required: "La sublinea es obligatoria",
                         validate: (v) =>
                           v !== 0 && v !== null && v !== undefined
                             ? true
-                            : "La categoria es obligatoria",
+                            : "La sublinea es obligatoria",
                       }}
                       onOptionSelected={(opt) =>
                         setValue("categoria", opt?.label ?? "")
@@ -1663,14 +1678,14 @@ export default function ProductFormBase({
                         if (!Number.isFinite(selectedId) || selectedId <= 0)
                           return;
 
-                        const selectedCategory = categories.find(
+                        const selectedCategory = safeCategories.find(
                           (c) =>
                             String(c.idSubLinea ?? c.id) === String(selectedId),
                         );
                         if (!selectedCategory) return;
 
                         openDialog({
-                          title: "Editar categoria",
+                          title: "Editar sublinea",
                           content: (
                             <CategoriaForm
                               variant="modal"
@@ -1689,8 +1704,13 @@ export default function ProductFormBase({
                             if (!updated) return;
                             await fetchCategories();
 
-                            const refreshedCategories =
-                              useMaintenanceStore.getState().categories ?? [];
+                            const rawCategories =
+                              useMaintenanceStore.getState().categories;
+                            const refreshedCategories = Array.isArray(
+                              rawCategories,
+                            )
+                              ? rawCategories
+                              : [];
                             const updatedCategory = refreshedCategories.find(
                               (c) =>
                                 String(c.idSubLinea ?? c.id) ===
@@ -1729,7 +1749,7 @@ export default function ProductFormBase({
                       type="button"
                       onClick={() =>
                         openDialog({
-                          title: "Registrar categoria",
+                          title: "Registrar sublinea",
                           content: (
                             <CategoriaForm
                               variant="modal"
@@ -1750,8 +1770,13 @@ export default function ProductFormBase({
                             )
                               .trim()
                               .toUpperCase();
-                            const refreshedCategories =
-                              useMaintenanceStore.getState().categories ?? [];
+                            const rawCategories =
+                              useMaintenanceStore.getState().categories;
+                            const refreshedCategories = Array.isArray(
+                              rawCategories,
+                            )
+                              ? rawCategories
+                              : [];
 
                             const createdCategory = refreshedCategories.find(
                               (c) =>
@@ -1790,7 +1815,7 @@ export default function ProductFormBase({
                         })
                       }
                       className="mt-3 h-10 w-9 shrink-0 inline-flex items-center justify-center rounded-md border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
-                      title="Registrar categoria"
+                      title="Registrar sublinea"
                     >
                       <PlusIcon className="w-4 h-4" />
                     </button>
@@ -1833,19 +1858,22 @@ export default function ProductFormBase({
                     />
                   </div>
 
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 md:items-start">
-                    <div className="space-y-3">
-                      <HookFormAutocomplete<ProductFormValues>
-                        name="unidadMedida"
-                        label="Unidad de Medida"
-                        options={unidadMedidaOptions}
-                        placeholder="Selecciona o escribe una unidad"
-                        rules={{ required: "La unidad de medida es obligatoria" }}
-                        allowCreate
-                        showCreateOption={false}
-                        syncInputToValue
-                        className="w-full"
-                      />
+                  <div className="md:col-span-2 space-y-3">
+                    <HookFormAutocomplete<ProductFormValues>
+                      name="unidadMedida"
+                      label="Unidad de Medida"
+                      options={unidadMedidaOptions}
+                      placeholder="Selecciona o escribe una unidad"
+                      rules={{
+                        required: "La unidad de medida es obligatoria",
+                      }}
+                      allowCreate
+                      showCreateOption={false}
+                      syncInputToValue
+                      className="w-full"
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
                       <HookFormInput<ProductFormValues>
                         name="preVenta"
                         label="Precio de Venta"
@@ -1883,74 +1911,50 @@ export default function ProductFormBase({
                         }}
                       />
                       <HookFormInput<ProductFormValues>
-                        name="usuario"
-                        label="Usuario Responsable"
-                        disabled
-                      />
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={aplicaOtraUnidad}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setValue("aplicaOtraUnidad", checked, {
-                                  shouldDirty: true,
-                                  shouldValidate: true,
-                                });
-
-                                if (checked) {
-                                  openOtherUnitModal();
-                                  return;
-                                }
-
-                                clearOtherUnitConfiguration();
-                              }}
-                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            Aplica otra unidad
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => openOtherUnitModal()}
-                            disabled={!aplicaOtraUnidad}
-                            className="inline-flex h-10 items-center justify-center rounded-md border border-blue-200 bg-white px-3 text-sm text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Configurar unidad
-                          </button>
-                        </div>
-                        {aplicaOtraUnidad ? (
-                          <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2.5">
-                            <p className="text-xs text-slate-500">
-                              Unidad alterna configurada
-                            </p>
-                            <p className="truncate text-sm font-semibold text-slate-800 uppercase">
-                              {unidadAlternaActual || "SIN DEFINIR"}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-                      <HookFormInput<ProductFormValues>
-                        name="preCosto"
-                        label="Precio de Costo"
+                        name="pv"
+                        label="Produc. PV"
                         type="number"
-                        step="0.01"
-                        min="0.01"
+                        step="0.0001"
+                        min="0"
                         rules={{
                           valueAsNumber: true,
-                          required: "El precio de costo es obligatorio",
                           validate: (v) =>
                             v !== undefined &&
                             v !== null &&
                             !Number.isNaN(v) &&
-                            v > 0
+                            v >= 0
                               ? true
-                              : "El precio de costo debe ser mayor a 0",
+                              : "El PV debe ser mayor o igual a 0",
                         }}
+                      />
+                      <HookFormInput<ProductFormValues>
+                        name="sv"
+                        label="Produc. SV"
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        rules={{
+                          valueAsNumber: true,
+                          validate: (v) =>
+                            v !== undefined &&
+                            v !== null &&
+                            !Number.isNaN(v) &&
+                            v >= 0
+                              ? true
+                              : "El SV debe ser mayor o igual a 0",
+                        }}
+                      />
+
+                      <HookFormInput<ProductFormValues>
+                        name="fechaRegistro"
+                        label="Fecha Registro"
+                        type="date"
+                        disabled
+                      />
+                      <HookFormInput<ProductFormValues>
+                        name="usuario"
+                        label="Usuario Registro"
+                        disabled
                       />
                       <HookFormSelect<ProductFormValues>
                         name="estado"

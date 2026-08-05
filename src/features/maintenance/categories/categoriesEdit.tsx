@@ -33,7 +33,7 @@ export default function CategoryEdit() {
     if (!res) {
       return;
     }
-    toast.success("Categoria actualizada");
+    toast.success("Sublinea actualizada");
     navigate("/maintenance/categories");
   };
 
@@ -45,26 +45,26 @@ export default function CategoryEdit() {
     if (!id) return;
     openDialog({
       title: "Eliminar",
-      content: <p>Seguro que deseas eliminar esta categoria?</p>,
+      content: <p>Seguro que deseas eliminar esta sublinea?</p>,
       onConfirm: async () => {
         try {
           const result = await deleteCategory(Number(id));
           if (result === false) {
-            toast.error("No se pudo eliminar la categoria.");
+            toast.error("No se pudo eliminar la sublinea.");
             return;
           }
           toast.success("Elemento eliminado.");
           navigate("/maintenance/categories");
         } catch (error) {
-          console.error("Error eliminando categoria", error);
-          toast.error("Ocurrio un error al eliminar la categoria.");
+          console.error("Error eliminando sublinea", error);
+          toast.error("Ocurrio un error al eliminar la sublinea.");
         }
       },
     });
   };
 
   if (!category) {
-    return <p className="p-4 sm:p-6">Cargando categoria...</p>;
+    return <p className="p-4 sm:p-6">Cargando sublinea...</p>;
   }
 
   return (

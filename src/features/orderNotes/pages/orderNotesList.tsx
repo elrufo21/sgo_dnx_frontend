@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from "react-router";
 
 const columnHelper = createColumnHelper<OrderNote>();
 const ORDER_NOTES_RANGE_STORAGE_KEY = "sgo.orderNotes.range";
+const ORDER_NOTES_ALL_PAGE_SIZE = 100000;
 
 const parseAmount = (value: unknown): number => {
   const raw = String(value ?? "").trim();
@@ -134,7 +135,7 @@ const getSignedTotal = (
 const OrderNotesList = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { notes, totalNotes, fetchNotes, loading } = useOrderNoteStore();
+  const { notes, fetchNotes, loading } = useOrderNoteStore();
   const initialDate = useMemo(() => getLocalDateISO(), []);
   const resetRangeFromMainLayout = useMemo(() => {
     if (!state || typeof state !== "object") return false;
@@ -168,11 +169,8 @@ const OrderNotesList = () => {
   }, [initialDate, resetRangeFromMainLayout]);
   const [fechaInicio, setFechaInicio] = useState(initialRange.from);
   const [fechaFin, setFechaFin] = useState(initialRange.to);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
   const fechaInicioRef = useRef(fechaInicio);
   const fechaFinRef = useRef(fechaFin);
-  const pageSizeRef = useRef(pageSize);
   const endDateAcceptedRef = useRef(false);
   const lastFetchedRangeRef = useRef<{ from: string; to: string } | null>({
     from: initialRange.from,
@@ -187,20 +185,10 @@ const OrderNotesList = () => {
     fechaFinRef.current = fechaFin;
   }, [fechaFin]);
 
-  useEffect(() => {
-    pageSizeRef.current = pageSize;
-  }, [pageSize]);
-
   const requestNotesByRange = useCallback(
-    (
-      fromValue: string,
-      toValue: string,
-      nextPage = 1,
-      nextPageSize?: number,
-    ) => {
+    (fromValue: string, toValue: string) => {
       const from = String(fromValue ?? "").trim();
       const to = String(toValue ?? "").trim();
-      const requestedPageSize = nextPageSize ?? pageSizeRef.current;
 
       if (!from || !to) {
         toast.error("Debes seleccionar fecha inicio y fecha fin.");
@@ -212,13 +200,11 @@ const OrderNotesList = () => {
         return false;
       }
 
-      setPage(nextPage);
-      setPageSize(requestedPageSize);
       void fetchNotes({
         fechaInicio: from,
         fechaFin: to,
-        page: nextPage,
-        pageSize: requestedPageSize,
+        page: 1,
+        pageSize: ORDER_NOTES_ALL_PAGE_SIZE,
       });
       lastFetchedRangeRef.current = { from, to };
       return true;
@@ -249,18 +235,6 @@ const OrderNotesList = () => {
   const handleSearch = useCallback(() => {
     requestNotesByRange(fechaInicio, fechaFin);
   }, [fechaFin, fechaInicio, requestNotesByRange]);
-
-  const handlePaginationChange = useCallback(
-    (nextPage: number, nextPageSize: number) => {
-      requestNotesByRange(
-        fechaInicioRef.current,
-        fechaFinRef.current,
-        nextPage,
-        nextPageSize,
-      );
-    },
-    [requestNotesByRange],
-  );
 
   const parsePickerDate = useCallback((value: Dayjs | null) => {
     const formatted = value?.format("YYYY-MM-DD") ?? "";
@@ -644,10 +618,7 @@ const OrderNotesList = () => {
       <DataTable
         columns={columns as ColumnDef<OrderNote, unknown>[]}
         data={notes}
-        totalRows={totalNotes}
-        paginationPage={page}
-        paginationPageSize={pageSize}
-        onPaginationChange={handlePaginationChange}
+        initialPageSize={50}
         isLoading={loading}
         filterKeys={[
           "notaId",

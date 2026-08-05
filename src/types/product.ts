@@ -26,6 +26,7 @@ export interface Product {
   pv?: number;
   sv?: number;
   usuario: string;
+  fechaRegistro?: string;
   estado: "ACTIVO" | "INACTIVO" | "archivado";
   images?: string[];
   unidadesAlternas?: ProductUnitOption[];

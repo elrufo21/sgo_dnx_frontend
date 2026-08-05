@@ -20,7 +20,7 @@ export default function CategoryCreate() {
     if (!created) {
       return;
     }
-    toast.success("Categoria creada correctamente");
+    toast.success("Sublinea creada correctamente");
     setForm({
       nombreSublinea: "",
       codigoSunat: "",
