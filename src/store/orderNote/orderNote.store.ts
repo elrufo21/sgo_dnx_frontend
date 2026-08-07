@@ -278,6 +278,7 @@ const mapApiToOrderNote = (
     acuenta: rawAcuenta || "0.00",
     saldo: rawSaldo || "0.00",
     usuario,
+    notaUsuario: usuario,
     estado,
     estadoSunat,
     notaCondicion: rawNotaCondicion || "-",
@@ -342,6 +343,7 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
         acuenta: notaAcuenta || "0.00",
         saldo: notaSaldo || "0.00",
         usuario: notaUsuario || "-",
+        notaUsuario: notaUsuario || "-",
         estado: notaEstado || "PENDIENTE",
         estadoSunat: "",
       } satisfies OrderNote;

@@ -85,7 +85,9 @@ const isAnnulledStatus = (value: unknown) =>
     .includes("ANULAD");
 
 const isCancelledStatus = (value: unknown) =>
-  String(value ?? "").trim().toUpperCase() === "CANCELADO";
+  String(value ?? "")
+    .trim()
+    .toUpperCase() === "CANCELADO";
 
 const isCreditNoteDocument = (value: unknown) => {
   const normalized = String(value ?? "")
@@ -280,7 +282,7 @@ const OrderNotesList = () => {
         { header: "Total", key: "total", width: 14 },
         { header: "A cuenta", key: "acuenta", width: 14 },
         { header: "Saldo", key: "saldo", width: 14 },
-        { header: "Usuario", key: "usuario", width: 18 },
+        { header: "Usuario", key: "notaUsuario", width: 18 },
         { header: "Estado", key: "estado", width: 14 },
       ];
 
@@ -628,6 +630,8 @@ const OrderNotesList = () => {
           "fecha",
           "documento",
           "codigoCliente",
+          "notaCondicion",
+          "notaUsuario",
         ]}
         renderFilters={
           <LocalizationProvider

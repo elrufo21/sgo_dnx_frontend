@@ -73,4 +73,5 @@ export interface OrderNote {
   estado: string;
   estadoSunat?: string;
   notaCondicion?: string;
+  notaUsuario?: string;
 }

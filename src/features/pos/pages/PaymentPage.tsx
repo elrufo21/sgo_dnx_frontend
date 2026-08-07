@@ -63,6 +63,28 @@ type LoadedNotaMonetaryTotals = {
 };
 
 const DEFAULT_TIPO_PROCESO = 3;
+const PAYMENT_METHOD_OPTIONS = [
+  { value: "(SELECCIONE)", label: "(SELECCIONE)" },
+  { value: "EFECTIVO", label: "EFECTIVO" },
+  { value: "DEPOSITO", label: "DEPOSITO" },
+  { value: "TARJETA", label: "TARJETA" },
+  { value: "YAPE", label: "YAPE" },
+  { value: "EFECTIVO/DEPOSITO", label: "EFECTIVO/DEPOSITO" },
+  { value: "TARJETA/EFECTIVO", label: "TARJETA/EFECTIVO" },
+  { value: "YAPE/EFECTIVO", label: "YAPE/EFECTIVO" },
+  { value: "YAPE/DEPOSITO", label: "YAPE/DEPOSITO" },
+  { value: "TARJETA/DEPOSITO", label: "TARJETA/DEPOSITO" },
+  { value: "TRANSFERENCIA", label: "TRANSFERENCIA" },
+];
+const BANK_ENTITY_OPTIONS = [
+  { value: "(SELECCIONE)", label: "(SELECCIONE)" },
+  { value: "-", label: "-" },
+  { value: "BCP", label: "BCP" },
+  { value: "INTERBANK", label: "INTERBANK" },
+  { value: "SCOTIABANK", label: "SCOTIABANK" },
+  { value: "BBVA", label: "BBVA" },
+  { value: "CONTINENTAL", label: "CONTINENTAL" },
+];
 
 const getCartItemKey = (item: Pick<PosCartItem, "productId" | "detalleId">) =>
   Number(item.detalleId ?? 0) || Number(item.productId ?? 0);
@@ -1134,11 +1156,7 @@ const PaymentPage = () => {
   const formMethods = useForm({
     defaultValues: {
       docTypeCode: "SELECCIONAR" as "03" | "01" | "101" | "SELECCIONAR",
-      paymentMethod: "EFECTIVO" as
-        | "EFECTIVO"
-        | "TARJETA"
-        | "TRANSFERENCIA"
-        | "YAPE",
+      paymentMethod: "EFECTIVO",
       clienteId: null as number | null,
       customerName: "",
       customerId: "",
@@ -1494,10 +1512,11 @@ const PaymentPage = () => {
       totalWithIgv,
     };
   };
-  const isCash = paymentMethod === "EFECTIVO";
-  const isCard = paymentMethod === "TARJETA";
-  const requiresBankSelection =
-    paymentMethod === "TRANSFERENCIA" || paymentMethod === "YAPE";
+  const normalizedPaymentMethod = String(paymentMethod ?? "").trim();
+  const isCash = normalizedPaymentMethod === "EFECTIVO";
+  const paymentNeedsOperation = !["(SELECCIONE)", "EFECTIVO", "-"].includes(
+    normalizedPaymentMethod,
+  );
 
   const resolvedNotaUsuario = useMemo(
     () => safeTrim(usernameFromSession) || "USUARIO",
@@ -2040,22 +2059,17 @@ const PaymentPage = () => {
 
   useEffect(() => {
     const currentBank = String(getValues("bankEntity") ?? "").trim();
-    if (paymentMethod === "EFECTIVO") {
+    if (!paymentNeedsOperation) {
       if (currentBank !== "-") {
         setValue("bankEntity", "-", { shouldDirty: false });
       }
       setValue("nroOperacion", "", { shouldDirty: false });
-    } else if (paymentMethod === "TARJETA") {
-      if (!currentBank || currentBank === "-") {
-        setValue("bankEntity", "BCP", { shouldDirty: false });
-      }
-      setValue("nroOperacion", "", { shouldDirty: false });
     } else {
-      if (currentBank === "-") {
-        setValue("bankEntity", "", { shouldDirty: false });
+      if (!currentBank || currentBank === "-") {
+        setValue("bankEntity", "(SELECCIONE)", { shouldDirty: false });
       }
     }
-  }, [getValues, paymentMethod, setValue]);
+  }, [getValues, paymentNeedsOperation, setValue]);
 
   const lastDocTypeRef = useRef<string | null>(null);
   const defaultCustomerAppliedRef = useRef(false);
@@ -5628,12 +5642,7 @@ const PaymentPage = () => {
               setFocus("customerName");
             });
           }}
-          options={[
-            { value: "EFECTIVO", label: "Efectivo" },
-            { value: "TARJETA", label: "Tarjeta" },
-            { value: "TRANSFERENCIA", label: "Transferencia" },
-            { value: "YAPE", label: "Yape" },
-          ]}
+          options={PAYMENT_METHOD_OPTIONS}
         />
         <HookFormAutocomplete
           name="customerName"
@@ -5790,34 +5799,25 @@ const PaymentPage = () => {
             Agregar cliente
           </button>
         )}
-        {paymentMethod !== "EFECTIVO" && (
+        {paymentNeedsOperation && (
           <HookFormSelect
             name="bankEntity"
             label="Entidad bancaria"
-            disabled={formLocked || paymentMethod === "TARJETA"}
+            disabled={formLocked}
             rules={{
               validate: (value: any) => {
-                if (
-                  paymentMethod !== "YAPE" &&
-                  paymentMethod !== "TRANSFERENCIA"
-                ) {
-                  return true;
-                }
                 const normalized = safeTrim(value);
-                return normalized && normalized !== "-"
+                return normalized &&
+                  normalized !== "-" &&
+                  normalized !== "(SELECCIONE)"
                   ? true
                   : "Entidad bancaria obligatoria";
               },
             }}
-            options={[
-              { value: "-", label: "-" },
-              { value: "BCP", label: "BCP" },
-              { value: "INTERBANK", label: "INTERBANK" },
-              { value: "CONTINENTAL", label: "CONTINENTAL" },
-            ]}
+            options={BANK_ENTITY_OPTIONS}
           />
         )}
-        {paymentMethod !== "EFECTIVO" && (
+        {paymentNeedsOperation && (
           <HookFormInput
             name="nroOperacion"
             label="N° Operación"
@@ -5825,13 +5825,6 @@ const PaymentPage = () => {
             placeholder="Número de operación"
             rules={{
               validate: (value: any) => {
-                if (
-                  paymentMethod !== "TARJETA" &&
-                  paymentMethod !== "YAPE" &&
-                  paymentMethod !== "TRANSFERENCIA"
-                ) {
-                  return true;
-                }
                 return safeTrim(value) ? true : "N° de operación obligatorio";
               },
             }}

@@ -260,6 +260,13 @@ const integer = (value: number) =>
     maximumFractionDigits: 0,
   });
 const safeRowNumber = (value: number) => (Number.isFinite(value) ? value : 0);
+const isValidPeruRuc = (ruc: string) => {
+  if (!/^\d{11}$/.test(ruc)) return false;
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((total, weight, index) => total + Number(ruc[index]) * weight, 0);
+  const digit = 11 - (sum % 11);
+  return (digit === 10 ? 0 : digit === 11 ? 1 : digit) === Number(ruc[10]);
+};
 const minAllowedPrice = (row: SaleRow) => Math.max(0, safeRowNumber(row.cost));
 const moveCaretToEnd = (input: HTMLInputElement) => {
   window.requestAnimationFrame(() => {
@@ -338,7 +345,15 @@ const parseSunatResult = (result: unknown) => {
     );
   const message =
     safeTrim(
-      firstValue(root, "msj_sunat", "msjSunat", "MSJ_SUNAT", "MsjSunat"),
+      firstValue(
+        root,
+        "msj_sunat",
+        "msjSunat",
+        "MSJ_SUNAT",
+        "MsjSunat",
+        "mensaje",
+        "Mensaje",
+      ),
     ) ||
     safeTrim(
       firstValue(
@@ -1442,6 +1457,11 @@ export default function HtmlCaptureSalePage() {
       toast.error("Factura requiere RUC de 11 digitos.");
       return null;
     }
+    if (form.docTypeCode === "01" && !isValidPeruRuc(customerRuc)) {
+      focusSaleField("customerRuc");
+      toast.error("Factura requiere un RUC valido.");
+      return null;
+    }
     if (
       form.docTypeCode !== "01" &&
       customerDoc &&
@@ -1452,11 +1472,6 @@ export default function HtmlCaptureSalePage() {
       return null;
     }
 
-    if (lookup && !lookup.ok && form.docTypeCode === "01") {
-      focusSaleField("customerRuc");
-      toast.error(lookup.message);
-      return null;
-    }
     const lookupClient = lookup?.ok ? lookup.client : null;
     if (lookupClient?.nombreRazon) {
       formMethods.setValue("customerName", lookupClient.nombreRazon, {
@@ -1576,6 +1591,7 @@ export default function HtmlCaptureSalePage() {
       const nextRows = buildRows(data);
       setCapture(data);
       setRows(nextRows);
+      appliedClientRef.current = null;
       const docTypeText = data.ruc.toUpperCase();
       const nextDocTypeCode = docTypeText.includes("FACTURA")
         ? "01"
@@ -1607,6 +1623,16 @@ export default function HtmlCaptureSalePage() {
       formMethods.setValue("docTypeCode", nextDocTypeCode, {
         shouldDirty: true,
       });
+      formMethods.setValue(
+        "customerRuc",
+        nextDocTypeCode === "01" ? customerDocValue : "",
+        { shouldDirty: true },
+      );
+      formMethods.setValue(
+        "customerDoc",
+        nextDocTypeCode !== "01" ? customerDocValue : "",
+        { shouldDirty: true },
+      );
       if (matchedClient) {
         applyClient(matchedClient);
         if (data.customerEmail) {
@@ -1624,39 +1650,26 @@ export default function HtmlCaptureSalePage() {
         const lookupClient = lookup?.ok ? lookup.client : null;
         formMethods.setValue(
           "customerName",
-          lookupClient?.nombreRazon ||
-            data.customerName ||
-            formMethods.getValues("customerName"),
+          lookupClient?.nombreRazon || data.customerName,
           { shouldDirty: true },
         );
-        if (customerDocValue) {
-          formMethods.setValue(
-            nextDocTypeCode === "01" ? "customerRuc" : "customerDoc",
-            customerDocValue,
-            { shouldDirty: true },
-          );
-        }
         if (lookupClient?.direccionFiscal) {
           formMethods.setValue("address", lookupClient.direccionFiscal, {
             shouldDirty: true,
           });
+        } else {
+          formMethods.setValue("address", "", { shouldDirty: true });
         }
         formMethods.setValue(
           "customerEmail",
-          data.customerEmail || formMethods.getValues("customerEmail"),
+          data.customerEmail,
           { shouldDirty: true },
         );
       }
-      formMethods.setValue(
-        "memberCode",
-        data.memberCode || formMethods.getValues("memberCode"),
-        { shouldDirty: true },
-      );
-      formMethods.setValue(
-        "transactionNumber",
-        data.transactionNumber || formMethods.getValues("transactionNumber"),
-        { shouldDirty: true },
-      );
+      formMethods.setValue("memberCode", data.memberCode, { shouldDirty: true });
+      formMethods.setValue("transactionNumber", data.transactionNumber, {
+        shouldDirty: true,
+      });
       setLastTicket(null);
     },
     [
@@ -1798,6 +1811,7 @@ export default function HtmlCaptureSalePage() {
 
   const validate = (
     candidateClient: Client | null = selectedClient,
+    requireRegisteredClient = true,
   ): SaleValidationError | null => {
     if (!rows.length)
       return {
@@ -1848,37 +1862,15 @@ export default function HtmlCaptureSalePage() {
       matchedRuc ??
       null;
 
-    if (customerName && !validatedClient) {
-      return {
-        message:
-          "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.",
-        field: "customerName",
-      };
-    }
-    if (customerDni && !validDniClient) {
-      return {
-        message: "El DNI no existe. Agrega el cliente y seleccionalo.",
-        field: "customerDoc",
-      };
-    }
-    if (customerRuc && !validRucClient) {
-      return {
-        message: "El RUC no existe. Agrega el cliente y seleccionalo.",
-        field: "customerRuc",
-      };
-    }
-    if (!validatedClient) {
-      return { message: "Selecciona un cliente.", field: "customerName" };
-    }
-    if (form.docTypeCode === "01" && !validatedClient) {
-      return {
-        message: "Para factura debes seleccionar un cliente registrado.",
-        field: "customerName",
-      };
-    }
     if (form.docTypeCode === "01" && customerRuc.length !== 11) {
       return {
         message: "Factura requiere RUC de 11 digitos.",
+        field: "customerRuc",
+      };
+    }
+    if (form.docTypeCode === "01" && !isValidPeruRuc(customerRuc)) {
+      return {
+        message: "Factura requiere un RUC valido.",
         field: "customerRuc",
       };
     }
@@ -1929,6 +1921,37 @@ export default function HtmlCaptureSalePage() {
       return {
         message: "Efectivo y deposito deben ser mayores a 0.",
         field: "paymentDeposit",
+      };
+    }
+    if (!requireRegisteredClient) {
+      return null;
+    }
+    if (customerName && !validatedClient) {
+      return {
+        message:
+          "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.",
+        field: "customerName",
+      };
+    }
+    if (customerDni && !validDniClient) {
+      return {
+        message: "El DNI no existe. Agrega el cliente y seleccionalo.",
+        field: "customerDoc",
+      };
+    }
+    if (customerRuc && !validRucClient) {
+      return {
+        message: "El RUC no existe. Agrega el cliente y seleccionalo.",
+        field: "customerRuc",
+      };
+    }
+    if (!validatedClient) {
+      return { message: "Selecciona un cliente.", field: "customerName" };
+    }
+    if (form.docTypeCode === "01" && !validatedClient) {
+      return {
+        message: "Para factura debes seleccionar un cliente registrado.",
+        field: "customerName",
       };
     }
     return null;
@@ -2107,12 +2130,21 @@ export default function HtmlCaptureSalePage() {
       safeTrim(form.memberCode),
     );
 
-    if (
+    const shouldCreateCapturedClient =
       !saleClient &&
-      capture &&
+      Boolean(capture) &&
       form.docTypeCode !== "101" &&
-      hasCapturedClientData
-    ) {
+      hasCapturedClientData;
+
+    const preCreateError = validate(saleClient, !shouldCreateCapturedClient);
+    if (preCreateError) {
+      focusSaleField(preCreateError.field);
+      toast.error(preCreateError.message);
+      registerSaleRef.current = false;
+      return;
+    }
+
+    if (shouldCreateCapturedClient) {
       saleClient = await createClientFromCapturedForm();
       if (!saleClient) {
         registerSaleRef.current = false;
@@ -2120,10 +2152,10 @@ export default function HtmlCaptureSalePage() {
       }
     }
 
-    const error = validate(saleClient);
-    if (error) {
-      focusSaleField(error.field);
-      toast.error(error.message);
+    const postCreateError = validate(saleClient);
+    if (postCreateError) {
+      focusSaleField(postCreateError.field);
+      toast.error(postCreateError.message);
       registerSaleRef.current = false;
       return;
     }
