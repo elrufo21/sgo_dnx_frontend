@@ -631,6 +631,7 @@ const OrderNotesList = () => {
           "documento",
           "codigoCliente",
           "notaCondicion",
+          "formaPago",
           "notaUsuario",
         ]}
         renderFilters={
