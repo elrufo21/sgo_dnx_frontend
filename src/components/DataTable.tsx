@@ -95,10 +95,7 @@ const SEARCH_STORAGE_PREFIX = "sgo:datatable:search:";
 const resolveSearchScope = (pathname: string): string => {
   const segments = pathname.split("/").filter(Boolean);
   if (!segments.length) return "root";
-  if (segments[0] === "maintenance" && segments[1]) {
-    return `${segments[0]}/${segments[1]}`;
-  }
-  return segments[0];
+  return segments.join("/");
 };
 
 const getSearchableText = (value: unknown): string => {
@@ -169,7 +166,23 @@ export default function DataTable<T extends RowData>({
     [location.pathname],
   );
   const globalFilterStorageKey = `${SEARCH_STORAGE_PREFIX}${searchScope}`;
+  const shouldResetFromState = useMemo(() => {
+    if (!location.state || typeof location.state !== "object") return false;
+    const s = location.state as Record<string, unknown>;
+    return s.resetOrderNotesFilters === true || s.resetSearchFilter === true;
+  }, [location.state]);
+
   const [globalFilter, setGlobalFilter] = useState(() => {
+    if (shouldResetFromState) {
+      try {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.removeItem(globalFilterStorageKey);
+          window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales`);
+          window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales/order_notes`);
+        }
+      } catch {}
+      return "";
+    }
     if (globalFilterValue !== undefined) return String(globalFilterValue ?? "");
     if (typeof window === "undefined") return "";
     try {
@@ -186,6 +199,17 @@ export default function DataTable<T extends RowData>({
   const isGlobalFilterControlled = globalFilterValue !== undefined;
 
   useEffect(() => {
+    if (shouldResetFromState) {
+      setGlobalFilter("");
+      try {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.removeItem(globalFilterStorageKey);
+          window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales`);
+          window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales/order_notes`);
+        }
+      } catch {}
+      return;
+    }
     if (isGlobalFilterControlled) return;
     if (typeof window === "undefined") return;
 
@@ -196,7 +220,7 @@ export default function DataTable<T extends RowData>({
     } catch {
       // ignore storage errors
     }
-  }, [globalFilterStorageKey, isGlobalFilterControlled]);
+  }, [globalFilterStorageKey, isGlobalFilterControlled, shouldResetFromState]);
 
   const handleGlobalFilterChange = (value: string) => {
     setGlobalFilter(value);

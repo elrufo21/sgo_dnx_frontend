@@ -51,9 +51,11 @@ const buildDefaults = (
   telefonoMovil: data?.telefonoMovil ?? "",
   email: data?.email ?? "",
   registradoPor:
-    data?.registradoPor ?? buildRegistradoPorDefault(registradoPor),
+    data?.registradoPor || buildRegistradoPorDefault(registradoPor),
   estado: data?.estado ?? "ACTIVO",
   fecha: data?.fecha ?? null,
+  documentoPredeterminado:
+    data?.documentoPredeterminado === "FACTURA" ? "FACTURA" : "BOLETA",
   tipoDocumento: data?.dni ? "dni" : "ruc",
   numeroDocumentoConsulta: "",
 });
@@ -222,9 +224,10 @@ export default function CustomerFormBase({
       direccionDespacho: values.direccionDespacho,
       telefonoMovil: values.telefonoMovil,
       email: values.email,
-      registradoPor: values.registradoPor,
+      registradoPor: values.registradoPor || buildRegistradoPorDefault(registradoPorUser),
       estado: values.estado,
       fecha: values.fecha ?? null,
+      documentoPredeterminado: values.documentoPredeterminado || "BOLETA",
     };
     const saved = await onSave(payload);
     if (saved === false) return;
@@ -490,12 +493,30 @@ export default function CustomerFormBase({
                     }}
                   />
 
+                  <HookFormSelect<CustomerFormValues>
+                    name="documentoPredeterminado"
+                    label="Documento Predeterminado"
+                    options={[
+                      { value: "BOLETA", label: "BOLETA" },
+                      { value: "FACTURA", label: "FACTURA" },
+                    ]}
+                  />
+
                   <HookFormInput<CustomerFormValues>
                     name="registradoPor"
                     label="Registrado por"
                     placeholder="Nombre del usuario"
                     disabled
                   />
+
+                  {mode === "edit" && (
+                    <HookFormInput<CustomerFormValues>
+                      name="fecha"
+                      label="Fecha de registro"
+                      placeholder="Fecha y hora de registro"
+                      disabled
+                    />
+                  )}
 
                   <HookFormSelect<CustomerFormValues>
                     name="estado"

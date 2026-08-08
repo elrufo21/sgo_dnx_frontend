@@ -217,6 +217,8 @@ const OrderNotesList = () => {
   useEffect(() => {
     if (!resetRangeFromMainLayout || typeof window === "undefined") return;
     window.sessionStorage.removeItem(ORDER_NOTES_RANGE_STORAGE_KEY);
+    window.sessionStorage.removeItem("sgo:datatable:search:sales");
+    window.sessionStorage.removeItem("sgo:datatable:search:sales/order_notes");
   }, [resetRangeFromMainLayout]);
 
   useEffect(() => {

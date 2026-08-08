@@ -38,6 +38,16 @@ interface ClientsState {
 
 const mapApiToClient = (item: unknown): Client => {
   const payload = (item ?? {}) as Record<string, unknown>;
+  const docuRaw = String(
+    payload.clienteDocu ??
+      payload.ClienteDocu ??
+      payload.documentoPredeterminado ??
+      payload.DocumentoPredeterminado ??
+      "",
+  ).trim().toUpperCase();
+  const documentoPredeterminado =
+    docuRaw === "FACTURA" ? "FACTURA" : "BOLETA";
+
   return {
     id: Number(payload.clienteId ?? payload.ClienteId ?? payload.id ?? 0),
     clienteCodigo: String(payload.clienteCodigo ?? payload.ClienteCodigo ?? ""),
@@ -62,6 +72,7 @@ const mapApiToClient = (item: unknown): Client => {
       payload.clienteFecha === null || payload.ClienteFecha === null
         ? null
         : String(payload.clienteFecha ?? payload.ClienteFecha ?? ""),
+    documentoPredeterminado,
   };
 };
 
@@ -78,6 +89,7 @@ const mapClientToApi = (client: Partial<Client>): ApiClient => ({
   clienteDespacho: client.direccionDespacho ?? "",
   clienteUsuario: client.registradoPor ?? "",
   clienteFecha: client.fecha ?? null,
+  clienteDocu: client.documentoPredeterminado || "BOLETA",
 });
 
 const parseClientRegisterResponse = (
@@ -146,6 +158,12 @@ const parseClientRegisterResponse = (
         parsedFechaRaw === null || parsedFechaRaw === undefined
           ? fallback.clienteFecha
           : String(parsedFechaRaw),
+      clienteDocu: String(
+        payload.clienteDocu ??
+          payload.ClienteDocu ??
+          fallback.clienteDocu ??
+          "BOLETA",
+      ),
     };
   }
 

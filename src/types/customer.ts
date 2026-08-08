@@ -11,6 +11,7 @@ export interface Client {
   registradoPor: string;
   estado: string;
   fecha?: string | null;
+  documentoPredeterminado?: "BOLETA" | "FACTURA" | string;
 }
 
 export interface ApiClient {
@@ -26,6 +27,7 @@ export interface ApiClient {
   clienteDespacho: string;
   clienteUsuario: string;
   clienteFecha: string | null;
+  clienteDocu?: string;
 }
 
 export interface CuentaBancaria {

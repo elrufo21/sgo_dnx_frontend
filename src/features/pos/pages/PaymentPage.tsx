@@ -1292,6 +1292,7 @@ const PaymentPage = () => {
     isReadOnlyNoteView || cameFromOrderNotesViewButton;
   const isNotaAnulada = isCancelledStatusValue(normalizedNotaEstado);
   const isNotaRechazada = isRejectedStatusValue(normalizedNotaEstado);
+  const isDocumentoAnulado = isNotaAnulada || isNotaRechazada;
   const canVoidBoletaFromOrderNotes =
     hasTicketId &&
     canManageDocumentFromOrderNotes &&
@@ -5118,7 +5119,7 @@ const PaymentPage = () => {
   }, [documentNumber]);
 
   const shareByWhatsApp = useCallback(async () => {
-    if (isNotaAnulada) {
+    if (isDocumentoAnulado) {
       toast.error("Documento anulado. Envío por WhatsApp no permitido.");
       return;
     }
@@ -5168,12 +5169,12 @@ const PaymentPage = () => {
     documentNumber,
     getComprobanteFileName,
     isConfirmed,
-    isNotaAnulada,
+    isDocumentoAnulado,
     totalAPagar,
   ]);
 
   const handleDownloadComprobante = useCallback(async () => {
-    if (isNotaAnulada) {
+    if (isDocumentoAnulado) {
       toast.error("Documento anulado. Descarga no permitida.");
       return;
     }
@@ -5204,12 +5205,12 @@ const PaymentPage = () => {
     createComprobanteBlob,
     getComprobanteFileName,
     isConfirmed,
-    isNotaAnulada,
+    isDocumentoAnulado,
   ]);
 
   const handlePrint = async (options?: { skipConfirmedCheck?: boolean }) => {
     const skipConfirmedCheck = options?.skipConfirmedCheck === true;
-    if (isNotaAnulada) {
+    if (isDocumentoAnulado) {
       toast.error("Documento anulado. Impresión no permitida.");
       return;
     }
@@ -5603,7 +5604,7 @@ const PaymentPage = () => {
           Vista PDF deshabilitada en celular.
         </div>
       )}
-      {isNotaAnulada ? (
+      {isDocumentoAnulado ? (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
           <span className="select-none rounded-xl border-4 border-red-500/70 bg-white/45 px-8 py-3 text-5xl font-black tracking-[0.22em] text-red-600/85 [transform:rotate(-24deg)]">
             ANULADO
@@ -5665,7 +5666,7 @@ const PaymentPage = () => {
                   onClick={() => {
                     void shareByWhatsApp();
                   }}
-                  disabled={isNotaAnulada}
+                  disabled={isDocumentoAnulado}
                 >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
@@ -5678,12 +5679,12 @@ const PaymentPage = () => {
                   onClick={() => {
                     void handleDownloadComprobante();
                   }}
-                  disabled={isDownloadingComprobante || isNotaAnulada}
+                  disabled={isDownloadingComprobante || isDocumentoAnulado}
                 >
                   <Download className="h-4 w-4" />
                   {isDownloadingComprobante
                     ? "Descargando..."
-                    : isNotaAnulada
+                    : isDocumentoAnulado
                       ? "No descargable"
                       : "Descargar PDF"}
                 </button>
@@ -5693,7 +5694,7 @@ const PaymentPage = () => {
                   type="button"
                   className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-50 disabled:opacity-50"
                   onClick={() => handlePrint()}
-                  disabled={isPrinting || !isConfirmed || isNotaAnulada}
+                  disabled={isPrinting || !isConfirmed || isDocumentoAnulado}
                 >
                   <Printer className="h-4 w-4" />
                   {isPrinting ? "Imprimiendo..." : "Imprimir"}
@@ -6058,12 +6059,12 @@ const PaymentPage = () => {
             onClick={() => {
               void handleDownloadComprobante();
             }}
-            disabled={isDownloadingComprobante || isNotaAnulada}
+            disabled={isDownloadingComprobante || isDocumentoAnulado}
           >
             <Download className="w-5 h-5" />
             {isDownloadingComprobante
               ? "Descargando..."
-              : isNotaAnulada
+              : isDocumentoAnulado
                 ? "No descargable"
                 : "Descargar PDF"}
           </button>
@@ -6071,7 +6072,7 @@ const PaymentPage = () => {
         <button
           className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white py-2.5 text-slate-800 transition-colors hover:bg-slate-50 disabled:opacity-50"
           onClick={() => handlePrint()}
-          disabled={isPrinting || !isConfirmed || isNotaAnulada}
+          disabled={isPrinting || !isConfirmed || isDocumentoAnulado}
         >
           <Printer className="w-5 h-5" />
           {isPrinting ? "Imprimiendo..." : "Imprimir comprobante"}
@@ -6119,6 +6120,12 @@ const PaymentPage = () => {
           )}
         </div>
       </div>
+      {isReadOnlyNoteView && isNotaRechazada && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+          Documento rechazado. Se muestra como ANULADO; impresion y descarga
+          bloqueadas.
+        </div>
+      )}
       {isPersistingToDb && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/35 backdrop-blur-[1px]">
           <div className="mx-4 inline-flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-xl border border-slate-200">

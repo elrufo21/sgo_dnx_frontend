@@ -1,5 +1,6 @@
 import { pdf } from "@react-pdf/renderer";
 import {
+  AlertCircle,
   CheckCircle2,
   FileDown,
   FileUp,
@@ -109,6 +110,11 @@ type StoredTicket = {
   noteId: number;
   rows: SaleRow[];
 };
+type ViewSunatStatus = {
+  estadoSunat: string;
+  docuEstado: string;
+  notaDocu: string;
+} | null;
 type PagoVariosItem = {
   docuId: number;
   notaId: number;
@@ -518,6 +524,8 @@ export default function HtmlCaptureSalePage() {
   const [correlative, setCorrelative] = useState<Correlative>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
+  const [viewSunatStatus, setViewSunatStatus] =
+    useState<ViewSunatStatus>(null);
   const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
   const [manualSaleType, setManualSaleType] =
     useState<ManualSaleType>("VENTA LIBRE");
@@ -599,6 +607,7 @@ export default function HtmlCaptureSalePage() {
     setManualProductSearch("");
     setMonthlyPvs(0);
     setLastTicket(null);
+    setViewSunatStatus(null);
     setFreeSaleReasonAsked(false);
     setManualSaleType("VENTA LIBRE");
     formMethods.reset(defaultForm);
@@ -642,6 +651,35 @@ export default function HtmlCaptureSalePage() {
       toast.error("No se pudo cargar el ticket guardado.");
     }
   }, [formMethods, isExistingRoute, resetDraft, routeKey, routeNoteId]);
+
+  useEffect(() => {
+    if (!isExistingRoute) {
+      setViewSunatStatus(null);
+      return;
+    }
+
+    let active = true;
+    apiRequest<Record<string, unknown>, unknown, null>({
+      url: buildApiUrl(`/Nota/${routeNoteId}`),
+      method: "GET",
+      fallback: null,
+    })
+      .then((nota) => {
+        if (!active || !nota) return;
+        setViewSunatStatus({
+          estadoSunat: safeTrim(nota.estadoSunat ?? nota.EstadoSunat),
+          docuEstado: safeTrim(nota.docuEstado ?? nota.DocuEstado),
+          notaDocu: safeTrim(nota.notaDocu ?? nota.NotaDocu),
+        });
+      })
+      .catch(() => {
+        if (active) setViewSunatStatus(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isExistingRoute, routeNoteId]);
 
   useEffect(() => {
     if (!products.length) void fetchProducts("");
@@ -1063,19 +1101,13 @@ export default function HtmlCaptureSalePage() {
   }, [fetchClientMonthlyPvs, selectedClient?.id]);
 
   const applyClient = useCallback(
-    (client: Client | null) => {
+    (client: Client | null, options?: { preserveDocType?: boolean }) => {
       appliedClientRef.current = client;
       if (!client) return;
       formMethods.setValue("customerName", client.nombreRazon ?? "", {
         shouldDirty: true,
       });
       formMethods.setValue("customerEmail", client.email ?? "", {
-        shouldDirty: true,
-      });
-      formMethods.setValue("customerDoc", client.dni || "", {
-        shouldDirty: true,
-      });
-      formMethods.setValue("customerRuc", client.ruc || "", {
         shouldDirty: true,
       });
       formMethods.setValue("memberCode", getClientCode(client), {
@@ -1086,13 +1118,34 @@ export default function HtmlCaptureSalePage() {
         client.direccionFiscal || client.direccionDespacho || "",
         { shouldDirty: true },
       );
-      formMethods.setValue(
-        "docTypeCode",
-        client.ruc ? "01" : form.docTypeCode,
-        {
+
+      const targetDocType = options?.preserveDocType
+        ? formMethods.getValues("docTypeCode")
+        : client.ruc
+          ? "01"
+          : form.docTypeCode;
+
+      if (!options?.preserveDocType) {
+        formMethods.setValue("docTypeCode", targetDocType, {
           shouldDirty: true,
-        },
-      );
+        });
+      }
+
+      if (targetDocType === "01") {
+        formMethods.setValue("customerRuc", client.ruc || "", {
+          shouldDirty: true,
+        });
+        formMethods.setValue("customerDoc", "", {
+          shouldDirty: true,
+        });
+      } else {
+        formMethods.setValue("customerRuc", "", {
+          shouldDirty: true,
+        });
+        formMethods.setValue("customerDoc", client.dni || client.ruc || "", {
+          shouldDirty: true,
+        });
+      }
     },
     [form.docTypeCode, formMethods],
   );
@@ -1465,10 +1518,10 @@ export default function HtmlCaptureSalePage() {
     if (
       form.docTypeCode !== "01" &&
       customerDoc &&
-      ![8, 9].includes(customerDoc.length)
+      (customerDoc.length < 5 || customerDoc.length > 15)
     ) {
       focusSaleField("customerDoc");
-      toast.error("El DNI debe tener 8 o 9 digitos.");
+      toast.error("El numero de documento del cliente no es valido.");
       return null;
     }
 
@@ -1505,10 +1558,12 @@ export default function HtmlCaptureSalePage() {
         safeTrim(lookupClient?.nombreRazon) ||
         safeTrim(form.customerName) ||
         "VARIOS",
-      ruc: safeTrim(lookupClient?.ruc) || customerRuc,
+      ruc: safeTrim(lookupClient?.ruc) || customerRuc || (customerDoc.length === 11 ? customerDoc : ""),
       dni:
         safeTrim(lookupClient?.dni) ||
-        ([8, 9].includes(customerDoc.length) ? customerDoc : ""),
+        customerDoc ||
+        (customerRuc && customerRuc.length !== 11 ? customerRuc : "") ||
+        safeTrim(form.memberCode),
       direccionFiscal:
         safeTrim(lookupClient?.direccionFiscal) ||
         safeTrim(form.address) ||
@@ -1520,6 +1575,7 @@ export default function HtmlCaptureSalePage() {
       registradoPor: session.username,
       estado: "ACTIVO",
       fecha: null,
+      documentoPredeterminado: form.docTypeCode === "01" ? "FACTURA" : "BOLETA",
     });
 
     if (!result.ok) {
@@ -1556,10 +1612,10 @@ export default function HtmlCaptureSalePage() {
 
   useEffect(() => {
     const code = safeTrim(form.memberCode);
-    if (!code || selectedClient) return;
+    if (!code || selectedClient || appliedClientRef.current) return;
     const match =
       clientOptions.find((opt) => opt.code === code)?.client ?? null;
-    if (match) applyClient(match);
+    if (match) applyClient(match, { preserveDocType: true });
   }, [applyClient, clientOptions, form.memberCode, selectedClient]);
 
   const buildRows = useCallback(
@@ -1615,8 +1671,7 @@ export default function HtmlCaptureSalePage() {
           : docValue.length === 11
             ? "01"
             : "03";
-      const customerDocValue =
-        nextDocTypeCode === "01" || docValue.length === 8 ? docValue : "";
+      const customerDocValue = docValue || safeTrim(data.memberCode);
       const localClient =
         clientOptions.find(
           (opt) =>
@@ -1649,7 +1704,25 @@ export default function HtmlCaptureSalePage() {
         { shouldDirty: true },
       );
       if (matchedClient) {
-        applyClient(matchedClient);
+        applyClient(matchedClient, { preserveDocType: true });
+        formMethods.setValue("docTypeCode", nextDocTypeCode, {
+          shouldDirty: true,
+        });
+        if (nextDocTypeCode === "01") {
+          formMethods.setValue(
+            "customerRuc",
+            customerDocValue || matchedClient.ruc || "",
+            { shouldDirty: true },
+          );
+          formMethods.setValue("customerDoc", "", { shouldDirty: true });
+        } else {
+          formMethods.setValue("customerRuc", "", { shouldDirty: true });
+          formMethods.setValue(
+            "customerDoc",
+            customerDocValue || matchedClient.dni || "",
+            { shouldDirty: true },
+          );
+        }
         if (data.customerEmail) {
           formMethods.setValue("customerEmail", data.customerEmail, {
             shouldDirty: true,
@@ -1699,6 +1772,13 @@ export default function HtmlCaptureSalePage() {
       formMethods.setValue("transactionNumber", data.transactionNumber, {
         shouldDirty: true,
       });
+
+      if (nextDocTypeCode !== "01") {
+        formMethods.setValue("customerRuc", "", { shouldDirty: true });
+      } else {
+        formMethods.setValue("customerDoc", "", { shouldDirty: true });
+      }
+
       setLastTicket(null);
     },
     [
@@ -2632,6 +2712,13 @@ export default function HtmlCaptureSalePage() {
       </section>
     </div>
   ) : null;
+  const isRejectedInvoiceView =
+    isReadOnly &&
+    (viewSunatStatus?.notaDocu.toUpperCase().includes("FACTURA") ||
+      form.docTypeCode === "01") &&
+    [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some(
+      (value) => safeTrim(value).toUpperCase() === "RECHAZADO",
+    );
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
@@ -2678,6 +2765,13 @@ export default function HtmlCaptureSalePage() {
           </>
         ) : null}
       </div>
+
+      {isRejectedInvoiceView ? (
+        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          Factura rechazada por SUNAT/OSE.
+        </div>
+      ) : null}
 
       {/* Barra de acciones */}
       {!isReadOnly ? (

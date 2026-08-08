@@ -311,6 +311,7 @@ const styles = StyleSheet.create({
   },
   colCant: {
     width: "12%",
+    textAlign: "center",
   },
   colDesc: {
     width: "44%",
@@ -348,6 +349,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontSize: 9,
     fontWeight: "bold",
+    alignItems: "center",
   },
   tableItemSeparator: {
     borderBottomWidth: 1,
