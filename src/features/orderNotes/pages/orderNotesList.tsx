@@ -627,7 +627,6 @@ const OrderNotesList = () => {
           "cliente",
           "estado",
           "estadoSunat",
-          "fecha",
           "documento",
           "codigoCliente",
           "notaCondicion",

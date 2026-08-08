@@ -1605,6 +1605,20 @@ const PaymentPage = () => {
     const detalleCosto = Number(
       detalle?.detalleCosto ?? detalle?.DetalleCosto ?? detalle?.costo ?? 0,
     );
+    const detallePV = Number(
+      detalle?.detallePV ?? detalle?.DetallePV ?? detalle?.pvTotal ?? 0,
+    );
+    const detalleSV = Number(
+      detalle?.detalleSV ?? detalle?.DetalleSV ?? detalle?.svTotal ?? 0,
+    );
+    const unitPv =
+      Number.isFinite(detallePV) && detallePV > 0 && cantidad > 0
+        ? detallePV / cantidad
+        : Number(detalle?.pv ?? detalle?.PV ?? detalle?.productoPV ?? 0);
+    const unitSv =
+      Number.isFinite(detalleSV) && detalleSV > 0 && cantidad > 0
+        ? detalleSV / cantidad
+        : Number(detalle?.sv ?? detalle?.SV ?? detalle?.productoSV ?? 0);
     const aplicaINV = safeTrim(
       detalle?.aplicaINV ?? detalle?.AplicaINV ?? "S",
     ).toUpperCase();
@@ -1655,6 +1669,8 @@ const PaymentPage = () => {
       cantidad: Number.isFinite(cantidad) ? cantidad : 0,
       valorUM: Number.isFinite(valorUM) && valorUM > 0 ? valorUM : 1,
       aplicaINV: aplicaINV === "N" ? "N" : "S",
+      pv: Number.isFinite(unitPv) ? unitPv : 0,
+      sv: Number.isFinite(unitSv) ? unitSv : 0,
       stock: Number(detalle?.stock ?? detalle?.cantidadSaldo ?? 0) || undefined,
       detalleId:
         Number.isFinite(detalleId) && detalleId > 0 ? detalleId : undefined,
@@ -2955,6 +2971,28 @@ const PaymentPage = () => {
   const ticketPreviewProps = useMemo(() => {
     const safeItems = itemsToRender.length ? itemsToRender : purchasedItems;
     const safeTotals = itemsToRender.length ? totalsToRender : paidTotals;
+    const nota = notaCabeceraActual ?? {};
+    const formatTicketDate = (value: unknown, withTime = false) => {
+      const raw = safeTrim(value);
+      if (!raw) return "";
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return raw;
+      return date.toLocaleString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        ...(withTime
+          ? {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            }
+          : {}),
+      });
+    };
+    const notaFecha =
+      (nota as any).notaFecha ?? (nota as any).fecha ?? (nota as any).Fecha;
     const selectedClientById = uniqueClients.find(
       (client) => Number(client.id) === Number(clienteId),
     );
@@ -2964,15 +3002,70 @@ const PaymentPage = () => {
         safeTrim(customerName).toLowerCase(),
     );
     const selectedClient = selectedClientById ?? selectedClientByName ?? null;
+    const notaClientName = safeTrim(
+      (nota as any).clienteNombre ??
+        (nota as any).clienteRazon ??
+        (nota as any).clienteRazonSocial ??
+        (nota as any).miembro ??
+        "",
+    );
+    const notaClientDoc = safeTrim(
+      (nota as any).clienteRuc ??
+        (nota as any).clienteDni ??
+        (nota as any).notaRuc ??
+        (nota as any).notaDni ??
+        "",
+    );
+    const selectedClientDoc =
+      docTypeCode === "01"
+        ? safeTrim((selectedClient as any)?.ruc ?? "")
+        : safeTrim((selectedClient as any)?.dni ?? "");
+    const notaAddress = safeTrim(
+      (nota as any).notaDireccion ??
+        (nota as any).clienteDireccion ??
+        (nota as any).direccionFiscal ??
+        "",
+    );
     return {
-      clientName: safeTrim(customerName) || "Ultimo cliente",
-      clientId: safeTrim(selectedDocument),
+      clientName:
+        safeTrim(customerName) ||
+        notaClientName ||
+        safeTrim((selectedClient as any)?.nombreRazon ?? "") ||
+        "Ultimo cliente",
+      clientId: safeTrim(selectedDocument) || notaClientDoc || selectedClientDoc,
       clientAddress:
+        notaAddress ||
         safeTrim((selectedClient as any)?.direccionFiscal ?? "") ||
         safeTrim((selectedClient as any)?.direccionDespacho ?? "") ||
         "-",
       docType: docTypeForTicket,
       paymentMethod,
+      condition:
+        safeTrim((nota as any).notaCondicion ?? (nota as any).condicion) ||
+        "ALCONTADO",
+      bankEntity:
+        safeTrim((nota as any).entidadBancaria ?? (nota as any).banco) ||
+        safeTrim(bankEntity) ||
+        "-",
+      operationNumber:
+        safeTrim((nota as any).nroOperacion ?? (nota as any).numeroOperacion) ||
+        safeTrim(nroOperacion),
+      memberCode:
+        safeTrim((nota as any).codigoCliente ?? (nota as any).memberCode) || "",
+      transactionNumber:
+        safeTrim(
+          (nota as any).notaTransaccion ??
+            (nota as any).transactionNumber ??
+            (nota as any).nroTransaccion,
+        ) || "",
+      saleType: safeTrim((nota as any).tipoVenta) || "CASH BILL",
+      emissionDate: formatTicketDate(notaFecha),
+      emissionDateTime: formatTicketDate(notaFecha, true),
+      emissionDateISO: getLocalDateISO(
+        Number.isNaN(new Date(safeTrim(notaFecha)).getTime())
+          ? new Date()
+          : new Date(safeTrim(notaFecha)),
+      ),
       items: safeItems,
       totals: safeTotals,
       noteId: notaId,
@@ -2995,6 +3088,7 @@ const PaymentPage = () => {
     };
   }, [
     selectedDocument,
+    notaCabeceraActual,
     uniqueClients,
     clienteId,
     customerName,
@@ -3002,6 +3096,8 @@ const PaymentPage = () => {
     documentNumber,
     notaId,
     paymentMethod,
+    bankEntity,
+    nroOperacion,
     itemsToRender,
     totalsToRender,
     purchasedItems,
@@ -4971,7 +5067,9 @@ const PaymentPage = () => {
   const createComprobanteBlob = useCallback(async () => {
     const clean = (value: unknown) => String(value ?? "").trim();
     const now = new Date();
-    const emissionDateISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const emissionDateISO =
+      clean(ticketPreviewProps.emissionDateISO) ||
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     const qrDocTypeCode =
       ticketPreviewProps.docType === "factura"
         ? "01"
@@ -5203,6 +5301,7 @@ const PaymentPage = () => {
           const isZeroOrNegative = (item.cantidad ?? 0) <= 0;
           const minPrice = Math.max(0, Number(item.precioMinimo ?? 0) || 0);
           const displayLine = getDisplayLineAmounts(item, rowIndex);
+          const pvTotal = Number(item.pv ?? 0) * Number(item.cantidad ?? 0);
 
           return (
             <article
@@ -5270,6 +5369,15 @@ const PaymentPage = () => {
 
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                    PV
+                  </p>
+                  <p className="mt-1 text-base font-semibold text-slate-800">
+                    {pvTotal.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">
                     P. Uni
                   </p>
                   {canEditItems ? (
@@ -5321,10 +5429,11 @@ const PaymentPage = () => {
       </div>
 
       <div className="hidden sm:block max-h-[min(58vh,620px)] md:max-h-[60vh] overflow-auto">
-        <div className="min-w-[560px] lg:min-w-[640px]">
-          <div className="sticky top-0 z-10 grid grid-cols-[96px_minmax(0,1fr)_120px_130px] border-b-2 border-slate-800 bg-white px-3 py-2 text-sm font-semibold tracking-wide text-slate-800">
+        <div className="min-w-[650px] lg:min-w-[720px]">
+          <div className="sticky top-0 z-10 grid grid-cols-[96px_minmax(0,1fr)_90px_120px_130px] border-b-2 border-slate-800 bg-white px-3 py-2 text-sm font-semibold tracking-wide text-slate-800">
             <div className="text-center">Cantidad</div>
             <div>Descripción</div>
+            <div className="text-right">PV</div>
             <div className="text-right">P.Uni</div>
             <div className="text-right">Importe</div>
           </div>
@@ -5334,11 +5443,12 @@ const PaymentPage = () => {
               const isZeroOrNegative = (item.cantidad ?? 0) <= 0;
               const minPrice = Math.max(0, Number(item.precioMinimo ?? 0) || 0);
               const displayLine = getDisplayLineAmounts(item, rowIndex);
+              const pvTotal = Number(item.pv ?? 0) * Number(item.cantidad ?? 0);
 
               return (
                 <div
                   key={getCartItemKey(item)}
-                  className={`grid grid-cols-[96px_minmax(0,1fr)_120px_130px] items-start px-3 py-3 ${
+                  className={`grid grid-cols-[96px_minmax(0,1fr)_90px_120px_130px] items-start px-3 py-3 ${
                     isZeroOrNegative ? "bg-red-50/70" : "bg-white"
                   }`}
                 >
@@ -5395,6 +5505,10 @@ const PaymentPage = () => {
                         ? ` · Stock: ${item.stock}`
                         : ""}
                     </p>
+                  </div>
+
+                  <div className="pt-2 text-right text-sm font-semibold text-slate-700">
+                    {pvTotal.toFixed(2)}
                   </div>
 
                   <div className="pt-1 text-right">

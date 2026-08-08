@@ -1473,6 +1473,21 @@ export default function HtmlCaptureSalePage() {
     }
 
     const lookupClient = lookup?.ok ? lookup.client : null;
+    if (form.docTypeCode === "01" && (!lookup || !lookup.ok || !lookupClient?.nombreRazon)) {
+      formMethods.setValue("customerName", "", { shouldDirty: true });
+      formMethods.setValue("customerRuc", "", { shouldDirty: true });
+      formMethods.setValue("customerDoc", "", { shouldDirty: true });
+      formMethods.setValue("address", "", { shouldDirty: true });
+      formMethods.setValue("customerEmail", "", { shouldDirty: true });
+      formMethods.setValue("memberCode", "", { shouldDirty: true });
+      appliedClientRef.current = null;
+      focusSaleField("customerRuc");
+      toast.error(
+        "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
+      );
+      return null;
+    }
+
     if (lookupClient?.nombreRazon) {
       formMethods.setValue("customerName", lookupClient.nombreRazon, {
         shouldDirty: true,
@@ -1648,6 +1663,20 @@ export default function HtmlCaptureSalePage() {
             ? await consultarDocumentoCliente(lookupType, customerDocValue)
             : null;
         const lookupClient = lookup?.ok ? lookup.client : null;
+        if (nextDocTypeCode === "01" && (!lookup || !lookup.ok || !lookupClient)) {
+          formMethods.setValue("customerName", "", { shouldDirty: true });
+          formMethods.setValue("customerRuc", "", { shouldDirty: true });
+          formMethods.setValue("customerDoc", "", { shouldDirty: true });
+          formMethods.setValue("address", "", { shouldDirty: true });
+          formMethods.setValue("customerEmail", "", { shouldDirty: true });
+          formMethods.setValue("memberCode", "", { shouldDirty: true });
+          appliedClientRef.current = null;
+          focusSaleField("customerRuc");
+          toast.error(
+            "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
+          );
+          return;
+        }
         formMethods.setValue(
           "customerName",
           lookupClient?.nombreRazon || data.customerName,

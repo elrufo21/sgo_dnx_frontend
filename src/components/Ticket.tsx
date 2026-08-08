@@ -21,6 +21,9 @@ type TicketDocumentProps = {
   totals?: PosTotals;
   documentNumber?: string;
   noteId?: number | string | null;
+  emissionDate?: string;
+  emissionDateTime?: string;
+  emissionDateISO?: string;
   condition?: string;
   bankEntity?: string;
   operationNumber?: string;
@@ -481,6 +484,9 @@ const TicketDocument = ({
   totals,
   documentNumber,
   noteId,
+  emissionDate,
+  emissionDateTime,
+  emissionDateISO,
   condition,
   bankEntity,
   operationNumber,
@@ -536,12 +542,12 @@ const TicketDocument = ({
     const clientDoc =
       clientId?.trim() || (docLabel === "RUC" ? "00000000000" : "00000000");
     const now = new Date();
-    const emissionDate = now.toLocaleDateString("es-PE", {
+    const fallbackEmissionDate = now.toLocaleDateString("es-PE", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
-    const emissionDateTime = now.toLocaleString("es-PE", {
+    const fallbackEmissionDateTime = now.toLocaleString("es-PE", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -550,7 +556,10 @@ const TicketDocument = ({
       second: "2-digit",
       hour12: false,
     });
-    const emissionDateISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const fallbackEmissionDateISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const ticketEmissionDate = emissionDate || fallbackEmissionDate;
+    const ticketEmissionDateTime = emissionDateTime || fallbackEmissionDateTime;
+    const ticketEmissionDateISO = emissionDateISO || fallbackEmissionDateISO;
     const amountInWords = numberToWords(safeTotal, "SOLES");
     const normalizedNoteId = String(noteId ?? "").trim();
     const qrDocTypeCode =
@@ -563,7 +572,7 @@ const TicketDocument = ({
           documentNumber || "-",
           safeIgv.toFixed(2),
           safeTotal.toFixed(2),
-          emissionDateISO,
+          ticketEmissionDateISO,
           qrClientDocTypeCode,
           clientDoc,
         ].join("|")
@@ -627,8 +636,8 @@ const TicketDocument = ({
             ? "PROFORMA DE VENTA"
             : "BOLETA DE VENTA ELECTRONICA",
       documentNumber: documentNumber || "",
-      emissionDate,
-      emissionDateTime,
+      emissionDate: ticketEmissionDate,
+      emissionDateTime: ticketEmissionDateTime,
       currency: "SOLES",
       paymentMethod: paymentMethod ?? "AL CONTADO",
       condition: condition || "AL CONTADO",
@@ -670,6 +679,9 @@ const TicketDocument = ({
     docType,
     documentNumber,
     noteId,
+    emissionDate,
+    emissionDateTime,
+    emissionDateISO,
     condition,
     bankEntity,
     operationNumber,
