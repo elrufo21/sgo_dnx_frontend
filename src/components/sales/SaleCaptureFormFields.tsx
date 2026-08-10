@@ -59,7 +59,10 @@ interface SaleCaptureFormFieldsProps {
   correlative?: string;
   totalAmount?: number;
   preserveMissingClientData?: boolean;
-  onClientSelected?: (client: Client | null) => void;
+  onClientSelected?: (
+    client: Client | null,
+    options?: { documentType?: "01" | "03" },
+  ) => void;
   onCreateClient?: () => void;
   onSearchClients?: (search: string) => void;
 }
@@ -429,7 +432,10 @@ export function SaleCaptureFormFields({
       .slice(0, 100);
   };
 
-  const applyClientSelection = (client: Client | null) => {
+  const applyClientSelection = (
+    client: Client | null,
+    documentType?: "01" | "03",
+  ) => {
     if (!client) {
       onClientSelected?.(null);
       return;
@@ -455,7 +461,10 @@ export function SaleCaptureFormFields({
       client.direccionFiscal || client.direccionDespacho || "",
       { shouldDirty: true },
     );
-    onClientSelected?.(client);
+    onClientSelected?.(
+      client,
+      documentType ? { documentType } : undefined,
+    );
   };
 
   const handleCustomerInputBlur = ({ inputValue }: { inputValue: string }) => {
@@ -513,6 +522,7 @@ export function SaleCaptureFormFields({
   const selectClientOnEnter = (
     event: KeyboardEvent<HTMLInputElement>,
     findClient: (inputValue: string) => Client | null,
+    documentType?: "01" | "03",
   ) => {
     if (event.key !== "Enter") return;
     const input =
@@ -523,7 +533,7 @@ export function SaleCaptureFormFields({
     if (!client) return;
     event.preventDefault();
     event.stopPropagation();
-    applyClientSelection(client);
+    applyClientSelection(client, documentType);
     window.requestAnimationFrame(() => focusNextInput(input));
   };
 
@@ -556,10 +566,11 @@ export function SaleCaptureFormFields({
   const selectExactClientInput = (
     inputValue: string,
     findClient: (inputValue: string) => Client | null,
+    documentType?: "01" | "03",
   ) => {
     queueClientSearch(inputValue);
     const client = findClient(inputValue);
-    if (client) applyClientSelection(client);
+    if (client) applyClientSelection(client, documentType);
   };
 
   const handleDocumentBlur =
@@ -574,7 +585,7 @@ export function SaleCaptureFormFields({
             : normalizeDocumentText(option.client.dni) === document,
         )?.client ?? null;
       if (match) {
-        applyClientSelection(match);
+        applyClientSelection(match, type === "ruc" ? "01" : "03");
         return;
       }
       toast.error(
@@ -793,7 +804,7 @@ export function SaleCaptureFormFields({
               maxLength: 9,
             }}
             onInputValueChange={(value) =>
-              selectExactClientInput(value, findClientByDocument("dni"))
+              selectExactClientInput(value, findClientByDocument("dni"), "03")
             }
             filterOptions={(options, state) =>
               filterDocumentOptions(options, state.inputValue)
@@ -803,10 +814,13 @@ export function SaleCaptureFormFields({
                 clearCustomerSelection();
                 return;
               }
-              applyClientSelection((option.client as Client | null) ?? null);
+              applyClientSelection(
+                (option.client as Client | null) ?? null,
+                "03",
+              );
             }}
             onInputKeyDown={(event) =>
-              selectClientOnEnter(event, findClientByDocument("dni"))
+              selectClientOnEnter(event, findClientByDocument("dni"), "03")
             }
             onInputBlur={handleDocumentBlur("dni")}
           />
@@ -827,7 +841,7 @@ export function SaleCaptureFormFields({
               maxLength: 11,
             }}
             onInputValueChange={(value) =>
-              selectExactClientInput(value, findClientByDocument("ruc"))
+              selectExactClientInput(value, findClientByDocument("ruc"), "01")
             }
             filterOptions={(options, state) =>
               filterDocumentOptions(options, state.inputValue)
@@ -837,10 +851,13 @@ export function SaleCaptureFormFields({
                 clearCustomerSelection();
                 return;
               }
-              applyClientSelection((option.client as Client | null) ?? null);
+              applyClientSelection(
+                (option.client as Client | null) ?? null,
+                "01",
+              );
             }}
             onInputKeyDown={(event) =>
-              selectClientOnEnter(event, findClientByDocument("ruc"))
+              selectClientOnEnter(event, findClientByDocument("ruc"), "01")
             }
             onInputBlur={handleDocumentBlur("ruc")}
           />

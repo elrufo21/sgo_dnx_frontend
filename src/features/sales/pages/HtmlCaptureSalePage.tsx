@@ -1113,7 +1113,10 @@ export default function HtmlCaptureSalePage() {
   }, [fetchClientMonthlyPvs, selectedClient?.id]);
 
   const applyClient = useCallback(
-    (client: Client | null, options?: { preserveDocType?: boolean }) => {
+    (
+      client: Client | null,
+      options?: { preserveDocType?: boolean; documentType?: "01" | "03" },
+    ) => {
       appliedClientRef.current = client;
       if (!client) return;
       formMethods.setValue("customerName", client.nombreRazon ?? "", {
@@ -1131,11 +1134,13 @@ export default function HtmlCaptureSalePage() {
         { shouldDirty: true },
       );
 
-      const targetDocType = options?.preserveDocType
-        ? formMethods.getValues("docTypeCode")
-        : client.ruc
-          ? "01"
-          : form.docTypeCode;
+      const targetDocType =
+        options?.documentType ??
+        (options?.preserveDocType
+          ? formMethods.getValues("docTypeCode")
+          : client.ruc
+            ? "01"
+            : form.docTypeCode);
 
       if (!options?.preserveDocType) {
         formMethods.setValue("docTypeCode", targetDocType, {
@@ -1143,21 +1148,12 @@ export default function HtmlCaptureSalePage() {
         });
       }
 
-      if (targetDocType === "01") {
-        formMethods.setValue("customerRuc", client.ruc || "", {
-          shouldDirty: true,
-        });
-        formMethods.setValue("customerDoc", "", {
-          shouldDirty: true,
-        });
-      } else {
-        formMethods.setValue("customerRuc", "", {
-          shouldDirty: true,
-        });
-        formMethods.setValue("customerDoc", client.dni || client.ruc || "", {
-          shouldDirty: true,
-        });
-      }
+      formMethods.setValue("customerRuc", client.ruc || "", {
+        shouldDirty: true,
+      });
+      formMethods.setValue("customerDoc", client.dni || "", {
+        shouldDirty: true,
+      });
     },
     [form.docTypeCode, formMethods],
   );
