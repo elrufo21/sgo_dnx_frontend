@@ -54,8 +54,11 @@ const buildDefaults = (
     data?.registradoPor || buildRegistradoPorDefault(registradoPor),
   estado: data?.estado ?? "ACTIVO",
   fecha: data?.fecha ?? null,
-  documentoPredeterminado:
-    data?.documentoPredeterminado === "FACTURA" ? "FACTURA" : "BOLETA",
+  documentoPredeterminado: ["BOLETA", "FACTURA", "PROFORMA V"].includes(
+    String(data?.documentoPredeterminado ?? "").toUpperCase(),
+  )
+    ? String(data?.documentoPredeterminado).toUpperCase()
+    : "BOLETA",
   tipoDocumento: data?.dni ? "dni" : "ruc",
   numeroDocumentoConsulta: "",
 });
@@ -499,6 +502,7 @@ export default function CustomerFormBase({
                     options={[
                       { value: "BOLETA", label: "BOLETA" },
                       { value: "FACTURA", label: "FACTURA" },
+                      { value: "PROFORMA V", label: "PROFORMA V" },
                     ]}
                   />
 

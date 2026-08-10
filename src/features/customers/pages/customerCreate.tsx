@@ -24,7 +24,7 @@ const CustomerCreate = () => {
     registradoPor: username,
     estado: "ACTIVO",
     fecha: null as string | null,
-    documentoPredeterminado: "BOLETA" as "BOLETA" | "FACTURA",
+    documentoPredeterminado: "BOLETA" as "BOLETA" | "FACTURA" | "PROFORMA V",
   });
 
   const handleSave = async (data: Omit<typeof form, "id">) => {
