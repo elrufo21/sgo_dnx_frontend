@@ -389,9 +389,11 @@ const parseSunatResult = (result: unknown) => {
   return { accepted, code, message };
 };
 const isRejectedSunatResult = (sunat: ReturnType<typeof parseSunatResult>) =>
-  [sunat.code, sunat.message].some((value) =>
-    safeTrim(value).toUpperCase().includes("RECHAZ"),
-  );
+  !sunat.accepted &&
+  (Boolean(sunat.code && sunat.code !== "0" && sunat.code !== "0000") ||
+    [sunat.code, sunat.message].some((value) =>
+      safeTrim(value).toUpperCase().includes("RECHAZ"),
+    ));
 const parseCapture = (html: string): CaptureData => {
   const document = new DOMParser().parseFromString(html, "text/html");
   const table = document.querySelector("table");
@@ -2444,8 +2446,17 @@ export default function HtmlCaptureSalePage() {
         return;
       }
 
+      const sunat = doc.docu === "FACTURA" ? parseSunatResult(result) : null;
+      const rejectedInvoice = sunat ? isRejectedSunatResult(sunat) : false;
       const ticket = { documentNumber, noteId: parsed.noteId };
       setLastTicket(ticket);
+      if (rejectedInvoice) {
+        setViewSunatStatus({
+          estadoSunat: "RECHAZADO",
+          docuEstado: "RECHAZADO",
+          notaDocu: doc.docu,
+        });
+      }
       localStorage.setItem(
         ticketStorageKey(parsed.noteId),
         JSON.stringify({
@@ -2458,24 +2469,27 @@ export default function HtmlCaptureSalePage() {
         } satisfies StoredTicket),
       );
       navigate(`/sales/html_capture/${parsed.noteId}`, { replace: true });
-      void printTicket(ticket).catch((error) => {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "No se pudo enviar a la tiketera.",
-        );
-      });
+      if (!rejectedInvoice) {
+        void printTicket(ticket).catch((error) => {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "No se pudo enviar a la tiketera.",
+          );
+        });
+      }
       if (isPagoVariosSale) {
         toast.success(
           `${doc.docu} registrada para Pago Varios: ${documentNumber}`,
         );
         window.dispatchEvent(new Event("sgo:pago-varios-updated"));
       } else if (doc.docu === "FACTURA") {
-        const sunat = parseSunatResult(result);
-        const detail = [sunat.code, sunat.message].filter(Boolean).join(" - ");
-        if (sunat.accepted) {
+        const detail = [sunat?.code, sunat?.message]
+          .filter(Boolean)
+          .join(" - ");
+        if (sunat?.accepted) {
           toast.success(`FACTURA registrada y aceptada: ${documentNumber}`);
-        } else if (isRejectedSunatResult(sunat)) {
+        } else if (rejectedInvoice) {
           openDialog({
             title: "LA FACTURA FUE RECHAZADA",
             content: (
@@ -2805,7 +2819,7 @@ export default function HtmlCaptureSalePage() {
           <>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() =>
                 void printTicket().catch((error) => {
                   toast.error(
@@ -2815,16 +2829,18 @@ export default function HtmlCaptureSalePage() {
                   );
                 })
               }
+              disabled={isRejectedInvoiceView}
             >
               <Printer className="h-4 w-4" />
               Imprimir ticket
             </button>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() =>
                 downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
               }
+              disabled={isRejectedInvoiceView}
             >
               <FileDown className="h-4 w-4" />
               Descargar

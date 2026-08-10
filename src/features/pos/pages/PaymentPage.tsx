@@ -3033,7 +3033,8 @@ const PaymentPage = () => {
         notaClientName ||
         safeTrim((selectedClient as any)?.nombreRazon ?? "") ||
         "Ultimo cliente",
-      clientId: safeTrim(selectedDocument) || notaClientDoc || selectedClientDoc,
+      clientId:
+        safeTrim(selectedDocument) || notaClientDoc || selectedClientDoc,
       clientAddress:
         notaAddress ||
         safeTrim((selectedClient as any)?.direccionFiscal ?? "") ||
@@ -3713,6 +3714,13 @@ const PaymentPage = () => {
         safeTrim(sunatResponse?.flg_rta ?? sunatResponse?.FlgRta) === "1" ||
         facturaCodSunat === "0" ||
         facturaCodSunat === "0000";
+    const facturaRechazada =
+      !isEditing &&
+      docTypeCode === "01" &&
+      !facturaAceptada &&
+      (facturaAcceptedState.hasAccepted ||
+        Boolean(facturaCodSunat && facturaCodSunat !== "0") ||
+        Boolean(facturaMsjSunat));
     let boletaLoteStatus: "success" | "warning" | null = null;
     let boletaLoteMessage = "";
 
@@ -3950,14 +3958,27 @@ const PaymentPage = () => {
         toast.success(
           facturaMsjSunat || "Factura creada y aceptada por SUNAT.",
         );
-      } else if (facturaCodSunat || facturaMsjSunat) {
+      } else if (facturaRechazada) {
         const detail = [facturaCodSunat, facturaMsjSunat]
           .filter(Boolean)
           .join(" - ");
-        toast.warning(
-          detail ||
-            "Factura creada, pero quedó pendiente de envío o reintento en SUNAT.",
-        );
+        setNotaEstadoActual("RECHAZADO");
+        openDialog({
+          title: "Factura rechazada",
+          content: (
+            <div className="space-y-3 text-sm text-gray-700">
+              <p>La factura fue rechazada por SUNAT/OSE.</p>
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
+                <p className="font-semibold">
+                  {detail || "SUNAT/OSE rechazó el documento."}
+                </p>
+              </div>
+            </div>
+          ),
+          confirmText: "Entendido",
+          hideCancelButton: true,
+          maxWidth: "sm",
+        });
       } else {
         toast.warning(
           "Factura creada. El envío a OCE/SUNAT quedó pendiente de confirmación.",
@@ -3996,7 +4017,9 @@ const PaymentPage = () => {
     } else {
       toast.success("Pago registrado");
     }
-    void handlePrint({ skipConfirmedCheck: true });
+    if (!facturaRechazada) {
+      void handlePrint({ skipConfirmedCheck: true });
+    }
   };
 
   const handleBackToPos = (ev?: MouseEvent) => {
@@ -6122,8 +6145,7 @@ const PaymentPage = () => {
       </div>
       {isReadOnlyNoteView && isNotaRechazada && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
-          Documento rechazado. Se muestra como ANULADO; impresion y descarga
-          bloqueadas.
+          Documento rechazado.
         </div>
       )}
       {isPersistingToDb && (
