@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+} from "@mui/material";
 import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import CustomerFormBase from "@/components/CustomerFormBase";
@@ -285,7 +291,7 @@ export default function CustomerDialogContent({
                                 <Pencil className="h-4 w-4" />
                               </button>
                             ) : null}
-                            <button
+                            {/** <button
                               type="button"
                               className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#B23636] text-white hover:bg-[#9f2f2f]"
                               onClick={() => onSelectClient(client)}
@@ -293,7 +299,7 @@ export default function CustomerDialogContent({
                               aria-label="Usar"
                             >
                               <Check className="h-4 w-4" />
-                            </button>
+                            </button> */}
                           </div>
                         </td>
                       </tr>
