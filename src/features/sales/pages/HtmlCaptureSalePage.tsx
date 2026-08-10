@@ -256,6 +256,8 @@ const readEmail = (root: ParentNode) =>
   root.textContent?.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? "";
 const getClientCode = (client: Client | null | undefined) =>
   safeTrim(client?.clienteCodigo);
+const isActiveClient = (client: Client | null | undefined) =>
+  safeTrim(client?.estado).toUpperCase() === "ACTIVO";
 const money = (value: number) =>
   Number(value || 0).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -269,7 +271,10 @@ const safeRowNumber = (value: number) => (Number.isFinite(value) ? value : 0);
 const isValidPeruRuc = (ruc: string) => {
   if (!/^\d{11}$/.test(ruc)) return false;
   const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-  const sum = weights.reduce((total, weight, index) => total + Number(ruc[index]) * weight, 0);
+  const sum = weights.reduce(
+    (total, weight, index) => total + Number(ruc[index]) * weight,
+    0,
+  );
   const digit = 11 - (sum % 11);
   return (digit === 10 ? 0 : digit === 11 ? 1 : digit) === Number(ruc[10]);
 };
@@ -383,6 +388,10 @@ const parseSunatResult = (result: unknown) => {
 
   return { accepted, code, message };
 };
+const isRejectedSunatResult = (sunat: ReturnType<typeof parseSunatResult>) =>
+  [sunat.code, sunat.message].some((value) =>
+    safeTrim(value).toUpperCase().includes("RECHAZ"),
+  );
 const parseCapture = (html: string): CaptureData => {
   const document = new DOMParser().parseFromString(html, "text/html");
   const table = document.querySelector("table");
@@ -502,10 +511,13 @@ export default function HtmlCaptureSalePage() {
   const registerSaleRef = useRef(false);
   const focusedPagoVariosPaymentMethodRef = useRef("");
   const appliedClientRef = useRef<Client | null>(null);
+  const capturedInvoiceApiClientRef = useRef<Client | null>(null);
+  const capturedInvoiceApiRucRef = useRef("");
   const { products, fetchProducts, loading } = useProductsStore();
   const {
     clients,
     fetchClients,
+    searchClients,
     fetchClientByCodigo,
     addClient,
     updateClient,
@@ -524,8 +536,7 @@ export default function HtmlCaptureSalePage() {
   const [correlative, setCorrelative] = useState<Correlative>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
-  const [viewSunatStatus, setViewSunatStatus] =
-    useState<ViewSunatStatus>(null);
+  const [viewSunatStatus, setViewSunatStatus] = useState<ViewSunatStatus>(null);
   const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
   const [manualSaleType, setManualSaleType] =
     useState<ManualSaleType>("VENTA LIBRE");
@@ -547,7 +558,8 @@ export default function HtmlCaptureSalePage() {
   const openDialog = useDialogStore((state) => state.openDialog);
   const closeDialog = useDialogStore((state) => state.closeDialog);
   const dialogOpen = useDialogStore((state) => state.open);
-  const canCaptureData = useAuthStore((state) => state.user?.flagCaptura) === true;
+  const canCaptureData =
+    useAuthStore((state) => state.user?.flagCaptura) === true;
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
   const manualProductSearchRef = useRef<HTMLInputElement | null>(null);
@@ -579,9 +591,7 @@ export default function HtmlCaptureSalePage() {
   );
 
   const focusPagoVariosField = useCallback(
-    (
-      field: "forma" | "entidad" | "operacion" | "deposito" | "descripcion",
-    ) => {
+    (field: "forma" | "entidad" | "operacion" | "deposito" | "descripcion") => {
       window.setTimeout(() => {
         const target = document.querySelector<HTMLElement>(
           `[data-pago-varios-${field}]`,
@@ -601,6 +611,8 @@ export default function HtmlCaptureSalePage() {
   const resetDraft = useCallback(() => {
     externalCaptureKeyRef.current = "";
     appliedCaptureKeyRef.current = "";
+    capturedInvoiceApiClientRef.current = null;
+    capturedInvoiceApiRucRef.current = "";
     setCapture(null);
     setPendingExternalCapture(null);
     setRows([]);
@@ -1023,11 +1035,11 @@ export default function HtmlCaptureSalePage() {
       const ruc = normalizeDocumentText(form.customerRuc);
       return Boolean(
         (code && getClientCode(client) === code) ||
-          (dni && normalizeDocumentText(client.dni) === dni) ||
-          (ruc && normalizeDocumentText(client.ruc) === ruc) ||
-          (name &&
-            name.toUpperCase() !== "VARIOS" &&
-            normalizeLabelText(client.nombreRazon) === normalizeLabelText(name)),
+        (dni && normalizeDocumentText(client.dni) === dni) ||
+        (ruc && normalizeDocumentText(client.ruc) === ruc) ||
+        (name &&
+          name.toUpperCase() !== "VARIOS" &&
+          normalizeLabelText(client.nombreRazon) === normalizeLabelText(name)),
       );
     },
     [form.customerDoc, form.customerName, form.customerRuc, form.memberCode],
@@ -1526,7 +1538,10 @@ export default function HtmlCaptureSalePage() {
     }
 
     const lookupClient = lookup?.ok ? lookup.client : null;
-    if (form.docTypeCode === "01" && (!lookup || !lookup.ok || !lookupClient?.nombreRazon)) {
+    if (
+      form.docTypeCode === "01" &&
+      (!lookup || !lookup.ok || !lookupClient?.nombreRazon)
+    ) {
       formMethods.setValue("customerName", "", { shouldDirty: true });
       formMethods.setValue("customerRuc", "", { shouldDirty: true });
       formMethods.setValue("customerDoc", "", { shouldDirty: true });
@@ -1558,7 +1573,10 @@ export default function HtmlCaptureSalePage() {
         safeTrim(lookupClient?.nombreRazon) ||
         safeTrim(form.customerName) ||
         "VARIOS",
-      ruc: safeTrim(lookupClient?.ruc) || customerRuc || (customerDoc.length === 11 ? customerDoc : ""),
+      ruc:
+        safeTrim(lookupClient?.ruc) ||
+        customerRuc ||
+        (customerDoc.length === 11 ? customerDoc : ""),
       dni:
         safeTrim(lookupClient?.dni) ||
         customerDoc ||
@@ -1663,6 +1681,8 @@ export default function HtmlCaptureSalePage() {
       setCapture(data);
       setRows(nextRows);
       appliedClientRef.current = null;
+      capturedInvoiceApiClientRef.current = null;
+      capturedInvoiceApiRucRef.current = "";
       const docTypeText = data.ruc.toUpperCase();
       const nextDocTypeCode = docTypeText.includes("FACTURA")
         ? "01"
@@ -1675,21 +1695,40 @@ export default function HtmlCaptureSalePage() {
       const localClient =
         clientOptions.find(
           (opt) =>
-            (opt.code && opt.code === safeTrim(data.memberCode)) ||
-            (nextDocTypeCode === "01" &&
-              customerDocValue &&
-              normalizeDocumentText(opt.client.ruc) === customerDocValue) ||
-            (nextDocTypeCode !== "01" &&
-              customerDocValue &&
-              normalizeDocumentText(opt.client.dni) === customerDocValue),
+            isActiveClient(opt.client) &&
+            ((opt.code && opt.code === safeTrim(data.memberCode)) ||
+              (nextDocTypeCode === "01" &&
+                customerDocValue &&
+                normalizeDocumentText(opt.client.ruc) === customerDocValue) ||
+              (nextDocTypeCode !== "01" &&
+                customerDocValue &&
+                normalizeDocumentText(opt.client.dni) === customerDocValue)),
         )?.client ?? null;
-      const matchedClient =
-        localClient ??
-        (data.memberCode
-          ? await fetchClientByCodigo(safeTrim(data.memberCode)).catch(
-              () => null,
-            )
-          : null);
+      const memberCode = safeTrim(data.memberCode);
+      const rawCodeClient =
+        !localClient && memberCode
+          ? await fetchClientByCodigo(memberCode).catch(() => null)
+          : null;
+      const codeClient = isActiveClient(rawCodeClient) ? rawCodeClient : null;
+      const searchedClients =
+        !localClient &&
+        !codeClient &&
+        nextDocTypeCode === "01" &&
+        customerDocValue
+          ? await searchClients(customerDocValue).catch(() => [])
+          : [];
+      const searchedClient =
+        searchedClients.find(
+          (client) =>
+            isActiveClient(client) &&
+            (normalizeDocumentText(client.ruc) === customerDocValue ||
+              (memberCode && getClientCode(client) === memberCode)),
+        ) ?? null;
+      const matchedClient = localClient ?? codeClient ?? searchedClient;
+      if (nextDocTypeCode === "01" && matchedClient && !localClient) {
+        capturedInvoiceApiClientRef.current = matchedClient;
+        capturedInvoiceApiRucRef.current = customerDocValue;
+      }
       formMethods.setValue("docTypeCode", nextDocTypeCode, {
         shouldDirty: true,
       });
@@ -1729,14 +1768,7 @@ export default function HtmlCaptureSalePage() {
           });
         }
       } else {
-        const lookupType = nextDocTypeCode === "01" ? "ruc" : "dni";
-        const lookup =
-          (lookupType === "ruc" && customerDocValue.length === 11) ||
-          (lookupType === "dni" && customerDocValue.length === 8)
-            ? await consultarDocumentoCliente(lookupType, customerDocValue)
-            : null;
-        const lookupClient = lookup?.ok ? lookup.client : null;
-        if (nextDocTypeCode === "01" && (!lookup || !lookup.ok || !lookupClient)) {
+        if (nextDocTypeCode === "01") {
           formMethods.setValue("customerName", "", { shouldDirty: true });
           formMethods.setValue("customerRuc", "", { shouldDirty: true });
           formMethods.setValue("customerDoc", "", { shouldDirty: true });
@@ -1744,12 +1776,19 @@ export default function HtmlCaptureSalePage() {
           formMethods.setValue("customerEmail", "", { shouldDirty: true });
           formMethods.setValue("memberCode", "", { shouldDirty: true });
           appliedClientRef.current = null;
+          capturedInvoiceApiClientRef.current = null;
+          capturedInvoiceApiRucRef.current = "";
           focusSaleField("customerRuc");
           toast.error(
             "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
           );
           return;
         }
+        const lookup =
+          customerDocValue.length === 8
+            ? await consultarDocumentoCliente("dni", customerDocValue)
+            : null;
+        const lookupClient = lookup?.ok ? lookup.client : null;
         formMethods.setValue(
           "customerName",
           lookupClient?.nombreRazon || data.customerName,
@@ -1762,13 +1801,13 @@ export default function HtmlCaptureSalePage() {
         } else {
           formMethods.setValue("address", "", { shouldDirty: true });
         }
-        formMethods.setValue(
-          "customerEmail",
-          data.customerEmail,
-          { shouldDirty: true },
-        );
+        formMethods.setValue("customerEmail", data.customerEmail, {
+          shouldDirty: true,
+        });
       }
-      formMethods.setValue("memberCode", data.memberCode, { shouldDirty: true });
+      formMethods.setValue("memberCode", data.memberCode, {
+        shouldDirty: true,
+      });
       formMethods.setValue("transactionNumber", data.transactionNumber, {
         shouldDirty: true,
       });
@@ -1788,6 +1827,7 @@ export default function HtmlCaptureSalePage() {
       fetchClientByCodigo,
       formMethods,
       isReadOnly,
+      searchClients,
     ],
   );
 
@@ -1957,16 +1997,27 @@ export default function HtmlCaptureSalePage() {
       : null;
     const candidateDni = normalizeDocumentText(candidateClient?.dni);
     const candidateRuc = normalizeDocumentText(candidateClient?.ruc);
+    const capturedInvoiceApiClient =
+      form.docTypeCode === "01" &&
+      Boolean(capture) &&
+      customerRuc === capturedInvoiceApiRucRef.current &&
+      formMatchesClient(capturedInvoiceApiClientRef.current)
+        ? capturedInvoiceApiClientRef.current
+        : null;
     const validDniClient =
       matchedDni ??
       (customerDni && candidateDni === customerDni ? candidateClient : null);
     const validRucClient =
       matchedRuc ??
-      (customerRuc && candidateRuc === customerRuc ? candidateClient : null);
+      (customerRuc && candidateRuc === customerRuc ? candidateClient : null) ??
+      (customerRuc && capturedInvoiceApiClient
+        ? capturedInvoiceApiClient
+        : null);
     const validatedClient =
       matchedName ??
       candidateClient ??
       selectedClient ??
+      capturedInvoiceApiClient ??
       matchedDni ??
       matchedRuc ??
       null;
@@ -2172,9 +2223,7 @@ export default function HtmlCaptureSalePage() {
       const responseData = asRecord(asRecord(resultRecord?.response)?.data);
       const printMessage =
         safeTrim(
-          responseData?.message ??
-            responseData?.error ??
-            resultRecord?.message,
+          responseData?.message ?? responseData?.error ?? resultRecord?.message,
         ) || "No se pudo enviar a la tiketera.";
       throw new Error(printMessage);
     }
@@ -2230,7 +2279,16 @@ export default function HtmlCaptureSalePage() {
       await fetchClients("");
     }
 
-    let saleClient = selectedClient ?? findClientFromForm();
+    const capturedInvoiceApiClient =
+      form.docTypeCode === "01" &&
+      Boolean(capture) &&
+      normalizeDocumentText(form.customerRuc) ===
+        capturedInvoiceApiRucRef.current &&
+      formMatchesClient(capturedInvoiceApiClientRef.current)
+        ? capturedInvoiceApiClientRef.current
+        : null;
+    let saleClient =
+      selectedClient ?? findClientFromForm() ?? capturedInvoiceApiClient;
     const hasCapturedClientData = Boolean(
       safeTrim(form.customerName) ||
       safeTrim(form.customerDoc) ||
@@ -2421,6 +2479,21 @@ export default function HtmlCaptureSalePage() {
         const detail = [sunat.code, sunat.message].filter(Boolean).join(" - ");
         if (sunat.accepted) {
           toast.success(`FACTURA registrada y aceptada: ${documentNumber}`);
+        } else if (isRejectedSunatResult(sunat)) {
+          openDialog({
+            title: "LA FACTURA FUE RECHAZADA",
+            content: (
+              <div className="space-y-2 text-sm text-slate-700">
+                <p className="font-semibold text-red-700">
+                  LA FACTURA FUE RECHAZADA
+                </p>
+                {detail ? <p>{detail}</p> : null}
+              </div>
+            ),
+            confirmText: "Aceptar",
+            hideCancelButton: true,
+            maxWidth: "xs",
+          });
         } else if (detail) {
           toast.warning(
             `FACTURA registrada sin aceptación OSE/SUNAT: ${detail}`,
@@ -2431,9 +2504,7 @@ export default function HtmlCaptureSalePage() {
           );
         }
       } else if (doc.docu === "BOLETA") {
-        toast.success(
-          `BOLETA registrada: ${documentNumber}. Resumen/lote se gestiona en Boletas.`,
-        );
+        toast.success(`BOLETA registrada: ${documentNumber}. `);
       } else {
         toast.success(`${doc.docu} registrada: ${documentNumber}`);
       }
@@ -2826,314 +2897,294 @@ export default function HtmlCaptureSalePage() {
       ) : null}
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_440px] xl:items-start">
-            {/* Productos capturados */}
-            <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
-              <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
-                <h2 className="mr-auto">
-                  <span className="block rounded-md border border-red-200 bg-red-50 px-4 py-2">
-                    <span className="block text-[10px] font-semibold uppercase text-red-300">
-                      Tipo venta
-                    </span>
-                    <span className="block text-center text-sm font-black uppercase text-red-700">
-                      {saleType}
-                    </span>
-                  </span>
-                </h2>
-
-                <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
-                  <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase text-slate-400">
-                      PVS venta
-                    </p>
-                    <p className="text-right text-base font-semibold tabular-nums text-slate-800">
-                      {money(totals.pv)}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase text-blue-600">
-                      PVS mes
-                    </p>
-                    <p className="text-right text-base font-semibold tabular-nums text-slate-800">
-                      {money(monthlyPvs)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid min-w-0 gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="relative min-w-0">
-                  <input
-                    ref={manualProductSearchRef}
-                    type="search"
-                    data-no-uppercase="true"
-                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
-                    placeholder="Buscar producto por código o nombre"
-                    value={manualProductSearch}
-                    onChange={(event) => {
-                      setManualProductSearch(event.currentTarget.value);
-                      setManualProductSearchFocused(true);
-                    }}
-                    onFocus={() => setManualProductSearchFocused(true)}
-                    onBlur={() =>
-                      window.setTimeout(
-                        () => setManualProductSearchFocused(false),
-                        120,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      handleManualProductKeyDown(event);
-                    }}
-                    data-auto-next="true"
-                    disabled={
-                      loading || isSaving || isReadOnly || isCapturedSale
-                    }
-                  />
-                  {manualProductSearchFocused &&
-                  !dialogOpen &&
-                  !pagoVariosModalOpen ? (
-                    <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
-                      {filteredManualProducts.length ? (
-                        filteredManualProducts.map((product) => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50 ${
-                              filteredManualProducts[manualProductIndex]?.id ===
-                              product.id
-                                ? "bg-slate-100"
-                                : ""
-                            }`}
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              void handleAddManualProduct(product);
-                            }}
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate font-semibold text-slate-700">
-                                {product.nombre}
-                              </span>
-                              <span className="text-xs text-slate-400">
-                                {product.codigo}
-                              </span>
-                            </span>
-                            <span className="shrink-0 font-semibold text-slate-700">
-                              S/{" "}
-                              {money(
-                                Number(
-                                  product.preVenta ?? product.preVentaB ?? 0,
-                                ),
-                              )}
-                            </span>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-slate-400">
-                          {loading
-                            ? "Cargando productos..."
-                            : "Sin coincidencias"}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => void handleAddManualProduct()}
-                  disabled={loading || isSaving || isReadOnly || isCapturedSale}
-                >
-                  <Plus className="h-4 w-4" />
-                  Agregar
-                </button>
-              </div>
-
-              <div className="max-h-[46vh] w-full max-w-full overflow-x-auto overflow-y-auto">
-                <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px]">
-                  <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
-                    <tr>
-                      {[
-                        "Descripcion",
-                        "Cantidad",
-                        "Precio",
-                        "PV Unit.",
-                        "PV Total",
-                        "SV Total",
-                        "Importe",
-                        "",
-                      ].map((header, i) => (
-                        <th
-                          key={header}
-                          className={`border-b border-slate-100 px-4 py-2 font-medium ${
-                            i > 0 ? "text-right" : "text-left"
-                          }`}
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="px-5 py-14 text-center text-sm text-slate-400"
-                        >
-                          Captura un HTML o agrega productos para venta libre.
-                        </td>
-                      </tr>
-                    ) : (
-                      rows.map((row) => (
-                        <tr
-                          key={row.code}
-                          className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-                        >
-                          <td className="px-4 py-2 text-slate-600">
-                            <span className="flex items-center gap-2">
-                              {row.description}
-                              {!row.matched && (
-                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                                  no encontrado
-                                </span>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 text-right text-slate-600">
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={
-                                Number.isFinite(row.quantity)
-                                  ? row.quantity
-                                  : ""
-                              }
-                              data-auto-next="true"
-                              onChange={(event) =>
-                                handleRowQuantityChange(
-                                  row.code,
-                                  event.currentTarget.value,
-                                )
-                              }
-                              onKeyDown={handleNumberInputKeyDown}
-                              onFocus={(event) =>
-                                moveCaretToEnd(event.currentTarget)
-                              }
-                              onBlur={() => handleRowPriceBlur(row.code)}
-                              disabled={
-                                isSaving || isReadOnly || isCapturedSale
-                              }
-                              className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-right text-slate-600">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={
-                                Number.isFinite(row.price) ? row.price : ""
-                              }
-                              data-sale-price-input="true"
-                              data-row-code={row.code}
-                              data-auto-next="true"
-                              onChange={(event) =>
-                                handleRowPriceChange(
-                                  row.code,
-                                  event.currentTarget.value,
-                                )
-                              }
-                              onKeyDown={handleNumberInputKeyDown}
-                              onFocus={(event) =>
-                                moveCaretToEnd(event.currentTarget)
-                              }
-                              disabled={
-                                isSaving || isReadOnly || isCapturedSale
-                              }
-                              className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-right text-slate-500">
-                            {money(row.pv)}
-                          </td>
-                          <td className="px-4 py-2 text-right font-medium text-slate-700">
-                            {money(row.pv * safeRowNumber(row.quantity))}
-                          </td>
-                          <td className="px-4 py-2 text-right text-slate-500">
-                            {money(row.sv * safeRowNumber(row.quantity))}
-                          </td>
-                          <td className="px-4 py-2 text-right font-semibold text-slate-800">
-                            {money(
-                              safeRowNumber(row.price) *
-                                safeRowNumber(row.quantity),
-                            )}
-                          </td>
-                          <td className="px-4 py-2 text-right">
-                            <button
-                              type="button"
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                              onClick={() => handleRemoveRow(row.code)}
-                              disabled={
-                                isSaving || isReadOnly || isCapturedSale
-                              }
-                              title="Quitar"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totales: barra compacta al pie de la misma tarjeta */}
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm">
-                <span className="font-semibold text-slate-600">
-                  Items: {integer(rows.length)}
+        {/* Productos capturados */}
+        <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
+            <h2 className="mr-auto">
+              <span className="block rounded-md border border-red-200 bg-red-50 px-4 py-2">
+                <span className="block text-[10px] font-semibold uppercase text-red-300">
+                  Tipo venta
                 </span>
-                <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-4 gap-y-1 sm:justify-end sm:gap-x-6">
-                  <Summary label="Sub total" value={totals.subtotal} />
-                  <Summary label="IGV" value={totals.igv} />
-                  <Summary label="PVS" value={totals.pv} />
-                  {totals.discount > 0 && (
-                    <Summary
-                      label="Descuento"
-                      value={totals.discount}
-                      negative
-                    />
-                  )}
-                  <div className="flex items-baseline gap-2 border-l border-slate-200 pl-4 sm:pl-6">
-                    <span className="text-sm font-semibold text-slate-700">
-                      Total
-                    </span>
-                    <span className="text-lg font-semibold text-slate-900">
-                      S/ {money(totals.total)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
+                <span className="block text-center text-sm font-black uppercase text-red-700">
+                  {saleType}
+                </span>
+              </span>
+            </h2>
 
-            {/* Datos de la venta */}
-            <section className="order-2 min-w-0 rounded-lg border border-slate-200 bg-white xl:sticky xl:top-4">
-              <HookForm methods={formMethods} onSubmit={() => undefined}>
-                <div className="px-4 py-3">
-                  <SaleCaptureFormFields
-                    clientOptions={clientOptions}
-                    disabled={isSaving || isReadOnly}
-                    correlative={correlative?.nroComprobante}
-                    totalAmount={totals.total}
-                    preserveMissingClientData={isCapturedSale}
-                    onClientSelected={applyClient}
-                    onCreateClient={
-                      isReadOnly ? undefined : handleOpenCreateClientModal
-                    }
-                  />
+            <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
+              <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase text-slate-400">
+                  PVS venta
+                </p>
+                <p className="text-right text-base font-semibold tabular-nums text-slate-800">
+                  {money(totals.pv)}
+                </p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase text-blue-600">
+                  PVS mes
+                </p>
+                <p className="text-right text-base font-semibold tabular-nums text-slate-800">
+                  {money(monthlyPvs)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid min-w-0 gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="relative min-w-0">
+              <input
+                ref={manualProductSearchRef}
+                type="search"
+                data-no-uppercase="true"
+                className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+                placeholder="Buscar producto por código o nombre"
+                value={manualProductSearch}
+                onChange={(event) => {
+                  setManualProductSearch(event.currentTarget.value);
+                  setManualProductSearchFocused(true);
+                }}
+                onFocus={() => setManualProductSearchFocused(true)}
+                onBlur={() =>
+                  window.setTimeout(
+                    () => setManualProductSearchFocused(false),
+                    120,
+                  )
+                }
+                onKeyDown={(event) => {
+                  handleManualProductKeyDown(event);
+                }}
+                data-auto-next="true"
+                disabled={loading || isSaving || isReadOnly || isCapturedSale}
+              />
+              {manualProductSearchFocused &&
+              !dialogOpen &&
+              !pagoVariosModalOpen ? (
+                <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                  {filteredManualProducts.length ? (
+                    filteredManualProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50 ${
+                          filteredManualProducts[manualProductIndex]?.id ===
+                          product.id
+                            ? "bg-slate-100"
+                            : ""
+                        }`}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          void handleAddManualProduct(product);
+                        }}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold text-slate-700">
+                            {product.nombre}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {product.codigo}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-semibold text-slate-700">
+                          S/{" "}
+                          {money(
+                            Number(product.preVenta ?? product.preVentaB ?? 0),
+                          )}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-slate-400">
+                      {loading ? "Cargando productos..." : "Sin coincidencias"}
+                    </div>
+                  )}
                 </div>
-              </HookForm>
-            </section>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => void handleAddManualProduct()}
+              disabled={loading || isSaving || isReadOnly || isCapturedSale}
+            >
+              <Plus className="h-4 w-4" />
+              Agregar
+            </button>
+          </div>
+
+          <div className="max-h-[46vh] w-full max-w-full overflow-x-auto overflow-y-auto">
+            <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px]">
+              <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  {[
+                    "Descripcion",
+                    "Cantidad",
+                    "Precio",
+                    "PV Unit.",
+                    "PV Total",
+                    "SV Total",
+                    "Importe",
+                    "",
+                  ].map((header, i) => (
+                    <th
+                      key={header}
+                      className={`border-b border-slate-100 px-4 py-2 font-medium ${
+                        i > 0 ? "text-right" : "text-left"
+                      }`}
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-5 py-14 text-center text-sm text-slate-400"
+                    >
+                      Captura un HTML o agrega productos para venta libre.
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr
+                      key={row.code}
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                    >
+                      <td className="px-4 py-2 text-slate-600">
+                        <span className="flex items-center gap-2">
+                          {row.description}
+                          {!row.matched && (
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                              no encontrado
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-600">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={
+                            Number.isFinite(row.quantity) ? row.quantity : ""
+                          }
+                          data-auto-next="true"
+                          onChange={(event) =>
+                            handleRowQuantityChange(
+                              row.code,
+                              event.currentTarget.value,
+                            )
+                          }
+                          onKeyDown={handleNumberInputKeyDown}
+                          onFocus={(event) =>
+                            moveCaretToEnd(event.currentTarget)
+                          }
+                          onBlur={() => handleRowPriceBlur(row.code)}
+                          disabled={isSaving || isReadOnly || isCapturedSale}
+                          className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-600">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={Number.isFinite(row.price) ? row.price : ""}
+                          data-sale-price-input="true"
+                          data-row-code={row.code}
+                          data-auto-next="true"
+                          onChange={(event) =>
+                            handleRowPriceChange(
+                              row.code,
+                              event.currentTarget.value,
+                            )
+                          }
+                          onKeyDown={handleNumberInputKeyDown}
+                          onFocus={(event) =>
+                            moveCaretToEnd(event.currentTarget)
+                          }
+                          disabled={isSaving || isReadOnly || isCapturedSale}
+                          className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-500">
+                        {money(row.pv)}
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium text-slate-700">
+                        {money(row.pv * safeRowNumber(row.quantity))}
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-500">
+                        {money(row.sv * safeRowNumber(row.quantity))}
+                      </td>
+                      <td className="px-4 py-2 text-right font-semibold text-slate-800">
+                        {money(
+                          safeRowNumber(row.price) *
+                            safeRowNumber(row.quantity),
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          type="button"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                          onClick={() => handleRemoveRow(row.code)}
+                          disabled={isSaving || isReadOnly || isCapturedSale}
+                          title="Quitar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totales: barra compacta al pie de la misma tarjeta */}
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm">
+            <span className="font-semibold text-slate-600">
+              Items: {integer(rows.length)}
+            </span>
+            <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-4 gap-y-1 sm:justify-end sm:gap-x-6">
+              <Summary label="Sub total" value={totals.subtotal} />
+              <Summary label="IGV" value={totals.igv} />
+              <Summary label="PVS" value={totals.pv} />
+              {totals.discount > 0 && (
+                <Summary label="Descuento" value={totals.discount} negative />
+              )}
+              <div className="flex items-baseline gap-2 border-l border-slate-200 pl-4 sm:pl-6">
+                <span className="text-sm font-semibold text-slate-700">
+                  Total
+                </span>
+                <span className="text-lg font-semibold text-slate-900">
+                  S/ {money(totals.total)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Datos de la venta */}
+        <section className="order-2 min-w-0 rounded-lg border border-slate-200 bg-white xl:sticky xl:top-4">
+          <HookForm methods={formMethods} onSubmit={() => undefined}>
+            <div className="px-4 py-3">
+              <SaleCaptureFormFields
+                clientOptions={clientOptions}
+                disabled={isSaving || isReadOnly}
+                correlative={correlative?.nroComprobante}
+                totalAmount={totals.total}
+                preserveMissingClientData={isCapturedSale}
+                onClientSelected={applyClient}
+                onCreateClient={
+                  isReadOnly ? undefined : handleOpenCreateClientModal
+                }
+              />
+            </div>
+          </HookForm>
+        </section>
       </div>
     </div>
   );

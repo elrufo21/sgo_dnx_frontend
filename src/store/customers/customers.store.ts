@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { formatDateTime } from "@/shared/helpers/formatDate";
 import type { ApiClient, Client } from "@/types/customer";
 import { create } from "zustand";
 
@@ -45,8 +46,7 @@ const mapApiToClient = (item: unknown): Client => {
       payload.DocumentoPredeterminado ??
       "",
   ).trim().toUpperCase();
-  const documentoPredeterminado =
-    docuRaw === "FACTURA" ? "FACTURA" : "BOLETA";
+  const documentoPredeterminado = docuRaw || "BOLETA";
 
   return {
     id: Number(payload.clienteId ?? payload.ClienteId ?? payload.id ?? 0),
@@ -68,12 +68,21 @@ const mapApiToClient = (item: unknown): Client => {
       payload.clienteUsuario ?? payload.ClienteUsuario ?? "",
     ),
     estado: String(payload.clienteEstado ?? payload.ClienteEstado ?? "ACTIVO"),
-    fecha:
-      payload.clienteFecha === null || payload.ClienteFecha === null
-        ? null
-        : String(payload.clienteFecha ?? payload.ClienteFecha ?? ""),
+    fecha: formatDateTime(payload.clienteFecha ?? payload.ClienteFecha) || null,
     documentoPredeterminado,
   };
+};
+
+const toApiDateTime = (value?: string | null) => {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const match = text.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/,
+  );
+  if (!match) return text;
+  const [, day, month, year, hours = "00", minutes = "00", seconds = "00"] =
+    match;
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
 const mapClientToApi = (client: Partial<Client>): ApiClient => ({
@@ -88,7 +97,7 @@ const mapClientToApi = (client: Partial<Client>): ApiClient => ({
   clienteEstado: client.estado ?? "ACTIVO",
   clienteDespacho: client.direccionDespacho ?? "",
   clienteUsuario: client.registradoPor ?? "",
-  clienteFecha: client.fecha ?? null,
+  clienteFecha: toApiDateTime(client.fecha),
   clienteDocu: client.documentoPredeterminado || "BOLETA",
 });
 
@@ -261,8 +270,10 @@ const parseComboClients = (value: unknown): Client[] =>
         estado: String(parts[7] ?? "").trim() || "ACTIVO",
         direccionDespacho: String(parts[8] ?? "").trim(),
         registradoPor: String(parts[9] ?? "").trim(),
-        fecha: String(parts[10] ?? "").trim() || null,
+        fecha: formatDateTime(parts[10]) || null,
         clienteCodigo: String(parts[11] ?? "").trim(),
+        documentoPredeterminado:
+          String(parts[12] ?? "").trim().toUpperCase() || "BOLETA",
       };
     })
     .filter((client) => client.id || client.nombreRazon);

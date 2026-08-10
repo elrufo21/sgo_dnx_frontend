@@ -1,205 +1,150 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Pencil, PlusIcon, Search, Trash2 } from "lucide-react";
+import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
+import { Pencil, PlusIcon, Trash2 } from "lucide-react";
+import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
-import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { toast } from "@/shared/ui/toast";
+import type { Client } from "@/types/customer";
 
-const PAGE_SIZE = 50;
-const normalizeSearch = (value: unknown) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .toLowerCase()
-    .trim();
-const formatCount = (value: number) =>
-  Number(value || 0).toLocaleString("en-US");
+const columnHelper = createColumnHelper<Client>();
+const fallback = (value: unknown) => String(value ?? "").trim() || "-";
 
 const CustomerList = () => {
   const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
   const { clients, loading, fetchClients, deleteClient } = useClientsStore();
   const [estado, setEstado] = useState<"ACTIVO" | "INACTIVO">("ACTIVO");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
 
   useEffect(() => {
     void fetchClients("");
   }, [fetchClients]);
 
   const filteredClients = useMemo(() => {
-    const tokens = normalizeSearch(search).split(" ").filter(Boolean);
     return [...clients]
       .sort((a, b) => Number(b.id) - Number(a.id))
-      .filter((client) => {
-        if (estado && client.estado !== estado) return false;
-        if (!tokens.length) return true;
-        const haystack = normalizeSearch(
-          `${client.clienteCodigo} ${client.nombreRazon} ${client.ruc} ${client.dni} ${client.telefonoMovil} ${client.email}`,
-        );
-        return tokens.every((token) => haystack.includes(token));
-      });
-  }, [clients, estado, search]);
+      .filter((client) => client.estado === estado);
+  }, [clients, estado]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pagedClients = filteredClients.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+  const askDelete = useCallback(
+    (id: number) =>
+      openDialog({
+        title: "Eliminar cliente",
+        content: <p>¿Seguro que deseas eliminar este cliente?</p>,
+        onConfirm: async () => {
+          const ok = await deleteClient(id);
+          if (ok === false) {
+            toast.error("No se puede eliminar.");
+            return;
+          }
+          toast.success("Cliente eliminado.");
+          void fetchClients("");
+        },
+      }),
+    [deleteClient, fetchClients, openDialog],
   );
-  const canGoNext = currentPage < totalPages;
-  const from = pagedClients.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
-  const to = pagedClients.length ? from + pagedClients.length - 1 : 0;
 
-  const askDelete = (id: number) =>
-    openDialog({
-      title: "Eliminar cliente",
-      content: <p>¿Seguro que deseas eliminar este cliente?</p>,
-      onConfirm: async () => {
-        const ok = await deleteClient(id);
-        if (ok === false) {
-          toast.error("No se puede eliminar.");
-          return;
-        }
-        toast.success("Cliente eliminado.");
-        void fetchClients("");
-      },
-    });
+  const columns = useMemo<ColumnDef<Client, unknown>[]>(
+    () => [
+      columnHelper.accessor("clienteCodigo", {
+        header: "Codigo",
+        cell: (info) => fallback(info.getValue()),
+      }),
+      columnHelper.accessor("nombreRazon", {
+        header: "Razon Social",
+        cell: (info) => fallback(info.getValue()),
+      }),
+      columnHelper.accessor("ruc", {
+        header: "RUC",
+        cell: (info) => fallback(info.getValue()),
+      }),
+      columnHelper.accessor("dni", {
+        header: "DNI",
+        cell: (info) => fallback(info.getValue()),
+      }),
+      columnHelper.accessor("registradoPor", {
+        header: "Usuario",
+        cell: (info) => fallback(info.getValue()),
+      }),
+      columnHelper.accessor("documentoPredeterminado", {
+        header: "Documento predeterminado",
+        cell: (info) => fallback(info.getValue()),
+      }),
+      columnHelper.display({
+        id: "acciones",
+        header: "Acciones",
+        cell: ({ row }) => (
+          <div className="flex justify-end gap-2">
+            <Link
+              to={`/customers/${row.original.id}/edit`}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              title="Editar"
+              aria-label="Editar"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+            <button
+              type="button"
+              onClick={() => askDelete(row.original.id)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+              title="Eliminar"
+              aria-label="Eliminar"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ),
+        meta: { align: "right" },
+      }),
+    ],
+    [askDelete],
+  );
+  console.log("filteredClients", filteredClients);
 
   return (
-    <div className="space-y-4">
-      <BlockingSpinner show={loading} text="Cargando clientes..." />
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
-        <BackArrowButton className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100" />
-        <div className="relative min-w-[260px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Buscar por codigo, nombre, RUC o DNI"
-            className="h-10 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-[#B23636]"
-          />
-        </div>
+    <DataTable
+      data={filteredClients}
+      columns={columns}
+      isLoading={loading}
+      filterKeys={[
+        "clienteCodigo",
+        "nombreRazon",
+        "ruc",
+        "dni",
+        "registradoPor",
+        "documentoPredeterminado",
+      ]}
+      searchPlaceholder="Buscar por codigo, razon social, RUC o DNI"
+      emptyMessage="No se encontraron clientes."
+      initialPageSize={50}
+      toolbarLeading={
+        <BackArrowButton className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100" />
+      }
+      renderFilters={
         <select
           value={estado}
-          onChange={(event) => {
-            setEstado(event.target.value as "ACTIVO" | "INACTIVO");
-            setPage(1);
-          }}
-          className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+          onChange={(event) =>
+            setEstado(event.target.value as "ACTIVO" | "INACTIVO")
+          }
+          className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"
         >
           <option value="ACTIVO">Activos</option>
           <option value="INACTIVO">Inactivos</option>
         </select>
+      }
+      toolbarAction={
         <button
           type="button"
           onClick={() => navigate("/customers/create")}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#B23636] px-3 text-sm font-semibold text-white hover:bg-[#96312a]"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#B23636] px-3 text-sm font-semibold text-white hover:bg-[#96312a]"
         >
-          <PlusIcon className="h-4 w-4" />
+          <PlusIcon className="h-5 w-5" />
           Nuevo
         </button>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Codigo</th>
-                <th className="px-4 py-3">Nombre o razon social</th>
-                <th className="px-4 py-3">RUC</th>
-                <th className="px-4 py-3">DNI</th>
-                <th className="px-4 py-3">Telefono</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
-                    Cargando clientes...
-                  </td>
-                </tr>
-              ) : pagedClients.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
-                    No se encontraron clientes.
-                  </td>
-                </tr>
-              ) : (
-                pagedClients.map((client) => (
-                  <tr key={client.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-medium text-slate-700">
-                      {client.clienteCodigo || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{client.nombreRazon}</td>
-                    <td className="px-4 py-3 text-slate-600">{client.ruc || "-"}</td>
-                    <td className="px-4 py-3 text-slate-600">{client.dni || "-"}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {client.telefonoMovil || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{client.email || "-"}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          to={`/customers/${client.id}/edit`}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          title="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => askDelete(client.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
-          <span>
-            Mostrando {formatCount(from)} - {formatCount(to)} de{" "}
-            {formatCount(filteredClients.length)} clientes · Página {currentPage} de{" "}
-            {formatCount(totalPages)}
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((value) => Math.max(1, value - 1))}
-              disabled={page === 1 || loading}
-              className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-40"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((value) => value + 1)}
-              disabled={!canGoNext || loading}
-              className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-40"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 };
 

@@ -26,3 +26,23 @@ export const formatDate = (value?: string | number | Date | null) => {
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
 };
+
+export const formatDateTime = (value?: string | number | Date | null) => {
+  if (!value) return "";
+  if (
+    typeof value === "string" &&
+    /^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2}:\d{2})?$/.test(value.trim())
+  ) {
+    return value.trim();
+  }
+
+  const date = parseDate(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = pad(date.getDate());
+  const month = pad(date.getMonth() + 1);
+  const year = date.getFullYear();
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+};

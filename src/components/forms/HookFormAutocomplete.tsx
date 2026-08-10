@@ -208,6 +208,20 @@ export function HookFormAutocomplete<
   useEffect(() => {
     const activeElement = inputElementRef.current?.ownerDocument?.activeElement;
     const isInputFocused = activeElement === inputElementRef.current;
+    const resolvedWatchedValue =
+      typeof watchedValue === "object" &&
+      watchedValue !== null &&
+      "value" in watchedValue
+        ? (watchedValue as { value: unknown }).value
+        : watchedValue;
+    const watchedText =
+      resolvedWatchedValue === null || resolvedWatchedValue === undefined
+        ? ""
+        : String(resolvedWatchedValue);
+    if (isInputFocused && syncInputToValue && watchedText === "") {
+      setInputValue("");
+      return;
+    }
     if (isInputFocused) return;
 
     const selectedOption =

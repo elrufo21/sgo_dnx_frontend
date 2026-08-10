@@ -3,12 +3,14 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type KeyboardEvent,
 } from "react";
 import { UserPlus } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { HookFormAutocomplete } from "@/components/forms/HookFormAutocomplete";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormSelect } from "@/components/forms/HookFormSelect";
+import { focusNextInput } from "@/shared/helpers/focusNextInput";
 import { toast } from "@/shared/ui/toast";
 import type { Client } from "@/types/customer";
 
@@ -508,6 +510,58 @@ export function SaleCaptureFormFields({
     return true;
   };
 
+  const selectClientOnEnter = (
+    event: KeyboardEvent<HTMLInputElement>,
+    findClient: (inputValue: string) => Client | null,
+  ) => {
+    if (event.key !== "Enter") return;
+    const input =
+      event.target instanceof HTMLInputElement
+        ? event.target
+        : event.currentTarget;
+    const client = findClient(input.value);
+    if (!client) return;
+    event.preventDefault();
+    event.stopPropagation();
+    applyClientSelection(client);
+    window.requestAnimationFrame(() => focusNextInput(input));
+  };
+
+  const findClientByCode = (inputValue: string) =>
+    validClientOptions.find(
+      (opt) =>
+        normalizeSearchText(opt.code) === normalizeSearchText(inputValue),
+    )?.client ?? null;
+
+  const findClientByName = (inputValue: string) =>
+    saleClientByName.get(normalizeSearchText(inputValue))?.client ??
+    (() => {
+      const matches = filterByClientData(customerNameOptions, inputValue);
+      return matches.length === 1 ? matches[0].client : null;
+    })();
+
+  const findClientByDocument =
+    (type: "dni" | "ruc") => (inputValue: string) => {
+      const document = normalizeDocumentText(inputValue);
+      if (!document) return null;
+      return (
+        validClientOptions.find((option) =>
+          type === "ruc"
+            ? normalizeDocumentText(option.client.ruc) === document
+            : normalizeDocumentText(option.client.dni) === document,
+        )?.client ?? null
+      );
+    };
+
+  const selectExactClientInput = (
+    inputValue: string,
+    findClient: (inputValue: string) => Client | null,
+  ) => {
+    queueClientSearch(inputValue);
+    const client = findClient(inputValue);
+    if (client) applyClientSelection(client);
+  };
+
   const handleDocumentBlur =
     (type: "dni" | "ruc") =>
     ({ inputValue }: { inputValue: string }) => {
@@ -670,7 +724,9 @@ export function SaleCaptureFormFields({
             showCreateOption={false}
             createLabel={(value) => `Usar código: ${value}`}
             syncInputToValue
-            onInputValueChange={queueClientSearch}
+            onInputValueChange={(value) =>
+              selectExactClientInput(value, findClientByCode)
+            }
             filterOptions={(options, state) =>
               filterByClientData(options, state.inputValue)
             }
@@ -678,6 +734,9 @@ export function SaleCaptureFormFields({
               if (!option) return;
               applyClientSelection((option.client as Client | null) ?? null);
             }}
+            onInputKeyDown={(event) =>
+              selectClientOnEnter(event, findClientByCode)
+            }
             onInputBlur={handleCustomerCodeBlur}
           />
           <button
@@ -711,6 +770,9 @@ export function SaleCaptureFormFields({
                 }
                 applyClientSelection((option.client as Client | null) ?? null);
               }}
+              onInputKeyDown={(event) =>
+                selectClientOnEnter(event, findClientByName)
+              }
               onInputBlur={handleCustomerInputBlur}
             />
           </div>
@@ -730,7 +792,9 @@ export function SaleCaptureFormFields({
               pattern: "[0-9]*",
               maxLength: 9,
             }}
-            onInputValueChange={queueClientSearch}
+            onInputValueChange={(value) =>
+              selectExactClientInput(value, findClientByDocument("dni"))
+            }
             filterOptions={(options, state) =>
               filterDocumentOptions(options, state.inputValue)
             }
@@ -741,6 +805,9 @@ export function SaleCaptureFormFields({
               }
               applyClientSelection((option.client as Client | null) ?? null);
             }}
+            onInputKeyDown={(event) =>
+              selectClientOnEnter(event, findClientByDocument("dni"))
+            }
             onInputBlur={handleDocumentBlur("dni")}
           />
           <HookFormAutocomplete
@@ -759,7 +826,9 @@ export function SaleCaptureFormFields({
               pattern: "[0-9]*",
               maxLength: 11,
             }}
-            onInputValueChange={queueClientSearch}
+            onInputValueChange={(value) =>
+              selectExactClientInput(value, findClientByDocument("ruc"))
+            }
             filterOptions={(options, state) =>
               filterDocumentOptions(options, state.inputValue)
             }
@@ -770,6 +839,9 @@ export function SaleCaptureFormFields({
               }
               applyClientSelection((option.client as Client | null) ?? null);
             }}
+            onInputKeyDown={(event) =>
+              selectClientOnEnter(event, findClientByDocument("ruc"))
+            }
             onInputBlur={handleDocumentBlur("ruc")}
           />
           <div className="sm:col-span-2">
