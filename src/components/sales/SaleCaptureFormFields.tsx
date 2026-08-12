@@ -5,7 +5,7 @@ import {
   useRef,
   type KeyboardEvent,
 } from "react";
-import { UserPlus } from "lucide-react";
+import { Send, UserPlus } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { HookFormAutocomplete } from "@/components/forms/HookFormAutocomplete";
 import { HookFormInput } from "@/components/forms/HookFormInput";
@@ -64,6 +64,10 @@ interface SaleCaptureFormFieldsProps {
     options?: { documentType?: "01" | "03" },
   ) => void;
   onCreateClient?: () => void;
+  onSendEmail?: () => void;
+  sendEmailDisabled?: boolean;
+  sendingEmail?: boolean;
+  allowEmailEdit?: boolean;
   onSearchClients?: (search: string) => void;
 }
 
@@ -108,6 +112,10 @@ export function SaleCaptureFormFields({
   preserveMissingClientData = false,
   onClientSelected,
   onCreateClient,
+  onSendEmail,
+  sendEmailDisabled = false,
+  sendingEmail = false,
+  allowEmailEdit = false,
   onSearchClients,
 }: SaleCaptureFormFieldsProps) {
   const { control, setValue } = useFormContext<SaleCaptureFormValues>();
@@ -471,6 +479,19 @@ export function SaleCaptureFormFields({
     const label = safeTrim(inputValue);
     if (!label) return;
 
+    const selectedByForm =
+      validClientOptions.find(
+        (opt) =>
+          normalizeSearchText(opt.label) === normalizeSearchText(label) ||
+          (safeTrim(values.memberCode) &&
+            normalizeSearchText(opt.code) ===
+              normalizeSearchText(values.memberCode)),
+      )?.client ?? null;
+    if (selectedByForm) {
+      applyClientSelection(selectedByForm);
+      return;
+    }
+
     const match = saleClientByName.get(normalizeSearchText(label));
     if (match) {
       applyClientSelection(match.client);
@@ -750,15 +771,27 @@ export function SaleCaptureFormFields({
             }
             onInputBlur={handleCustomerCodeBlur}
           />
-          <button
-            type="button"
-            className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3"
-            onClick={onCreateClient}
-            disabled={disabled}
-          >
-            <UserPlus className="h-4 w-4" />
-            Cliente
-          </button>
+          {onSendEmail ? (
+            <button
+              type="button"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3"
+              onClick={onSendEmail}
+              disabled={sendEmailDisabled || sendingEmail}
+            >
+              <Send className="h-4 w-4" />
+              {sendingEmail ? "Enviando..." : "Enviar"}
+            </button>
+          ) : onCreateClient ? (
+            <button
+              type="button"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3"
+              onClick={onCreateClient}
+              disabled={disabled}
+            >
+              <UserPlus className="h-4 w-4" />
+              Cliente
+            </button>
+          ) : null}
           <div className="sm:col-span-2">
             <HookFormAutocomplete
               name="customerName"
@@ -866,7 +899,7 @@ export function SaleCaptureFormFields({
               name="customerEmail"
               label="Correo"
               type="email"
-              disabled
+              disabled={!allowEmailEdit || sendingEmail}
               placeholder="Correo del cliente"
             />
           </div>

@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   FileDown,
   FileUp,
-  Send,
   Plus,
   Printer,
   RotateCcw,
@@ -402,7 +401,7 @@ const parseCapture = (html: string): CaptureData => {
   const document = new DOMParser().parseFromString(html, "text/html");
   const table = document.querySelector("table");
   const ruc =
-    `${readText(document, "#section-1 .medium-font.center-align")} ${readText(document, "#section-4")}`.trim();
+    `${readText(document, "#section-1 .medium-font.center-align")} ${readText(document, "#section-4")} ${readText(document, "#section-5")}`.trim();
   const sectionText = readText(document, "#section-6");
   const memberCode =
     sectionText.match(/No\.\s*de\s*Membres[ií]a\s*:?\s*([A-Z0-9-]+)/i)?.[1] ??
@@ -1573,8 +1572,7 @@ export default function HtmlCaptureSalePage() {
       dni:
         safeTrim(lookupClient?.dni) ||
         customerDoc ||
-        (customerRuc && customerRuc.length !== 11 ? customerRuc : "") ||
-        safeTrim(form.memberCode),
+        (customerRuc && customerRuc.length !== 11 ? customerRuc : ""),
       direccionFiscal:
         safeTrim(lookupClient?.direccionFiscal) ||
         safeTrim(form.address) ||
@@ -1586,7 +1584,7 @@ export default function HtmlCaptureSalePage() {
       registradoPor: session.username,
       estado: "ACTIVO",
       fecha: null,
-      documentoPredeterminado: form.docTypeCode === "01" ? "FACTURA" : "BOLETA",
+      documentoPredeterminado: DOC_CONFIG[form.docTypeCode].docu,
     });
 
     if (!result.ok) {
@@ -1687,7 +1685,7 @@ export default function HtmlCaptureSalePage() {
           : docValue.length === 11
             ? "01"
             : "03";
-      const customerDocValue = docValue || safeTrim(data.memberCode);
+      const customerDocValue = docValue;
       const localClient =
         clientOptions.find(
           (opt) =>
@@ -1754,7 +1752,11 @@ export default function HtmlCaptureSalePage() {
           formMethods.setValue("customerRuc", "", { shouldDirty: true });
           formMethods.setValue(
             "customerDoc",
-            customerDocValue || matchedClient.dni || "",
+            customerDocValue ||
+              (normalizeDocumentText(matchedClient.dni) === memberCode
+                ? ""
+                : matchedClient.dni) ||
+              "",
             { shouldDirty: true },
           );
         }
@@ -1765,41 +1767,64 @@ export default function HtmlCaptureSalePage() {
         }
       } else {
         if (nextDocTypeCode === "01") {
-          formMethods.setValue("customerName", "", { shouldDirty: true });
-          formMethods.setValue("customerRuc", "", { shouldDirty: true });
+          const lookup =
+            customerDocValue.length === 11
+              ? await consultarDocumentoCliente("ruc", customerDocValue)
+              : null;
+          const lookupClient = lookup?.ok ? lookup.client : null;
+          if (!lookupClient) {
+            formMethods.setValue("customerName", "", { shouldDirty: true });
+            formMethods.setValue("customerDoc", "", { shouldDirty: true });
+            formMethods.setValue("address", "", { shouldDirty: true });
+            formMethods.setValue("customerEmail", "", { shouldDirty: true });
+            appliedClientRef.current = null;
+            capturedInvoiceApiClientRef.current = null;
+            capturedInvoiceApiRucRef.current = "";
+            focusSaleField("customerRuc");
+            toast.error(
+              lookup?.message ||
+                "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
+            );
+            return;
+          }
+          formMethods.setValue("customerName", lookupClient.nombreRazon, {
+            shouldDirty: true,
+          });
+          formMethods.setValue("customerRuc", lookupClient.ruc, {
+            shouldDirty: true,
+          });
           formMethods.setValue("customerDoc", "", { shouldDirty: true });
-          formMethods.setValue("address", "", { shouldDirty: true });
-          formMethods.setValue("customerEmail", "", { shouldDirty: true });
-          formMethods.setValue("memberCode", "", { shouldDirty: true });
-          appliedClientRef.current = null;
-          capturedInvoiceApiClientRef.current = null;
-          capturedInvoiceApiRucRef.current = "";
-          focusSaleField("customerRuc");
-          toast.error(
-            "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
-          );
-          return;
-        }
-        const lookup =
-          customerDocValue.length === 8
-            ? await consultarDocumentoCliente("dni", customerDocValue)
-            : null;
-        const lookupClient = lookup?.ok ? lookup.client : null;
-        formMethods.setValue(
-          "customerName",
-          lookupClient?.nombreRazon || data.customerName,
-          { shouldDirty: true },
-        );
-        if (lookupClient?.direccionFiscal) {
           formMethods.setValue("address", lookupClient.direccionFiscal, {
             shouldDirty: true,
           });
+          formMethods.setValue("customerEmail", data.customerEmail, {
+            shouldDirty: true,
+          });
+          appliedClientRef.current = null;
+          capturedInvoiceApiClientRef.current = null;
+          capturedInvoiceApiRucRef.current = "";
         } else {
-          formMethods.setValue("address", "", { shouldDirty: true });
+          const lookup =
+            customerDocValue.length === 8
+              ? await consultarDocumentoCliente("dni", customerDocValue)
+              : null;
+          const lookupClient = lookup?.ok ? lookup.client : null;
+          formMethods.setValue(
+            "customerName",
+            lookupClient?.nombreRazon || data.customerName,
+            { shouldDirty: true },
+          );
+          if (lookupClient?.direccionFiscal) {
+            formMethods.setValue("address", lookupClient.direccionFiscal, {
+              shouldDirty: true,
+            });
+          } else {
+            formMethods.setValue("address", "", { shouldDirty: true });
+          }
+          formMethods.setValue("customerEmail", data.customerEmail, {
+            shouldDirty: true,
+          });
         }
-        formMethods.setValue("customerEmail", data.customerEmail, {
-          shouldDirty: true,
-        });
       }
       formMethods.setValue("memberCode", data.memberCode, {
         shouldDirty: true,
@@ -2314,6 +2339,24 @@ export default function HtmlCaptureSalePage() {
           safeTrim(response?.mensaje) || "No se pudo enviar el correo.",
         );
       }
+      const client = selectedClient ?? findClientFromForm();
+      if (
+        client?.id &&
+        safeTrim(client.email).toLowerCase() !== recipient.toLowerCase()
+      ) {
+        const updated = await updateClient(client.id, {
+          ...client,
+          email: recipient,
+        });
+        if (!updated.ok) {
+          throw new Error(
+            updated.error ?? "Correo enviado, pero no se pudo actualizar el cliente.",
+          );
+        }
+        applyClient(updated.client ?? ({ ...client, email: recipient } as Client), {
+          preserveDocType: true,
+        });
+      }
       toast.success("Correo enviado correctamente.");
     } catch (error) {
       toast.error(
@@ -2539,6 +2582,26 @@ export default function HtmlCaptureSalePage() {
             : parsed.raw || "No se pudo registrar la venta.",
         );
         return;
+      }
+
+      if (
+        saleClient?.id &&
+        safeTrim(saleClient.documentoPredeterminado).toUpperCase() !== doc.docu
+      ) {
+        const updated = await updateClient(saleClient.id, {
+          ...saleClient,
+          documentoPredeterminado: doc.docu,
+        });
+        if (updated.ok) {
+          saleClient =
+            updated.client ??
+            ({ ...saleClient, documentoPredeterminado: doc.docu } as Client);
+          applyClient(saleClient, { preserveDocType: true });
+        } else {
+          toast.warning(
+            "Venta registrada, pero no se pudo actualizar el documento predeterminado del cliente.",
+          );
+        }
       }
 
       const sunat = doc.docu === "FACTURA" ? parseSunatResult(result) : null;
@@ -2935,15 +2998,6 @@ export default function HtmlCaptureSalePage() {
             <button
               type="button"
               className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              onClick={() => void sendTicketEmail()}
-              disabled={isSendingEmail || isRejectedInvoiceView}
-            >
-              <Send className="h-4 w-4" />
-              {isSendingEmail ? "Enviando..." : "Enviar"}
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() =>
                 downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
               }
@@ -3297,6 +3351,16 @@ export default function HtmlCaptureSalePage() {
                 totalAmount={totals.total}
                 preserveMissingClientData={isCapturedSale}
                 onClientSelected={applyClient}
+                allowEmailEdit={isExistingRoute}
+                onSendEmail={
+                  isExistingRoute ? () => void sendTicketEmail() : undefined
+                }
+                sendEmailDisabled={
+                  isRejectedInvoiceView ||
+                  !lastTicket ||
+                  !safeTrim(form.customerEmail)
+                }
+                sendingEmail={isSendingEmail}
                 onCreateClient={
                   isReadOnly ? undefined : handleOpenCreateClientModal
                 }

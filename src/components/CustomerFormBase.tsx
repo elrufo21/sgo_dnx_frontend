@@ -417,17 +417,18 @@ export default function CustomerFormBase({
                     />
                   </div>
 
-                <HookFormInput<CustomerFormValues>
-                  name="clienteCodigo"
-                  label="Codigo cliente"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  onInput={(event) => {
-                    event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "");
-                  }}
-                  placeholder="Codigo de membresia"
-                />
+                  <HookFormInput<CustomerFormValues>
+                    name="clienteCodigo"
+                    label="Codigo cliente"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    onInput={(event) => {
+                      event.currentTarget.value =
+                        event.currentTarget.value.replace(/\D/g, "");
+                    }}
+                    placeholder="Codigo de membresia"
+                  />
 
                   <HookFormInput<CustomerFormValues>
                     name="ruc"
@@ -447,16 +448,16 @@ export default function CustomerFormBase({
                   <HookFormInput<CustomerFormValues>
                     name="dni"
                     label="DNI"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={8}
-                  pattern="[0-9]*"
-                  onInput={(event) => {
-                    event.currentTarget.value = event.currentTarget.value
-                      .replace(/\D/g, "")
-                      .slice(0, 8);
-                  }}
-                  placeholder="Ingrese DNI"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={8}
+                    pattern="[0-9]*"
+                    onInput={(event) => {
+                      event.currentTarget.value = event.currentTarget.value
+                        .replace(/\D/g, "")
+                        .slice(0, 8);
+                    }}
+                    placeholder="Ingrese DNI"
                     rules={{
                       pattern: {
                         value: /^\d{8}$/,
@@ -477,12 +478,6 @@ export default function CustomerFormBase({
                     name="direccionFiscal"
                     label="Direccion Fiscal"
                     placeholder="Ingrese direccion fiscal"
-                  />
-
-                  <HookFormInput<CustomerFormValues>
-                    name="direccionDespacho"
-                    label="Direccion de Despacho"
-                    placeholder="Ingrese direccion de despacho"
                   />
 
                   <HookFormInput<CustomerFormValues>

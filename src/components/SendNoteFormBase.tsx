@@ -116,7 +116,7 @@ export default function SendNoteFormBase({
       atendidoPor: responsibleUser,
       fechaPago: initialData?.fechaPago?.slice?.(0, 10) ?? today,
     }),
-    [initialData, responsibleUser, today]
+    [initialData, responsibleUser, today],
   );
 
   const formMethods = useForm<SendNoteFormValues>({
@@ -197,7 +197,7 @@ export default function SendNoteFormBase({
         direccionDespacho: client.direccionDespacho ?? "",
         telefonoMovil: client.telefonoMovil ?? "",
       })),
-    [clients]
+    [clients],
   );
 
   const rucOptions = useMemo(
@@ -213,7 +213,7 @@ export default function SendNoteFormBase({
           direccionDespacho: client.direccionDespacho ?? "",
           telefonoMovil: client.telefonoMovil ?? "",
         })),
-    [clients]
+    [clients],
   );
 
   const dniOptions = useMemo(
@@ -229,13 +229,13 @@ export default function SendNoteFormBase({
           direccionDespacho: client.direccionDespacho ?? "",
           telefonoMovil: client.telefonoMovil ?? "",
         })),
-    [clients]
+    [clients],
   );
 
   const fillClientFields = useCallback(
     (
       client: Client,
-      options?: { updateRuc?: boolean; updateDni?: boolean }
+      options?: { updateRuc?: boolean; updateDni?: boolean },
     ) => {
       const { updateRuc = false, updateDni = false } = options ?? {};
       if (client.nombreRazon) {
@@ -261,7 +261,7 @@ export default function SendNoteFormBase({
         setValue("telefono", client.telefonoMovil, { shouldDirty: true });
       }
     },
-    [setValue]
+    [setValue],
   );
 
   const rucValue = watch("ruc");
@@ -271,7 +271,7 @@ export default function SendNoteFormBase({
     const trimmedRuc = (rucValue ?? "").trim();
     if (!trimmedRuc) return;
     const found = clients.find(
-      (client) => (client.ruc ?? "").trim() === trimmedRuc
+      (client) => (client.ruc ?? "").trim() === trimmedRuc,
     );
     if (found) {
       fillClientFields(found, { updateDni: true });
@@ -282,7 +282,7 @@ export default function SendNoteFormBase({
     const trimmedDni = (dniValue ?? "").trim();
     if (!trimmedDni) return;
     const found = clients.find(
-      (client) => (client.dni ?? "").trim() === trimmedDni
+      (client) => (client.dni ?? "").trim() === trimmedDni,
     );
     if (found) {
       fillClientFields(found, { updateRuc: true });
@@ -297,7 +297,7 @@ export default function SendNoteFormBase({
         codigo: p.codigo,
         data: p,
       })),
-    [products]
+    [products],
   );
 
   const productCodeOptions = useMemo(
@@ -307,12 +307,12 @@ export default function SendNoteFormBase({
         label: p.codigo,
         productId: p.id,
       })),
-    [products]
+    [products],
   );
 
   const productMap = useMemo(
     () => new Map(productOptions.map((p) => [String(p.value), p.data])),
-    [productOptions]
+    [productOptions],
   );
 
   const openClientList = useCallback(() => {
@@ -407,7 +407,7 @@ export default function SendNoteFormBase({
         .toLowerCase();
       if (!code) return;
       const product = products.find(
-        (p) => (p.codigo ?? "").trim().toLowerCase() === code
+        (p) => (p.codigo ?? "").trim().toLowerCase() === code,
       );
       if (!product) {
         console.warn("Producto no encontrado para el codigo ingresado");
@@ -416,7 +416,7 @@ export default function SendNoteFormBase({
 
       setTableData((prev) => {
         const existingIndex = prev.findIndex(
-          (row) => String(row.productId) === String(product.id)
+          (row) => String(row.productId) === String(product.id),
         );
         let nextRows: SendNoteItem[];
 
@@ -452,12 +452,12 @@ export default function SendNoteFormBase({
 
       setValue("buscarCodigo", "");
     },
-    [getValues, products, normalizeRows, setValue]
+    [getValues, products, normalizeRows, setValue],
   );
 
   const focusQuantityInput = useCallback((rowIndex: number) => {
     const el = document.querySelector<HTMLInputElement>(
-      `[data-quantity-row="${rowIndex}"]`
+      `[data-quantity-row="${rowIndex}"]`,
     );
     el?.focus();
     el?.select?.();
@@ -485,7 +485,7 @@ export default function SendNoteFormBase({
           importe,
         }));
       },
-      [row, table]
+      [row, table],
     );
 
     return (
@@ -529,7 +529,7 @@ export default function SendNoteFormBase({
           preCosto: costo,
         }));
       },
-      [row, table]
+      [row, table],
     );
 
     return (
@@ -572,7 +572,7 @@ export default function SendNoteFormBase({
           importe,
         }));
       },
-      [row, table]
+      [row, table],
     );
 
     return (
@@ -632,13 +632,13 @@ export default function SendNoteFormBase({
         meta: { defaultValue: 0 },
       },
     ],
-    [productOptions, focusQuantityInput]
+    [productOptions, focusQuantityInput],
   );
 
   const onSubmit = (values: SendNoteFormValues) => {
     const detail =
       tableData?.filter(
-        (i) => i.productId !== null && i.productId !== undefined
+        (i) => i.productId !== null && i.productId !== undefined,
       ) ?? [];
     onSave({
       ...values,
@@ -867,14 +867,7 @@ export default function SendNoteFormBase({
                       placeholder="Telefono"
                       rules={{ required: "Requerido" }}
                     /> */}
-                    <div className="col-span-2">
-                      {" "}
-                      <HookFormInput
-                        name="direccionDespacho"
-                        label="Direccion"
-                        placeholder="Direccion de despacho"
-                      />
-                    </div>
+
                     <div className="col-span-2">
                       {" "}
                       <SendNoteTotalsPanel
@@ -965,4 +958,3 @@ function InfoBadge({ label, value }: { label: string; value?: string }) {
     </div>
   );
 }
-
