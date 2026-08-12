@@ -4346,18 +4346,12 @@ const PaymentPage = () => {
         }
 
         if (sunatAceptado) {
-          toast.success(
-            responseMessage ||
-              "Boleta anulada correctamente mediante nota de crédito.",
-          );
+          toast.success(responseMessage || "Boleta anulada .");
         } else if (sunatCode || responseMessage) {
           const detail = [sunatCode, responseMessage]
             .filter(Boolean)
             .join(" - ");
-          toast.warning(
-            detail ||
-              "Boleta anulada mediante nota de crédito, pendiente de confirmación SUNAT.",
-          );
+          toast.warning(detail || "Boleta anulada .");
         } else {
           toast.success("Boleta anulada mediante nota de crédito.");
         }
@@ -5199,7 +5193,11 @@ const PaymentPage = () => {
       let cdrUrl = "";
 
       if (isFactura) {
-        const archivos = await apiRequest<Record<string, unknown>, unknown, null>({
+        const archivos = await apiRequest<
+          Record<string, unknown>,
+          unknown,
+          null
+        >({
           url: buildApiUrl(`/Nota/${ticketIdNumber}/archivos-cpe`),
           method: "GET",
           fallback: null,
@@ -5245,7 +5243,10 @@ const PaymentPage = () => {
       );
       formData.append("para", customerEmail);
       formData.append("asunto", `Comprobante ${documentNumber}`);
-      formData.append("cuerpo", "<p>Adjuntamos su comprobante electrónico.</p>");
+      formData.append(
+        "cuerpo",
+        "<p>Adjuntamos su comprobante electrónico.</p>",
+      );
       formData.append("esHtml", "true");
       formData.append("rucEmisor", companyRucFromSession || "20601070155");
       formData.append("nroComprobante", documentNumber);
@@ -6012,220 +6013,234 @@ const PaymentPage = () => {
           readOnlyPaymentHeader
         ) : (
           <>
-        <HookFormSelect
-          name="docTypeCode"
-          label="Tipo de documento"
-          disabled={formLocked}
-          rules={{
-            validate: (value) =>
-              value && value !== "SELECCIONAR"
-                ? true
-                : "Seleccione un tipo de documento",
-          }}
-          options={[
-            { value: "SELECCIONAR", label: "SELECCIONAR" },
-            { value: "101", label: "Proforma V" },
-            { value: "03", label: "Boleta" },
-            { value: "01", label: "Factura" },
-          ]}
-        />
-        <HookFormSelect
-          name="paymentMethod"
-          label="Forma de pago"
-          disabled={formLocked}
-          onChange={() => {
-            window.requestAnimationFrame(() => {
-              setFocus("customerName");
-            });
-          }}
-          options={PAYMENT_METHOD_OPTIONS}
-        />
-        <HookFormAutocomplete
-          name="customerName"
-          label="Nombre del cliente"
-          placeholder="Seleccionar cliente"
-          options={docTypeCode === "01" ? facturaClientOptions : clientOptions}
-          isOptionEqualToValue={(option: any, value: any) => {
-            const optionId = Number(
-              option?.id ?? option?.clienteId ?? option?.clientId ?? 0,
-            );
-            const valueId = Number(
-              value?.id ??
-                value?.clienteId ??
-                value?.clientId ??
-                clienteId ??
-                0,
-            );
-
-            if (
-              Number.isFinite(optionId) &&
-              optionId > 0 &&
-              Number.isFinite(valueId) &&
-              valueId > 0
-            ) {
-              return optionId === valueId;
-            }
-
-            const optionLabel = safeTrim(
-              option?.label ?? option?.nombreRazon ?? option?.value,
-            );
-            const valueLabel = safeTrim(value?.label ?? value?.value ?? value);
-            return (
-              normalizeSearchText(optionLabel) ===
-              normalizeSearchText(valueLabel)
-            );
-          }}
-          filterOptions={clientFilterOptions as any}
-          rules={{
-            validate: (value: any) => {
-              if (docTypeCode !== "01") return true;
-              const normalized = safeTrim(value);
-              if (!normalized) {
-                return "Nombre de cliente obligatorio para Factura";
+            <HookFormSelect
+              name="docTypeCode"
+              label="Tipo de documento"
+              disabled={formLocked}
+              rules={{
+                validate: (value) =>
+                  value && value !== "SELECCIONAR"
+                    ? true
+                    : "Seleccione un tipo de documento",
+              }}
+              options={[
+                { value: "SELECCIONAR", label: "SELECCIONAR" },
+                { value: "101", label: "Proforma V" },
+                { value: "03", label: "Boleta" },
+                { value: "01", label: "Factura" },
+              ]}
+            />
+            <HookFormSelect
+              name="paymentMethod"
+              label="Forma de pago"
+              disabled={formLocked}
+              onChange={() => {
+                window.requestAnimationFrame(() => {
+                  setFocus("customerName");
+                });
+              }}
+              options={PAYMENT_METHOD_OPTIONS}
+            />
+            <HookFormAutocomplete
+              name="customerName"
+              label="Nombre del cliente"
+              placeholder="Seleccionar cliente"
+              options={
+                docTypeCode === "01" ? facturaClientOptions : clientOptions
               }
-              if (normalized.toUpperCase() === "VARIOS") {
-                return "Para Factura el cliente no puede ser VARIOS";
-              }
-              return true;
-            },
-          }}
-          syncInputToValue
-          disableClearable={formLocked}
-          disabled={formLocked}
-          onInputBlur={({ inputValue }) => {
-            ensureExistingCustomerByName(inputValue);
-          }}
-          onOptionSelected={(opt: any) => {
-            if (!opt) {
-              setValue("customerName", "", { shouldDirty: true });
-              setValue("customerId", "", { shouldDirty: true });
-              setClienteIdFromOption(null, { shouldDirty: true });
-              return;
-            }
+              isOptionEqualToValue={(option: any, value: any) => {
+                const optionId = Number(
+                  option?.id ?? option?.clienteId ?? option?.clientId ?? 0,
+                );
+                const valueId = Number(
+                  value?.id ??
+                    value?.clienteId ??
+                    value?.clientId ??
+                    clienteId ??
+                    0,
+                );
 
-            const selectedName = safeTrim(opt.nombreRazon ?? opt.label ?? "");
-            const docValue =
-              docTypeCode === "01" ? safeTrim(opt.ruc) : safeTrim(opt.dni);
+                if (
+                  Number.isFinite(optionId) &&
+                  optionId > 0 &&
+                  Number.isFinite(valueId) &&
+                  valueId > 0
+                ) {
+                  return optionId === valueId;
+                }
 
-            setValue("customerName", selectedName, { shouldDirty: true });
-            setValue("customerId", docValue || "", { shouldDirty: true });
-            setClienteIdFromOption(opt, { shouldDirty: true });
-          }}
-        />
-        {docTypeCode === "01" ? (
-          <HookFormAutocomplete
-            name="customerId"
-            label="RUC"
-            placeholder="Número de RUC"
-            options={facturaRucOptions}
-            rules={{ validate: validateRucLength }}
-            disableClearable={formLocked}
-            disabled={formLocked}
-            allowCreate
-            createLabel={(value: string) => `Usar RUC: ${value}`}
-            filterOptions={documentFilterOptions as any}
-            isOptionEqualToValue={(option: any, value: any) =>
-              String(option?.value) === String((value as any)?.value ?? value)
-            }
-            onOptionSelected={(opt: any) => {
-              if (!opt) {
-                setValue("customerId", "", { shouldDirty: true });
-                setClienteIdFromOption(null, { shouldDirty: true });
-                return;
-              }
+                const optionLabel = safeTrim(
+                  option?.label ?? option?.nombreRazon ?? option?.value,
+                );
+                const valueLabel = safeTrim(
+                  value?.label ?? value?.value ?? value,
+                );
+                return (
+                  normalizeSearchText(optionLabel) ===
+                  normalizeSearchText(valueLabel)
+                );
+              }}
+              filterOptions={clientFilterOptions as any}
+              rules={{
+                validate: (value: any) => {
+                  if (docTypeCode !== "01") return true;
+                  const normalized = safeTrim(value);
+                  if (!normalized) {
+                    return "Nombre de cliente obligatorio para Factura";
+                  }
+                  if (normalized.toUpperCase() === "VARIOS") {
+                    return "Para Factura el cliente no puede ser VARIOS";
+                  }
+                  return true;
+                },
+              }}
+              syncInputToValue
+              disableClearable={formLocked}
+              disabled={formLocked}
+              onInputBlur={({ inputValue }) => {
+                ensureExistingCustomerByName(inputValue);
+              }}
+              onOptionSelected={(opt: any) => {
+                if (!opt) {
+                  setValue("customerName", "", { shouldDirty: true });
+                  setValue("customerId", "", { shouldDirty: true });
+                  setClienteIdFromOption(null, { shouldDirty: true });
+                  return;
+                }
 
-              const selectedDoc = resolveDocumentValue(opt, "ruc");
-              const selectedName = safeTrim(opt?.nombreRazon ?? "");
+                const selectedName = safeTrim(
+                  opt.nombreRazon ?? opt.label ?? "",
+                );
+                const docValue =
+                  docTypeCode === "01" ? safeTrim(opt.ruc) : safeTrim(opt.dni);
 
-              setValue("customerId", selectedDoc, { shouldDirty: true });
-              if (selectedName) {
                 setValue("customerName", selectedName, { shouldDirty: true });
+                setValue("customerId", docValue || "", { shouldDirty: true });
                 setClienteIdFromOption(opt, { shouldDirty: true });
-                return;
-              }
+              }}
+            />
+            {docTypeCode === "01" ? (
+              <HookFormAutocomplete
+                name="customerId"
+                label="RUC"
+                placeholder="Número de RUC"
+                options={facturaRucOptions}
+                rules={{ validate: validateRucLength }}
+                disableClearable={formLocked}
+                disabled={formLocked}
+                allowCreate
+                createLabel={(value: string) => `Usar RUC: ${value}`}
+                filterOptions={documentFilterOptions as any}
+                isOptionEqualToValue={(option: any, value: any) =>
+                  String(option?.value) ===
+                  String((value as any)?.value ?? value)
+                }
+                onOptionSelected={(opt: any) => {
+                  if (!opt) {
+                    setValue("customerId", "", { shouldDirty: true });
+                    setClienteIdFromOption(null, { shouldDirty: true });
+                    return;
+                  }
 
-              // Documento manual (freeSolo): no cliente asociado.
-              setClienteIdFromOption(null, { shouldDirty: true });
-            }}
-          />
-        ) : (
-          <HookFormAutocomplete
-            name="customerId"
-            label="DNI"
-            placeholder="Número de DNI"
-            options={dniOptions}
-            rules={{ validate: validateDniLength }}
-            disableClearable={formLocked}
-            disabled={formLocked}
-            allowCreate
-            createLabel={(value: string) => `Usar DNI: ${value}`}
-            filterOptions={documentFilterOptions as any}
-            isOptionEqualToValue={(option: any, value: any) =>
-              String(option?.value) === String((value as any)?.value ?? value)
-            }
-            onOptionSelected={(opt: any) => {
-              if (!opt) {
-                setValue("customerId", "", { shouldDirty: true });
-                setClienteIdFromOption(null, { shouldDirty: true });
-                return;
-              }
+                  const selectedDoc = resolveDocumentValue(opt, "ruc");
+                  const selectedName = safeTrim(opt?.nombreRazon ?? "");
 
-              const selectedDoc = resolveDocumentValue(opt, "dni");
-              const selectedName = safeTrim(opt?.nombreRazon ?? "");
+                  setValue("customerId", selectedDoc, { shouldDirty: true });
+                  if (selectedName) {
+                    setValue("customerName", selectedName, {
+                      shouldDirty: true,
+                    });
+                    setClienteIdFromOption(opt, { shouldDirty: true });
+                    return;
+                  }
 
-              setValue("customerId", selectedDoc, { shouldDirty: true });
-              if (selectedName) {
-                setValue("customerName", selectedName, { shouldDirty: true });
-                setClienteIdFromOption(opt, { shouldDirty: true });
-                return;
-              }
+                  // Documento manual (freeSolo): no cliente asociado.
+                  setClienteIdFromOption(null, { shouldDirty: true });
+                }}
+              />
+            ) : (
+              <HookFormAutocomplete
+                name="customerId"
+                label="DNI"
+                placeholder="Número de DNI"
+                options={dniOptions}
+                rules={{ validate: validateDniLength }}
+                disableClearable={formLocked}
+                disabled={formLocked}
+                allowCreate
+                createLabel={(value: string) => `Usar DNI: ${value}`}
+                filterOptions={documentFilterOptions as any}
+                isOptionEqualToValue={(option: any, value: any) =>
+                  String(option?.value) ===
+                  String((value as any)?.value ?? value)
+                }
+                onOptionSelected={(opt: any) => {
+                  if (!opt) {
+                    setValue("customerId", "", { shouldDirty: true });
+                    setClienteIdFromOption(null, { shouldDirty: true });
+                    return;
+                  }
 
-              // Documento manual (freeSolo): no cliente asociado.
-              setClienteIdFromOption(null, { shouldDirty: true });
-            }}
-          />
-        )}
-        {!formLocked && (
-          <button
-            type="button"
-            className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-            onClick={handleOpenCreateClientModal}
-          >
-            <UserPlus className="h-4 w-4" />
-            Agregar cliente
-          </button>
-        )}
-        {paymentNeedsOperation && (
-          <HookFormSelect
-            name="bankEntity"
-            label="Entidad bancaria"
-            disabled={formLocked}
-            rules={{
-              validate: (value: any) => {
-                const normalized = safeTrim(value);
-                return normalized &&
-                  normalized !== "-" &&
-                  normalized !== "(SELECCIONE)"
-                  ? true
-                  : "Entidad bancaria obligatoria";
-              },
-            }}
-            options={BANK_ENTITY_OPTIONS}
-          />
-        )}
-        {paymentNeedsOperation && (
-          <HookFormInput
-            name="nroOperacion"
-            label="N° Operación"
-            disabled={formLocked}
-            placeholder="Número de operación"
-            rules={{
-              validate: (value: any) => {
-                return safeTrim(value) ? true : "N° de operación obligatorio";
-              },
-            }}
-          />
-        )}
+                  const selectedDoc = resolveDocumentValue(opt, "dni");
+                  const selectedName = safeTrim(opt?.nombreRazon ?? "");
+
+                  setValue("customerId", selectedDoc, { shouldDirty: true });
+                  if (selectedName) {
+                    setValue("customerName", selectedName, {
+                      shouldDirty: true,
+                    });
+                    setClienteIdFromOption(opt, { shouldDirty: true });
+                    return;
+                  }
+
+                  // Documento manual (freeSolo): no cliente asociado.
+                  setClienteIdFromOption(null, { shouldDirty: true });
+                }}
+              />
+            )}
+            {!formLocked && (
+              <button
+                type="button"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                onClick={handleOpenCreateClientModal}
+              >
+                <UserPlus className="h-4 w-4" />
+                Agregar cliente
+              </button>
+            )}
+            {paymentNeedsOperation && (
+              <HookFormSelect
+                name="bankEntity"
+                label="Entidad bancaria"
+                disabled={formLocked}
+                rules={{
+                  validate: (value: any) => {
+                    const normalized = safeTrim(value);
+                    return normalized &&
+                      normalized !== "-" &&
+                      normalized !== "(SELECCIONE)"
+                      ? true
+                      : "Entidad bancaria obligatoria";
+                  },
+                }}
+                options={BANK_ENTITY_OPTIONS}
+              />
+            )}
+            {paymentNeedsOperation && (
+              <HookFormInput
+                name="nroOperacion"
+                label="N° Operación"
+                disabled={formLocked}
+                placeholder="Número de operación"
+                rules={{
+                  validate: (value: any) => {
+                    return safeTrim(value)
+                      ? true
+                      : "N° de operación obligatorio";
+                  },
+                }}
+              />
+            )}
           </>
         )}
         {/**<div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700">

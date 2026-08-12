@@ -482,7 +482,7 @@ const OrderNotesList = () => {
               type="button"
               className="text-sm font-medium text-blue-600 hover:underline"
               onClick={() =>
-                navigate(`/sales/html_capture/${noteId}`)
+                navigate(`/sales/html_capture/${noteId}?from=order-notes`)
               }
             >
               Ver

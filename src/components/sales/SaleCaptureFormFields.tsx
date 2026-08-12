@@ -899,6 +899,12 @@ export function SaleCaptureFormFields({
               name="customerEmail"
               label="Correo"
               type="email"
+              rules={{
+                validate: (value) =>
+                  !value ||
+                  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ||
+                  "Ingresa un correo valido, por ejemplo correo@dominio.com.",
+              }}
               disabled={!allowEmailEdit || sendingEmail}
               placeholder="Correo del cliente"
             />

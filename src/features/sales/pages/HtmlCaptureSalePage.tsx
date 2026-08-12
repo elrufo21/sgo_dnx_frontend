@@ -1,5 +1,6 @@
 import { pdf } from "@react-pdf/renderer";
 import {
+  ArrowLeft,
   CheckCircle2,
   FileDown,
   FileUp,
@@ -101,14 +102,6 @@ type Correlative = {
   nroComprobante: string;
   serie: string;
 } | null;
-type StoredTicket = {
-  capture: CaptureData | null;
-  documentNumber: string;
-  form: SaleForm;
-  monthlyPvs: number;
-  noteId: number;
-  rows: SaleRow[];
-};
 type ViewSunatStatus = {
   docuId: number;
   estadoSunat: string;
@@ -182,11 +175,10 @@ const defaultForm: SaleForm = {
   memberCode: "",
   transactionNumber: "",
 };
-const ticketStorageKey = (noteId: number | string) =>
-  `sgo:html-capture-ticket:${noteId}`;
-
 const safeTrim = (value: unknown) => String(value ?? "").trim();
 const normalizeCode = (value: unknown) => safeTrim(value).toUpperCase();
+const isValidEmail = (value: unknown) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeTrim(value));
 const readText = (root: ParentNode, selector: string) =>
   root.querySelector(selector)?.textContent?.trim() ?? "";
 const normalizeCaptureText = (value: unknown) =>
@@ -340,6 +332,13 @@ const asRecord = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+const asRecordList = (value: unknown) => {
+  if (Array.isArray(value)) return value.map(asRecord).filter(Boolean);
+  const record = asRecord(value);
+  const items = record?.items ?? record?.data ?? record?.detalles;
+  if (Array.isArray(items)) return items.map(asRecord).filter(Boolean);
+  return record ? [record] : [];
+};
 const firstValue = (
   record: Record<string, unknown> | null,
   ...keys: string[]
@@ -506,12 +505,13 @@ export default function HtmlCaptureSalePage() {
   const routeNoteId = Number(id ?? 0);
   const isExistingRoute =
     !isNewRoute && Number.isFinite(routeNoteId) && routeNoteId > 0;
-  const routeKey = isExistingRoute ? `id:${routeNoteId}` : "new";
+  const isFromOrderNotesView =
+    isExistingRoute &&
+    new URLSearchParams(location.search).get("from") === "order-notes";
   const isReadOnly = isExistingRoute;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const externalCaptureKeyRef = useRef("");
   const appliedCaptureKeyRef = useRef("");
-  const loadedRouteKeyRef = useRef("");
   const registerSaleRef = useRef(false);
   const focusedPagoVariosPaymentMethodRef = useRef("");
   const appliedClientRef = useRef<Client | null>(null);
@@ -522,6 +522,7 @@ export default function HtmlCaptureSalePage() {
     clients,
     fetchClients,
     searchClients,
+    fetchClientById,
     fetchClientByCodigo,
     addClient,
     updateClient,
@@ -542,6 +543,7 @@ export default function HtmlCaptureSalePage() {
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
   const [viewSunatStatus, setViewSunatStatus] = useState<ViewSunatStatus>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isVoidingTicket, setIsVoidingTicket] = useState(false);
   const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
   const [manualSaleType, setManualSaleType] =
     useState<ManualSaleType>("VENTA LIBRE");
@@ -636,38 +638,183 @@ export default function HtmlCaptureSalePage() {
   }, [navigate, resetDraft]);
 
   useEffect(() => {
-    if (loadedRouteKeyRef.current === routeKey) return;
-    loadedRouteKeyRef.current = routeKey;
-
     if (!isExistingRoute) {
       resetDraft();
       return;
     }
 
-    try {
-      const stored = localStorage.getItem(ticketStorageKey(routeNoteId));
-      if (!stored) {
-        return;
-      }
+    let active = true;
+    const loadRecord = async () => {
+      try {
+        const [notaResult, detailsResult] = await Promise.all([
+          apiRequest<Record<string, unknown>, unknown, null>({
+            url: buildApiUrl(`/Nota/${routeNoteId}`),
+            method: "GET",
+            fallback: null,
+          }),
+          apiRequest<unknown, unknown, null>({
+            url: buildApiUrl(`/Nota/${routeNoteId}/detalles`),
+            method: "GET",
+            fallback: null,
+          }),
+        ]);
+        const nota = asRecord(notaResult);
+        if (!nota) throw new Error("Registro no encontrado.");
 
-      const ticket = JSON.parse(stored) as StoredTicket;
-      const storedForm = { ...defaultForm, ...ticket.form };
-      if (storedForm.docTypeCode === "01" && !storedForm.customerRuc) {
-        storedForm.customerRuc = storedForm.customerDoc;
-        storedForm.customerDoc = "";
+        const clientId = Number(nota.clienteId ?? nota.ClienteId ?? 0);
+        const client = clientId ? await fetchClientById(clientId) : null;
+        if (!active) return;
+
+        const docu = safeTrim(nota.notaDocu ?? nota.NotaDocu).toUpperCase();
+        const docTypeCode: SaleForm["docTypeCode"] = docu.includes("FACTURA")
+          ? "01"
+          : docu.includes("PROFORMA")
+            ? "101"
+            : "03";
+        const condition = safeTrim(nota.notaCondicion ?? nota.NotaCondicion);
+        const paymentMethod = safeTrim(
+          nota.notaFormaPago ?? nota.NotaFormaPago,
+        );
+        const serie = safeTrim(nota.notaSerie ?? nota.NotaSerie);
+        const numero = safeTrim(nota.notaNumero ?? nota.NotaNumero);
+        const productById = new Map(
+          useProductsStore
+            .getState()
+            .products.map((product) => [product.id, product]),
+        );
+        const rowsFromDatabase = asRecordList(detailsResult).map((detail) => {
+          const productId = Number(
+            detail?.idProducto ?? detail?.IdProducto ?? 0,
+          );
+          const price = Number(
+            detail?.detallePrecio ?? detail?.DetallePrecio ?? 0,
+          );
+          const cost = Number(
+            detail?.detalleCosto ?? detail?.DetalleCosto ?? 0,
+          );
+          const product = productById.get(productId) ?? {
+            id: productId,
+            codigo: `PRODUCTO-${productId}`,
+            nombre: safeTrim(
+              detail?.detalleDescripcion ?? detail?.DetalleDescripcion,
+            ),
+            unidadMedida:
+              safeTrim(detail?.detalleUm ?? detail?.DetalleUm) || "UNIDAD",
+            valorCritico: 0,
+            preCosto: cost,
+            preVenta: price,
+            preVentaB: price,
+            aplicaINV: "S" as const,
+            cantidad: 0,
+            usuario: "",
+            estado: "ACTIVO" as const,
+          };
+          const quantity = Number(
+            detail?.detalleCantidad ?? detail?.DetalleCantidad ?? 0,
+          );
+          return {
+            product,
+            code: product.codigo,
+            description:
+              safeTrim(
+                detail?.detalleDescripcion ?? detail?.DetalleDescripcion,
+              ) || product.nombre,
+            quantity,
+            price,
+            cost,
+            stock: Number(product.cantidad ?? 0),
+            pv: Number(
+              detail?.detallePV ?? detail?.DetallePV ?? product.pv ?? 0,
+            ),
+            sv: Number(
+              detail?.detalleSV ?? detail?.DetalleSV ?? product.sv ?? 0,
+            ),
+            matched: true,
+          } satisfies SaleRow;
+        });
+
+        const formFromDatabase: SaleForm = {
+          ...defaultForm,
+          concept:
+            safeTrim(nota.notaConcepto ?? nota.NotaConcepto).toUpperCase() ===
+            "SERVICIO"
+              ? "SERVICIO"
+              : "MERCADERIA",
+          docTypeCode,
+          correlativeDisplay: [serie, numero].filter(Boolean).join("-"),
+          condition: ["ALCONTADO", "CREDITO", "PAGO/VARIOS"].includes(condition)
+            ? (condition as SaleForm["condition"])
+            : defaultForm.condition,
+          delivery:
+            safeTrim(nota.notaEntrega ?? nota.NotaEntrega).toUpperCase() ===
+            "POR ENTREGAR"
+              ? "POR ENTREGAR"
+              : "INMEDIATA",
+          emissionDate: safeTrim(nota.notaFecha ?? nota.NotaFecha).slice(0, 10),
+          paymentMethod: PAYMENT_METHOD_OPTIONS.includes(
+            paymentMethod as (typeof PAYMENT_METHOD_OPTIONS)[number],
+          )
+            ? (paymentMethod as SaleForm["paymentMethod"])
+            : defaultForm.paymentMethod,
+          bankEntity:
+            safeTrim(nota.entidadBancaria ?? nota.EntidadBancaria) || "-",
+          operationNumber: safeTrim(nota.nroOperacion ?? nota.NroOperacion),
+          paymentDeposit: safeTrim(nota.deposito ?? nota.Deposito),
+          paymentCash: safeTrim(nota.efectivo ?? nota.Efectivo),
+          customerName:
+            client?.nombreRazon || safeTrim(nota.miembro ?? nota.Miembro),
+          customerEmail: client?.email || "",
+          customerDoc: docTypeCode === "01" ? "" : client?.dni || "",
+          customerRuc: docTypeCode === "01" ? client?.ruc || "" : "",
+          address:
+            client?.direccionFiscal ||
+            client?.direccionDespacho ||
+            safeTrim(nota.notaDireccion ?? nota.NotaDireccion),
+          memberCode:
+            client?.clienteCodigo ||
+            safeTrim(nota.codigoCliente ?? nota.CodigoCliente),
+          transactionNumber: safeTrim(
+            nota.notaTransaccion ?? nota.NotaTransaccion,
+          ),
+        };
+
+        appliedClientRef.current = client;
+        formMethods.reset(formFromDatabase);
+        setCapture(null);
+        setRows(rowsFromDatabase);
+        setMonthlyPvs(0);
+        setManualSaleType(
+          safeTrim(nota.conceptoOBS ?? nota.ConceptoOBS)
+            .toUpperCase()
+            .includes("POR PASAR")
+            ? "POR PASAR AL OBS"
+            : "VENTA LIBRE",
+        );
+        setCorrelative({
+          serie,
+          numero,
+          nroComprobante: [serie, numero].filter(Boolean).join("-"),
+        });
+        setLastTicket({
+          documentNumber: [serie, numero].filter(Boolean).join("-"),
+          noteId: routeNoteId,
+        });
+      } catch (error) {
+        if (active) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el registro.",
+          );
+        }
       }
-      formMethods.reset(storedForm);
-      setCapture(ticket.capture);
-      setRows(ticket.rows);
-      setMonthlyPvs(ticket.monthlyPvs ?? 0);
-      setLastTicket({
-        documentNumber: ticket.documentNumber,
-        noteId: ticket.noteId,
-      });
-    } catch {
-      toast.error("No se pudo cargar el ticket guardado.");
-    }
-  }, [formMethods, isExistingRoute, resetDraft, routeKey, routeNoteId]);
+    };
+
+    void loadRecord();
+    return () => {
+      active = false;
+    };
+  }, [fetchClientById, formMethods, isExistingRoute, resetDraft, routeNoteId]);
 
   useEffect(() => {
     if (!isExistingRoute) {
@@ -691,7 +838,13 @@ export default function HtmlCaptureSalePage() {
       .then(([nota, archivos]) => {
         if (!active || !nota) return;
         setViewSunatStatus({
-          docuId: Number(archivos?.docuId ?? archivos?.DocuId) || 0,
+          docuId:
+            Number(
+              archivos?.docuId ??
+                archivos?.DocuId ??
+                nota.docuId ??
+                nota.DocuId,
+            ) || 0,
           estadoSunat: safeTrim(nota.estadoSunat ?? nota.EstadoSunat),
           docuEstado: safeTrim(nota.docuEstado ?? nota.DocuEstado),
           notaDocu: safeTrim(nota.notaDocu ?? nota.NotaDocu),
@@ -713,6 +866,7 @@ export default function HtmlCaptureSalePage() {
   }, [fetchProducts, products.length]);
 
   useEffect(() => {
+    if (isReadOnly) return;
     const doc = DOC_CONFIG[form.docTypeCode];
     let active = true;
     setCorrelative(null);
@@ -754,7 +908,7 @@ export default function HtmlCaptureSalePage() {
     return () => {
       active = false;
     };
-  }, [form.docTypeCode, session.companyId]);
+  }, [form.docTypeCode, isReadOnly, session.companyId]);
 
   const fetchPagoVarios = useCallback(async () => {
     if (!session.userId) {
@@ -1781,7 +1935,7 @@ export default function HtmlCaptureSalePage() {
             capturedInvoiceApiRucRef.current = "";
             focusSaleField("customerRuc");
             toast.error(
-              lookup?.message ||
+              (lookup && !lookup.ok ? lookup.message : "") ||
                 "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
             );
             return;
@@ -2205,7 +2359,16 @@ export default function HtmlCaptureSalePage() {
     ).toBlob();
   };
 
+  const isTicketOutputBlocked = () =>
+    [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some((value) =>
+      ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
+    );
+
   const downloadTicket = async (documentNumber: string, noteId: number) => {
+    if (isTicketOutputBlocked()) {
+      toast.error("No se puede descargar un comprobante anulado o rechazado.");
+      return;
+    }
     const blob = await buildTicketBlob(documentNumber, noteId);
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -2219,6 +2382,10 @@ export default function HtmlCaptureSalePage() {
 
   const printTicket = async (ticket = lastTicket) => {
     if (!ticket) return;
+    if (isTicketOutputBlocked()) {
+      toast.error("No se puede imprimir un comprobante anulado o rechazado.");
+      return;
+    }
     const blob = await buildTicketBlob(ticket.documentNumber, ticket.noteId);
     const file = new File([blob], `${ticket.documentNumber || "ticket"}.pdf`, {
       type: "application/pdf",
@@ -2249,21 +2416,18 @@ export default function HtmlCaptureSalePage() {
 
   const sendTicketEmail = async () => {
     if (!lastTicket || isSendingEmail) return;
+    if (isTicketOutputBlocked()) {
+      toast.error("No se puede enviar un comprobante anulado o rechazado.");
+      return;
+    }
 
     const recipient = safeTrim(form.customerEmail);
     if (!recipient) {
       toast.error("El cliente no tiene correo registrado.");
       return;
     }
-    if (
-      [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some(
-        (value) => {
-          const status = safeTrim(value).toUpperCase();
-          return status === "RECHAZADO" || status === "ANULADO";
-        },
-      )
-    ) {
-      toast.error("No se puede enviar un comprobante rechazado o anulado.");
+    if (!isValidEmail(recipient)) {
+      toast.error("Ingresa un correo valido, por ejemplo correo@dominio.com.");
       return;
     }
     setIsSendingEmail(true);
@@ -2349,12 +2513,16 @@ export default function HtmlCaptureSalePage() {
         });
         if (!updated.ok) {
           throw new Error(
-            updated.error ?? "Correo enviado, pero no se pudo actualizar el cliente.",
+            updated.error ??
+              "Correo enviado, pero no se pudo actualizar el cliente.",
           );
         }
-        applyClient(updated.client ?? ({ ...client, email: recipient } as Client), {
-          preserveDocType: true,
-        });
+        applyClient(
+          updated.client ?? ({ ...client, email: recipient } as Client),
+          {
+            preserveDocType: true,
+          },
+        );
       }
       toast.success("Correo enviado correctamente.");
     } catch (error) {
@@ -2364,6 +2532,87 @@ export default function HtmlCaptureSalePage() {
     } finally {
       setIsSendingEmail(false);
     }
+  };
+
+  const handleVoidViewedNote = () => {
+    if (!lastTicket || isVoidingTicket) return;
+    const documentNumber = lastTicket.documentNumber;
+    const isInvoice = form.docTypeCode === "01";
+    const documentLabel = isInvoice ? "factura" : "boleta";
+    openDialog({
+      title: `Anular ${documentLabel}`,
+      content: (
+        <p>
+          ¿Seguro que deseas anular la {documentLabel} {documentNumber}
+          {isInvoice ? " mediante nota de crédito" : ""}?
+        </p>
+      ),
+      confirmText: "Anular",
+      cancelText: "Cancelar",
+      onConfirm: async () => {
+        setIsVoidingTicket(true);
+        try {
+          const result = await apiRequest<
+            Record<string, unknown>,
+            unknown,
+            null
+          >({
+            url: buildApiUrl(
+              isInvoice
+                ? "/Nota/factura/anular-individual"
+                : "/Nota/boleta/anular-individual",
+            ),
+            method: "POST",
+            data: {
+              DOCU_ID: viewSunatStatus?.docuId || undefined,
+              NRO_DOCUMENTO_MODIFICA: documentNumber,
+              DESCRIPCION_MOTIVO: "ANULACION DE LA OPERACION",
+              FECHA_DOCUMENTO: localDate(),
+            },
+            config: {
+              headers: {
+                Accept: "*/*",
+                "Content-Type": "application/json",
+              },
+            },
+          });
+          const response = asRecord(result);
+          const errorResponse = asRecord(response?.response);
+          const errorData = asRecord(errorResponse?.data);
+          const resultText = safeTrim(response?.resultado).toLowerCase();
+          if (
+            !result ||
+            response?.ok === false ||
+            resultText === "false" ||
+            resultText === "0"
+          ) {
+            throw new Error(
+              safeTrim(
+                response?.mensaje ??
+                  response?.message ??
+                  errorData?.mensaje ??
+                  errorData?.message,
+              ) || `No se pudo anular la ${documentLabel}.`,
+            );
+          }
+          setViewSunatStatus((current) =>
+            current
+              ? { ...current, estadoSunat: "ANULADO", docuEstado: "ANULADO" }
+              : current,
+          );
+          toast.success(safeTrim(response?.mensaje ?? response?.message) || `La ${documentLabel} fue anulada correctamente.`);
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : `No se pudo anular la ${documentLabel}.`,
+          );
+          return false;
+        } finally {
+          setIsVoidingTicket(false);
+        }
+      },
+    });
   };
 
   const registerSale = async () => {
@@ -2617,17 +2866,6 @@ export default function HtmlCaptureSalePage() {
           cdrUrl: "",
         });
       }
-      localStorage.setItem(
-        ticketStorageKey(parsed.noteId),
-        JSON.stringify({
-          capture,
-          documentNumber,
-          form: formMethods.getValues(),
-          monthlyPvs,
-          noteId: parsed.noteId,
-          rows,
-        } satisfies StoredTicket),
-      );
       navigate(`/sales/html_capture/${parsed.noteId}`, { replace: true });
       if (!rejectedInvoice) {
         void printTicket(ticket).catch((error) => {
@@ -2960,12 +3198,48 @@ export default function HtmlCaptureSalePage() {
     [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some(
       (value) => safeTrim(value).toUpperCase() === "RECHAZADO",
     );
+  const isAnnulledViewedNote =
+    isReadOnly &&
+    [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some(
+      (value) => safeTrim(value).toUpperCase() === "ANULADO",
+    );
+  const isBlockedViewedNote = isRejectedInvoiceView || isAnnulledViewedNote;
+  const canVoidViewedNote =
+    isExistingRoute &&
+    ["01", "03"].includes(form.docTypeCode) &&
+    Boolean(lastTicket) &&
+    !isVoidingTicket &&
+    ![viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some((value) =>
+      ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
+    );
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
       {PagoVariosModal}
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         {isExistingRoute ? (
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50"
+            onClick={() =>
+              isFromOrderNotesView ? navigate("/sales/order_notes") : navigate(-1)
+            }
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        ) : null}
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+          {canVoidViewedNote ? (
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 text-sm font-medium text-red-800 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={handleVoidViewedNote}
+          >
+            <Trash2 className="h-4 w-4" />
+            Anular
+          </button>
+          ) : null}
+          {isExistingRoute ? (
           <button
             type="button"
             className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
@@ -2974,8 +3248,8 @@ export default function HtmlCaptureSalePage() {
             <Plus className="h-4 w-4" />
             Nuevo
           </button>
-        ) : null}
-        {lastTicket ? (
+          ) : null}
+          {lastTicket ? (
           <>
             <button
               type="button"
@@ -2989,7 +3263,7 @@ export default function HtmlCaptureSalePage() {
                   );
                 })
               }
-              disabled={isRejectedInvoiceView}
+              disabled={isBlockedViewedNote}
             >
               <Printer className="h-4 w-4" />
               Imprimir
@@ -3000,13 +3274,14 @@ export default function HtmlCaptureSalePage() {
               onClick={() =>
                 downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
               }
-              disabled={isRejectedInvoiceView}
+              disabled={isBlockedViewedNote}
             >
               <FileDown className="h-4 w-4" />
               Descargar
             </button>
           </>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       {/* Barra de acciones */}
@@ -3334,7 +3609,7 @@ export default function HtmlCaptureSalePage() {
 
         {/* Datos de la venta */}
         <section className="order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white xl:sticky xl:top-4">
-          {isRejectedInvoiceView ? (
+          {isBlockedViewedNote ? (
             <div className="bg-red-600 px-4 py-2 text-center text-sm font-black tracking-[0.18em] text-white">
               ANULADO
             </div>
@@ -3353,9 +3628,9 @@ export default function HtmlCaptureSalePage() {
                   isExistingRoute ? () => void sendTicketEmail() : undefined
                 }
                 sendEmailDisabled={
-                  isRejectedInvoiceView ||
+                  isBlockedViewedNote ||
                   !lastTicket ||
-                  !safeTrim(form.customerEmail)
+                  !isValidEmail(form.customerEmail)
                 }
                 sendingEmail={isSendingEmail}
                 onCreateClient={
