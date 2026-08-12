@@ -774,7 +774,7 @@ export function SaleCaptureFormFields({
           {onSendEmail ? (
             <button
               type="button"
-              className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-lg border border-sky-300 bg-sky-50 px-3 text-sm font-medium text-sky-800 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3"
               onClick={onSendEmail}
               disabled={sendEmailDisabled || sendingEmail}
             >

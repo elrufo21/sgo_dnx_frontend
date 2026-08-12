@@ -1,6 +1,5 @@
 import { pdf } from "@react-pdf/renderer";
 import {
-  AlertCircle,
   CheckCircle2,
   FileDown,
   FileUp,
@@ -2980,7 +2979,7 @@ export default function HtmlCaptureSalePage() {
           <>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() =>
                 void printTicket().catch((error) => {
                   toast.error(
@@ -2997,7 +2996,7 @@ export default function HtmlCaptureSalePage() {
             </button>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() =>
                 downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
               }
@@ -3009,13 +3008,6 @@ export default function HtmlCaptureSalePage() {
           </>
         ) : null}
       </div>
-
-      {isRejectedInvoiceView ? (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm font-semibold text-red-700">
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          Factura rechazada por SUNAT/OSE.
-        </div>
-      ) : null}
 
       {/* Barra de acciones */}
       {!isReadOnly ? (
@@ -3050,7 +3042,7 @@ export default function HtmlCaptureSalePage() {
           </button>
           <button
             type="button"
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-red-800 bg-red-800 px-4 text-sm font-medium leading-none text-white transition-colors hover:border-red-900 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-green-700 px-4 text-sm font-semibold leading-none text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             onClick={registerSale}
             disabled={
               isSaving ||
@@ -3341,7 +3333,12 @@ export default function HtmlCaptureSalePage() {
         </section>
 
         {/* Datos de la venta */}
-        <section className="order-2 min-w-0 rounded-lg border border-slate-200 bg-white xl:sticky xl:top-4">
+        <section className="order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white xl:sticky xl:top-4">
+          {isRejectedInvoiceView ? (
+            <div className="bg-red-600 px-4 py-2 text-center text-sm font-black tracking-[0.18em] text-white">
+              ANULADO
+            </div>
+          ) : null}
           <HookForm methods={formMethods} onSubmit={() => undefined}>
             <div className="px-4 py-3">
               <SaleCaptureFormFields
