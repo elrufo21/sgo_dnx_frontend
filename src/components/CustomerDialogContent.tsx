@@ -6,7 +6,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@mui/material";
-import { Check, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import CustomerFormBase from "@/components/CustomerFormBase";
 import { useDialogStore } from "@/store/app/dialog.store";
@@ -64,8 +64,9 @@ export default function CustomerDialogContent({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    if (activeTab !== "list") return;
     void fetchClients("");
-  }, [fetchClients]);
+  }, [activeTab, fetchClients]);
 
   useEffect(() => {
     if (activeTab !== "list") return;

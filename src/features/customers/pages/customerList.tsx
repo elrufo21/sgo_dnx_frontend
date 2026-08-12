@@ -69,7 +69,11 @@ const CustomerList = () => {
         cell: (info) => fallback(info.getValue()),
       }),
       columnHelper.accessor("documentoPredeterminado", {
-        header: "Documento predeterminado",
+        header: "Documento",
+        cell: (info) => fallback(info.getValue()),
+      }),
+      columnHelper.accessor("email", {
+        header: "Correo",
         cell: (info) => fallback(info.getValue()),
       }),
       columnHelper.display({
@@ -101,7 +105,6 @@ const CustomerList = () => {
     ],
     [askDelete],
   );
-  console.log("filteredClients", filteredClients);
 
   return (
     <DataTable
@@ -119,9 +122,6 @@ const CustomerList = () => {
       searchPlaceholder="Buscar por codigo, razon social, RUC o DNI"
       emptyMessage="No se encontraron clientes."
       initialPageSize={50}
-      toolbarLeading={
-        <BackArrowButton className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100" />
-      }
       renderFilters={
         <select
           value={estado}

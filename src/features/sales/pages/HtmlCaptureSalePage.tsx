@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   FileDown,
   FileUp,
+  Send,
   Plus,
   Printer,
   RotateCcw,
@@ -111,9 +112,12 @@ type StoredTicket = {
   rows: SaleRow[];
 };
 type ViewSunatStatus = {
+  docuId: number;
   estadoSunat: string;
   docuEstado: string;
   notaDocu: string;
+  xmlUrl: string;
+  cdrUrl: string;
 } | null;
 type PagoVariosItem = {
   docuId: number;
@@ -539,6 +543,7 @@ export default function HtmlCaptureSalePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
   const [viewSunatStatus, setViewSunatStatus] = useState<ViewSunatStatus>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
   const [manualSaleType, setManualSaleType] =
     useState<ManualSaleType>("VENTA LIBRE");
@@ -673,17 +678,27 @@ export default function HtmlCaptureSalePage() {
     }
 
     let active = true;
-    apiRequest<Record<string, unknown>, unknown, null>({
-      url: buildApiUrl(`/Nota/${routeNoteId}`),
-      method: "GET",
-      fallback: null,
-    })
-      .then((nota) => {
+    Promise.all([
+      apiRequest<Record<string, unknown>, unknown, null>({
+        url: buildApiUrl(`/Nota/${routeNoteId}`),
+        method: "GET",
+        fallback: null,
+      }),
+      apiRequest<Record<string, unknown>, unknown, null>({
+        url: buildApiUrl(`/Nota/${routeNoteId}/archivos-cpe`),
+        method: "GET",
+        fallback: null,
+      }),
+    ])
+      .then(([nota, archivos]) => {
         if (!active || !nota) return;
         setViewSunatStatus({
+          docuId: Number(archivos?.docuId ?? archivos?.DocuId) || 0,
           estadoSunat: safeTrim(nota.estadoSunat ?? nota.EstadoSunat),
           docuEstado: safeTrim(nota.docuEstado ?? nota.DocuEstado),
           notaDocu: safeTrim(nota.notaDocu ?? nota.NotaDocu),
+          xmlUrl: safeTrim(archivos?.xmlUrl ?? archivos?.XmlUrl),
+          cdrUrl: safeTrim(archivos?.cdrUrl ?? archivos?.CdrUrl),
         });
       })
       .catch(() => {
@@ -1195,33 +1210,13 @@ export default function HtmlCaptureSalePage() {
         return false;
       }
 
-      await fetchClients("");
-      const refreshedClients = useClientsStore.getState().clients;
-      const normalizedName = safeTrim(payload.nombreRazon).toLowerCase();
-      const normalizedRuc = safeTrim(payload.ruc);
-      const normalizedDni = safeTrim(payload.dni);
-      const normalizedCode = safeTrim(payload.clienteCodigo);
-
-      const created =
-        result.client ??
-        refreshedClients.find((client) => {
-          const clientName = safeTrim(client.nombreRazon).toLowerCase();
-          return (
-            (normalizedRuc && safeTrim(client.ruc) === normalizedRuc) ||
-            (normalizedDni && safeTrim(client.dni) === normalizedDni) ||
-            (normalizedCode && getClientCode(client) === normalizedCode) ||
-            (!!normalizedName && clientName === normalizedName)
-          );
-        }) ??
-        null;
-
-      if (created) applyClient(created);
+      if (result.client) applyClient(result.client);
       setMonthlyPvs(0);
       toast.success("Cliente creado correctamente.");
       closeDialog();
       return true;
     },
-    [addClient, applyClient, closeDialog, fetchClients, session.username],
+    [addClient, applyClient, closeDialog, session.username],
   );
 
   const handleUpdateClientFromDialog = useCallback(
@@ -1669,6 +1664,9 @@ export default function HtmlCaptureSalePage() {
       const captureKey = JSON.stringify(data);
       if (appliedCaptureKeyRef.current === captureKey) return;
       appliedCaptureKeyRef.current = captureKey;
+      formMethods.setValue("transactionNumber", data.transactionNumber, {
+        shouldDirty: true,
+      });
 
       const docMatches =
         data.ruc
@@ -1806,10 +1804,6 @@ export default function HtmlCaptureSalePage() {
       formMethods.setValue("memberCode", data.memberCode, {
         shouldDirty: true,
       });
-      formMethods.setValue("transactionNumber", data.transactionNumber, {
-        shouldDirty: true,
-      });
-
       if (nextDocTypeCode !== "01") {
         formMethods.setValue("customerRuc", "", { shouldDirty: true });
       } else {
@@ -2229,6 +2223,107 @@ export default function HtmlCaptureSalePage() {
     toast.success("Impresión enviada.");
   };
 
+  const sendTicketEmail = async () => {
+    if (!lastTicket || isSendingEmail) return;
+
+    const recipient = safeTrim(form.customerEmail);
+    if (!recipient) {
+      toast.error("El cliente no tiene correo registrado.");
+      return;
+    }
+    if (
+      [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some(
+        (value) => {
+          const status = safeTrim(value).toUpperCase();
+          return status === "RECHAZADO" || status === "ANULADO";
+        },
+      )
+    ) {
+      toast.error("No se puede enviar un comprobante rechazado o anulado.");
+      return;
+    }
+    setIsSendingEmail(true);
+    try {
+      const { documentNumber, noteId } = lastTicket;
+      const isInvoice =
+        viewSunatStatus?.notaDocu.toUpperCase().includes("FACTURA") ||
+        form.docTypeCode === "01";
+      let xmlUrl = viewSunatStatus?.xmlUrl ?? "";
+      let cdrUrl = viewSunatStatus?.cdrUrl ?? "";
+
+      if (isInvoice && (!xmlUrl || !cdrUrl) && viewSunatStatus?.docuId) {
+        const syncResult = await apiRequest<
+          Record<string, unknown>,
+          unknown,
+          null
+        >({
+          url: buildApiUrl(
+            `/Nota/documentos/${viewSunatStatus.docuId}/sincronizar-archivos-cpe`,
+          ),
+          method: "POST",
+          fallback: null,
+        });
+        const synced = asRecord(syncResult);
+        xmlUrl = safeTrim(synced?.xmlUrl ?? synced?.XmlUrl);
+        cdrUrl = safeTrim(synced?.cdrUrl ?? synced?.CdrUrl);
+        if (synced?.ok) {
+          setViewSunatStatus((current) =>
+            current ? { ...current, xmlUrl, cdrUrl } : current,
+          );
+        }
+      }
+
+      if (isInvoice && (!xmlUrl || !cdrUrl)) {
+        throw new Error("No se encontraron el XML y CDR del comprobante.");
+      }
+
+      const blob = await buildTicketBlob(documentNumber, noteId);
+      const formData = new FormData();
+      formData.append(
+        "pdf",
+        new File([blob], `${documentNumber || "comprobante"}.pdf`, {
+          type: "application/pdf",
+        }),
+      );
+      formData.append("para", recipient);
+      formData.append("asunto", `Comprobante ${documentNumber}`);
+      formData.append(
+        "cuerpo",
+        "<p>Adjuntamos su comprobante electrónico.</p>",
+      );
+      formData.append("esHtml", "true");
+      formData.append("rucEmisor", session.companyRuc || "20601070155");
+      formData.append("nroComprobante", documentNumber);
+      if (xmlUrl) {
+        formData.append("xmlUrl", xmlUrl);
+      }
+      if (cdrUrl) {
+        formData.append("cdrUrl", cdrUrl);
+      }
+
+      const result = await apiRequest<Record<string, unknown>, unknown, null>({
+        url: buildApiUrl("/Correo/enviar-comprobante"),
+        method: "POST",
+        data: formData,
+        config: { headers: { Accept: "application/json" } },
+        fallback: null,
+      });
+      const response = asRecord(result);
+      if (!response?.ok) {
+        throw new Error(
+          safeTrim(response?.mensaje) || "No se pudo enviar el correo.",
+        );
+      }
+      toast.success("Correo enviado correctamente.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "No se pudo enviar el correo.",
+      );
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const registerSale = async () => {
     if (isReadOnly) {
       toast.error("Este registro solo se puede visualizar.");
@@ -2452,9 +2547,12 @@ export default function HtmlCaptureSalePage() {
       setLastTicket(ticket);
       if (rejectedInvoice) {
         setViewSunatStatus({
+          docuId: 0,
           estadoSunat: "RECHAZADO",
           docuEstado: "RECHAZADO",
           notaDocu: doc.docu,
+          xmlUrl: "",
+          cdrUrl: "",
         });
       }
       localStorage.setItem(
@@ -2812,14 +2910,14 @@ export default function HtmlCaptureSalePage() {
             onClick={openNewRecord}
           >
             <Plus className="h-4 w-4" />
-            Nuevo registro
+            Nuevo
           </button>
         ) : null}
         {lastTicket ? (
           <>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() =>
                 void printTicket().catch((error) => {
                   toast.error(
@@ -2832,11 +2930,20 @@ export default function HtmlCaptureSalePage() {
               disabled={isRejectedInvoiceView}
             >
               <Printer className="h-4 w-4" />
-              Imprimir ticket
+              Imprimir
             </button>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => void sendTicketEmail()}
+              disabled={isSendingEmail || isRejectedInvoiceView}
+            >
+              <Send className="h-4 w-4" />
+              {isSendingEmail ? "Enviando..." : "Enviar"}
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() =>
                 downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
               }
@@ -2850,7 +2957,7 @@ export default function HtmlCaptureSalePage() {
       </div>
 
       {isRejectedInvoiceView ? (
-        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm font-semibold text-red-700">
           <AlertCircle className="h-5 w-5 shrink-0" />
           Factura rechazada por SUNAT/OSE.
         </div>

@@ -9,9 +9,11 @@ import {
   Receipt,
   RefreshCw,
   MessageCircle,
+  Mail,
   UserPlus,
   Trash2,
   Loader2,
+  X,
 } from "lucide-react";
 import { PDFViewer, pdf } from "@react-pdf/renderer";
 import { useForm, useWatch } from "react-hook-form";
@@ -226,6 +228,21 @@ const tokenizeSearchText = (value: unknown) =>
 const normalizeDocumentText = (value: unknown) =>
   String(value ?? "").replace(/\D/g, "");
 
+const PaymentHeaderField = ({
+  label,
+  value,
+}: {
+  label: string;
+  value?: unknown;
+}) => (
+  <div className="relative flex h-10 items-center rounded-md border border-slate-300 bg-white px-3 pt-1 text-sm text-slate-700">
+    <span className="absolute -top-2 left-2 bg-white px-1 text-xs text-slate-400">
+      {label}
+    </span>
+    <span className="truncate">{String(value ?? "").trim() || "-"}</span>
+  </div>
+);
+
 const PaymentPage = () => {
   const { notaId: notaIdParam } = useParams<{ notaId?: string }>();
   const { pathname, search, state } = useLocation();
@@ -246,8 +263,14 @@ const PaymentPage = () => {
   const clearCart = usePosStore((s) => s.clearCart);
   const openDialog = useDialogStore((s) => s.openDialog);
   const closeDialog = useDialogStore((s) => s.closeDialog);
-  const { clients, fetchClients, addClient, updateClient, deleteClient } =
-    useClientsStore();
+  const {
+    clients,
+    fetchClients,
+    fetchClientMonthlyPvs,
+    addClient,
+    updateClient,
+    deleteClient,
+  } = useClientsStore();
   const { fetchProducts: refetchProducts } = useProductsStore();
   const fetchBoletaSummaryDocuments = useBoletasSummaryStore(
     (s) => s.fetchDocuments,
@@ -567,6 +590,8 @@ const PaymentPage = () => {
   const [isVoidingTicket, setIsVoidingTicket] = useState(false);
   const [isSendingCreditNote, setIsSendingCreditNote] = useState(false);
   const [isResendingDocument, setIsResendingDocument] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [clientMonthlyPvs, setClientMonthlyPvs] = useState(0);
   const [notaCabeceraActual, setNotaCabeceraActual] = useState<Record<
     string,
     unknown
@@ -1343,9 +1368,7 @@ const PaymentPage = () => {
           ? "Reenviando documento..."
           : "Procesando...";
   const shouldShowOrderNotesDocumentAction =
-    canResendRejectedDocumentFromOrderNotes ||
-    canVoidDocumentFromOrderNotes ||
-    canCreateCreditNoteFromOrderNotes;
+    canVoidDocumentFromOrderNotes || canCreateCreditNoteFromOrderNotes;
   const orderNotesDocumentActionPending =
     canResendRejectedDocumentFromOrderNotes
       ? isResendingDocument
@@ -1387,6 +1410,30 @@ const PaymentPage = () => {
     () => (itemsToRender.length ? itemsToRender : purchasedItems),
     [itemsToRender, purchasedItems],
   );
+  const salePvs = useMemo(
+    () =>
+      safeItemsForFiscal.reduce(
+        (total, item) =>
+          total + Number(item.pv ?? 0) * Number(item.cantidad ?? 0),
+        0,
+      ),
+    [safeItemsForFiscal],
+  );
+  useEffect(() => {
+    const clientId = Number(clienteId);
+    if (!Number.isFinite(clientId) || clientId <= 0) {
+      setClientMonthlyPvs(0);
+      return;
+    }
+
+    let active = true;
+    void fetchClientMonthlyPvs(clientId).then((total) => {
+      if (active) setClientMonthlyPvs(total);
+    });
+    return () => {
+      active = false;
+    };
+  }, [clienteId, fetchClientMonthlyPvs]);
   const totalAmount = useMemo(() => {
     if (!(isOrderNotesFlow && !loadedNotePricesIncludeIgv)) {
       return roundCurrency(totalsToRender?.total ?? 0);
@@ -2334,31 +2381,11 @@ const PaymentPage = () => {
         return false;
       }
 
-      await fetchClients("");
-      const refreshedClients = useClientsStore.getState().clients;
-      const normalizedName = safeTrim(payload.nombreRazon).toLowerCase();
-      const normalizedRuc = safeTrim(payload.ruc);
-      const normalizedDni = safeTrim(payload.dni);
-
-      const createdClient =
-        result.client ??
-        refreshedClients.find((client) => {
-          const clientRuc = safeTrim(client.ruc);
-          const clientDni = safeTrim(client.dni);
-          const clientName = safeTrim(client.nombreRazon).toLowerCase();
-          return (
-            (normalizedRuc && clientRuc === normalizedRuc) ||
-            (normalizedDni && clientDni === normalizedDni) ||
-            (!!normalizedName && clientName === normalizedName)
-          );
-        }) ??
-        null;
-
-      selectClientFromDialog(createdClient ?? { id: 0, ...payload });
+      selectClientFromDialog(result.client ?? { id: 0, ...payload });
       toast.success("Cliente creado correctamente.");
       return true;
     },
-    [addClient, fetchClients, resolvedNotaUsuario, selectClientFromDialog],
+    [addClient, resolvedNotaUsuario, selectClientFromDialog],
   );
 
   const updateClientFromDialog = useCallback(
@@ -2516,6 +2543,19 @@ const PaymentPage = () => {
     });
     return result;
   }, [clients]);
+
+  const selectedCustomer = useMemo(() => {
+    const customerIdNumber = Number(clienteId);
+    return uniqueClients.find((item) =>
+      Number.isFinite(customerIdNumber) && customerIdNumber > 0
+        ? Number(item.id) === customerIdNumber
+        : safeTrim(item.nombreRazon).toLowerCase() ===
+          safeTrim(customerName).toLowerCase(),
+    );
+  }, [clienteId, customerName, uniqueClients]);
+  const customerEmail = safeTrim(selectedCustomer?.email);
+  const canSendTicketEmail =
+    isConfirmed && hasTicketId && !isDocumentoAnulado && Boolean(customerEmail);
 
   const clientOptions = useMemo(() => {
     const byLabel = new Map<
@@ -3966,8 +4006,17 @@ const PaymentPage = () => {
         openDialog({
           title: "Factura rechazada",
           content: (
-            <div className="space-y-3 text-sm text-gray-700">
-              <p>La factura fue rechazada por SUNAT/OSE.</p>
+            <div className="relative space-y-3 text-sm text-gray-700">
+              <button
+                type="button"
+                className="absolute right-0 top-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                onClick={closeDialog}
+                aria-label="Cerrar"
+                title="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <p className="pr-10">La factura fue rechazada por SUNAT/OSE.</p>
               <div className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
                 <p className="font-semibold">
                   {detail || "SUNAT/OSE rechazó el documento."}
@@ -5141,6 +5190,92 @@ const PaymentPage = () => {
     return `${safeCorrelative}.pdf`;
   }, [documentNumber]);
 
+  const handleSendComprobanteByEmail = async () => {
+    if (!canSendTicketEmail || isSendingEmail) return;
+
+    setIsSendingEmail(true);
+    try {
+      let xmlUrl = "";
+      let cdrUrl = "";
+
+      if (isFactura) {
+        const archivos = await apiRequest<Record<string, unknown>, unknown, null>({
+          url: buildApiUrl(`/Nota/${ticketIdNumber}/archivos-cpe`),
+          method: "GET",
+          fallback: null,
+        });
+        const archivosCpe = parseRecordLikeValue(archivos);
+        xmlUrl = safeTrim(archivosCpe?.xmlUrl ?? archivosCpe?.XmlUrl);
+        cdrUrl = safeTrim(archivosCpe?.cdrUrl ?? archivosCpe?.CdrUrl);
+        const docuId = Number(
+          archivosCpe?.docuId ?? archivosCpe?.DocuId ?? docuIdActual ?? 0,
+        );
+
+        if ((!xmlUrl || !cdrUrl) && Number.isFinite(docuId) && docuId > 0) {
+          const sincronizado = await apiRequest<
+            Record<string, unknown>,
+            unknown,
+            null
+          >({
+            url: buildApiUrl(
+              `/Nota/documentos/${docuId}/sincronizar-archivos-cpe`,
+            ),
+            method: "POST",
+            fallback: null,
+          });
+          const archivosSincronizados = parseRecordLikeValue(sincronizado);
+          xmlUrl = safeTrim(
+            archivosSincronizados?.xmlUrl ?? archivosSincronizados?.XmlUrl,
+          );
+          cdrUrl = safeTrim(
+            archivosSincronizados?.cdrUrl ?? archivosSincronizados?.CdrUrl,
+          );
+        }
+
+        if (!xmlUrl || !cdrUrl) {
+          throw new Error("No se encontraron el XML y CDR del comprobante.");
+        }
+      }
+
+      const blob = await createComprobanteBlob();
+      const formData = new FormData();
+      formData.append(
+        "pdf",
+        new File([blob], getComprobanteFileName(), { type: "application/pdf" }),
+      );
+      formData.append("para", customerEmail);
+      formData.append("asunto", `Comprobante ${documentNumber}`);
+      formData.append("cuerpo", "<p>Adjuntamos su comprobante electrónico.</p>");
+      formData.append("esHtml", "true");
+      formData.append("rucEmisor", companyRucFromSession || "20601070155");
+      formData.append("nroComprobante", documentNumber);
+      if (xmlUrl) formData.append("xmlUrl", xmlUrl);
+      if (cdrUrl) formData.append("cdrUrl", cdrUrl);
+
+      const result = await apiRequest<Record<string, unknown>, unknown, null>({
+        url: buildApiUrl("/Correo/enviar-comprobante"),
+        method: "POST",
+        data: formData,
+        config: { headers: { Accept: "application/json" } },
+        fallback: null,
+      });
+      const response = parseRecordLikeValue(result);
+      if (!response?.ok) {
+        throw new Error(
+          safeTrim(response?.mensaje ?? response?.message) ||
+            "No se pudo enviar el correo.",
+        );
+      }
+      toast.success("Correo enviado correctamente.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "No se pudo enviar el correo.",
+      );
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const shareByWhatsApp = useCallback(async () => {
     if (isDocumentoAnulado) {
       toast.error("Documento anulado. Envío por WhatsApp no permitido.");
@@ -5630,12 +5765,120 @@ const PaymentPage = () => {
       {isDocumentoAnulado ? (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
           <span className="select-none rounded-xl border-4 border-red-500/70 bg-white/45 px-8 py-3 text-5xl font-black tracking-[0.22em] text-red-600/85 [transform:rotate(-24deg)]">
-            ANULADO
+            {isNotaRechazada ? "RECHAZADO" : "ANULADO"}
           </span>
         </div>
       ) : null}
     </div>
   );
+
+  const noteValue = (keys: string[]) => {
+    for (const key of keys) {
+      const value = safeTrim(notaCabeceraActual?.[key]);
+      if (value) return value;
+    }
+    return "";
+  };
+  const noteAmount = (keys: string[]) => {
+    const value = Number(noteValue(keys));
+    return Number.isFinite(value) && value !== 0 ? value.toFixed(2) : "";
+  };
+  const readOnlyPaymentHeader = isReadOnlyNoteView ? (
+    <div className="space-y-4">
+      <div>
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          Documento
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <PaymentHeaderField label="Documento" value={docTypeName} />
+          <PaymentHeaderField label="Correlativo" value={documentNumber} />
+          <div className="sm:col-span-2">
+            <PaymentHeaderField
+              label="Nro Transac."
+              value={noteValue([
+                "notaTransaccion",
+                "transactionNumber",
+                "nroTransaccion",
+              ])}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="h-px bg-slate-100" />
+
+      <div>
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          Pago
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <PaymentHeaderField
+            label="Condición"
+            value={noteValue(["notaCondicion", "condicion"]).replace(
+              "ALCONTADO",
+              "AL CONTADO",
+            )}
+          />
+          <PaymentHeaderField label="Forma pago" value={paymentMethod} />
+          <PaymentHeaderField label="Entidad" value={bankEntity} />
+          <PaymentHeaderField label="Nro Operación" value={nroOperacion} />
+          <PaymentHeaderField
+            label="Depósito"
+            value={noteAmount(["deposito", "Deposito"])}
+          />
+          <PaymentHeaderField
+            label="Efectivo"
+            value={noteAmount(["efectivo", "Efectivo"])}
+          />
+        </div>
+      </div>
+
+      <div className="h-px bg-slate-100" />
+
+      <div>
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          Cliente
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <PaymentHeaderField
+            label="Código"
+            value={
+              safeTrim(selectedCustomer?.clienteCodigo) ||
+              noteValue(["codigoCliente", "memberCode"])
+            }
+          />
+          <button
+            type="button"
+            disabled
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 disabled:cursor-default disabled:opacity-100"
+          >
+            <UserPlus className="h-4 w-4" />
+            Cliente
+          </button>
+          <div className="sm:col-span-2">
+            <PaymentHeaderField label="Cliente" value={customerName} />
+          </div>
+          <PaymentHeaderField
+            label="DNI"
+            value={
+              safeTrim(selectedCustomer?.dni) ||
+              (customerId.length === 8 ? customerId : "")
+            }
+          />
+          <PaymentHeaderField
+            label="RUC"
+            value={
+              safeTrim(selectedCustomer?.ruc) ||
+              (customerId.length === 11 ? customerId : "")
+            }
+          />
+          <div className="sm:col-span-2">
+            <PaymentHeaderField label="Correo" value={customerEmail} />
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   const renderForm = () => (
     <>
@@ -5695,6 +5938,17 @@ const PaymentPage = () => {
                   WhatsApp
                 </button>
               )}
+              {canSendTicketEmail && (
+                <button
+                  type="button"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => void handleSendComprobanteByEmail()}
+                  disabled={isSendingEmail}
+                >
+                  <Mail className="h-4 w-4" />
+                  {isSendingEmail ? "Enviando..." : "Enviar correo"}
+                </button>
+              )}
               {isConfirmed && (
                 <button
                   type="button"
@@ -5735,7 +5989,7 @@ const PaymentPage = () => {
           {backLabel}
         </Link>
 
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 min-[1405px]:hidden">
           <div className="rounded-lg border border-slate-200 bg-amber-50 px-3 py-2">
             <p className="text-[11px] uppercase tracking-wide text-slate-500">
               Ítems
@@ -5754,6 +6008,10 @@ const PaymentPage = () => {
           </div>
         </div>
 
+        {isReadOnlyNoteView ? (
+          readOnlyPaymentHeader
+        ) : (
+          <>
         <HookFormSelect
           name="docTypeCode"
           label="Tipo de documento"
@@ -5968,7 +6226,9 @@ const PaymentPage = () => {
             }}
           />
         )}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700">
+          </>
+        )}
+        {/**<div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700">
           <span className="font-medium">Aplica descuento</span>
           <input
             type="checkbox"
@@ -5993,7 +6253,7 @@ const PaymentPage = () => {
               },
             })}
           />
-        </div>
+        </div> */}
         <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
           <div className="flex justify-between text-sm text-gray-700">
             <span>Op. gravada</span>
@@ -6075,32 +6335,6 @@ const PaymentPage = () => {
           </button>
         )}
       </HookForm>
-      <div className="hidden gap-2 sm:gap-3 md:grid">
-        {isConfirmed && (
-          <button
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-50 py-2.5 text-blue-800 transition-colors hover:bg-blue-100 disabled:opacity-50"
-            onClick={() => {
-              void handleDownloadComprobante();
-            }}
-            disabled={isDownloadingComprobante || isDocumentoAnulado}
-          >
-            <Download className="w-5 h-5" />
-            {isDownloadingComprobante
-              ? "Descargando..."
-              : isDocumentoAnulado
-                ? "No descargable"
-                : "Descargar PDF"}
-          </button>
-        )}
-        <button
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white py-2.5 text-slate-800 transition-colors hover:bg-slate-50 disabled:opacity-50"
-          onClick={() => handlePrint()}
-          disabled={isPrinting || !isConfirmed || isDocumentoAnulado}
-        >
-          <Printer className="w-5 h-5" />
-          {isPrinting ? "Imprimiendo..." : "Imprimir comprobante"}
-        </button>
-      </div>
     </>
   );
 
@@ -6113,7 +6347,7 @@ const PaymentPage = () => {
             Pago y comprobante
           </h1>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Link
             to={backRoute}
             className="hidden w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 md:inline-flex"
@@ -6139,6 +6373,39 @@ const PaymentPage = () => {
                 <Trash2 className="h-4 w-4" />
               )}
               {orderNotesDocumentActionLabel}
+            </button>
+          )}
+          {canSendTicketEmail && (
+            <button
+              type="button"
+              className="hidden items-center justify-center gap-2 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
+              onClick={() => void handleSendComprobanteByEmail()}
+              disabled={isSendingEmail}
+            >
+              <Mail className="h-4 w-4" />
+              {isSendingEmail ? "Enviando..." : "Enviar correo"}
+            </button>
+          )}
+          {isConfirmed && (
+            <button
+              type="button"
+              className="hidden items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
+              onClick={() => void handleDownloadComprobante()}
+              disabled={isDownloadingComprobante || isDocumentoAnulado}
+            >
+              <Download className="h-4 w-4" />
+              {isDownloadingComprobante ? "Descargando..." : "Descargar PDF"}
+            </button>
+          )}
+          {isConfirmed && (
+            <button
+              type="button"
+              className="hidden items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
+              onClick={() => handlePrint()}
+              disabled={isPrinting || isDocumentoAnulado}
+            >
+              <Printer className="h-4 w-4" />
+              {isPrinting ? "Imprimiendo..." : "Imprimir"}
             </button>
           )}
         </div>
@@ -6220,6 +6487,14 @@ const PaymentPage = () => {
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
                 {itemsToRender.length}
               </span>
+              <div className="ml-auto flex items-center gap-2 text-xs font-semibold">
+                <span className="rounded-md bg-sky-50 px-2 py-1 text-sky-800">
+                  PV: {salePvs.toFixed(2)}
+                </span>
+                <span className="rounded-md bg-violet-50 px-2 py-1 text-violet-800">
+                  PV mensual: {clientMonthlyPvs.toFixed(2)}
+                </span>
+              </div>
             </div>
             {ItemsList}
           </div>

@@ -88,6 +88,8 @@ export default function CustomerFormBase({
         : buildDefaults(
             {
               ...initialData,
+              clienteCodigo: "",
+              dni: "",
               registradoPor: buildRegistradoPorDefault(registradoPorUser),
             },
             registradoPorUser,
@@ -227,7 +229,8 @@ export default function CustomerFormBase({
       direccionDespacho: values.direccionDespacho,
       telefonoMovil: values.telefonoMovil,
       email: values.email,
-      registradoPor: values.registradoPor || buildRegistradoPorDefault(registradoPorUser),
+      registradoPor:
+        values.registradoPor || buildRegistradoPorDefault(registradoPorUser),
       estado: values.estado,
       fecha: values.fecha ?? null,
       documentoPredeterminado: values.documentoPredeterminado || "BOLETA",
@@ -309,7 +312,10 @@ export default function CustomerFormBase({
 
     clearErrors("numeroDocumentoConsulta");
 
-    const result = await consultarDocumentoCliente(tipoDocumento, numeroDocumento);
+    const result = await consultarDocumentoCliente(
+      tipoDocumento,
+      numeroDocumento,
+    );
     if (!result.ok) {
       toast.error(result.message);
       return;
@@ -411,11 +417,17 @@ export default function CustomerFormBase({
                     />
                   </div>
 
-                  <HookFormInput<CustomerFormValues>
-                    name="clienteCodigo"
-                    label="Codigo cliente"
-                    placeholder="Codigo de membresia"
-                  />
+                <HookFormInput<CustomerFormValues>
+                  name="clienteCodigo"
+                  label="Codigo cliente"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  onInput={(event) => {
+                    event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "");
+                  }}
+                  placeholder="Codigo de membresia"
+                />
 
                   <HookFormInput<CustomerFormValues>
                     name="ruc"
@@ -435,11 +447,16 @@ export default function CustomerFormBase({
                   <HookFormInput<CustomerFormValues>
                     name="dni"
                     label="DNI"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={8}
-                    pattern="[0-9]*"
-                    placeholder="Ingrese DNI"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={8}
+                  pattern="[0-9]*"
+                  onInput={(event) => {
+                    event.currentTarget.value = event.currentTarget.value
+                      .replace(/\D/g, "")
+                      .slice(0, 8);
+                  }}
+                  placeholder="Ingrese DNI"
                     rules={{
                       pattern: {
                         value: /^\d{8}$/,
@@ -498,7 +515,7 @@ export default function CustomerFormBase({
 
                   <HookFormSelect<CustomerFormValues>
                     name="documentoPredeterminado"
-                    label="Documento Predeterminado"
+                    label="Documento"
                     options={[
                       { value: "BOLETA", label: "BOLETA" },
                       { value: "FACTURA", label: "FACTURA" },

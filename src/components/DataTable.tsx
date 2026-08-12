@@ -178,7 +178,9 @@ export default function DataTable<T extends RowData>({
         if (typeof window !== "undefined") {
           window.sessionStorage.removeItem(globalFilterStorageKey);
           window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales`);
-          window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales/order_notes`);
+          window.sessionStorage.removeItem(
+            `${SEARCH_STORAGE_PREFIX}sales/order_notes`,
+          );
         }
       } catch {}
       return "";
@@ -186,7 +188,9 @@ export default function DataTable<T extends RowData>({
     if (globalFilterValue !== undefined) return String(globalFilterValue ?? "");
     if (typeof window === "undefined") return "";
     try {
-      return String(window.sessionStorage.getItem(globalFilterStorageKey) ?? "");
+      return String(
+        window.sessionStorage.getItem(globalFilterStorageKey) ?? "",
+      );
     } catch {
       return "";
     }
@@ -205,7 +209,9 @@ export default function DataTable<T extends RowData>({
         if (typeof window !== "undefined") {
           window.sessionStorage.removeItem(globalFilterStorageKey);
           window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales`);
-          window.sessionStorage.removeItem(`${SEARCH_STORAGE_PREFIX}sales/order_notes`);
+          window.sessionStorage.removeItem(
+            `${SEARCH_STORAGE_PREFIX}sales/order_notes`,
+          );
         }
       } catch {}
       return;
@@ -216,7 +222,9 @@ export default function DataTable<T extends RowData>({
     try {
       const storedValue = window.sessionStorage.getItem(globalFilterStorageKey);
       const nextValue = String(storedValue ?? "");
-      setGlobalFilter((previous) => (previous === nextValue ? previous : nextValue));
+      setGlobalFilter((previous) =>
+        previous === nextValue ? previous : nextValue,
+      );
     } catch {
       // ignore storage errors
     }
@@ -254,9 +262,7 @@ export default function DataTable<T extends RowData>({
   }, [globalFilter, globalFilterStorageKey]);
 
   const filteredData = useMemo(() => {
-    const terms = normalizeSearchText(globalFilter)
-      .split(" ")
-      .filter(Boolean);
+    const terms = normalizeSearchText(globalFilter).split(" ").filter(Boolean);
     if (terms.length === 0) return data;
 
     return data.filter((rowItem) => {
@@ -460,6 +466,9 @@ export default function DataTable<T extends RowData>({
 
   const canPreviousPage = currentPage > 1;
   const canNextPage = currentPage < totalPages;
+  const effectiveTableMaxHeight = footerContent
+    ? `min(${tableMaxHeight}, 58vh)`
+    : tableMaxHeight;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -529,61 +538,61 @@ export default function DataTable<T extends RowData>({
               rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/55";
 
             return (
-            <article
-              key={row.id}
-              className={`rounded-xl border border-slate-200 p-3 shadow-sm transition ${
-                customRowClass ?? defaultRowClass
-              } ${onRowClick ? "cursor-pointer active:bg-rose-50/45" : ""}`}
-              onClick={() => onRowClick?.(row.original)}
-              onKeyDown={(event) => {
-                if (!onRowClick) return;
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onRowClick(row.original);
-                }
-              }}
-              tabIndex={onRowClick ? 0 : -1}
-            >
-              <div className="space-y-2.5">
-                {row.getVisibleCells().map((cell) => {
-                  const metaClass = cell.column.columnDef.meta?.tdClassName;
-                  const colClass =
-                    typeof metaClass === "function"
-                      ? metaClass(row.original)
-                      : (metaClass ?? "");
-                  const extraClass =
-                    typeof tdClassName === "function"
-                      ? (tdClassName(cell) ?? "")
-                      : (tdClassName ?? "");
-                  const align = cell.column.columnDef.meta?.align;
-                  const label = resolveHeaderLabel(
-                    cell.column.columnDef.header,
-                    String(cell.column.id ?? "Campo"),
-                  );
+              <article
+                key={row.id}
+                className={`rounded-xl border border-slate-200 p-3 shadow-sm transition ${
+                  customRowClass ?? defaultRowClass
+                } ${onRowClick ? "cursor-pointer active:bg-rose-50/45" : ""}`}
+                onClick={() => onRowClick?.(row.original)}
+                onKeyDown={(event) => {
+                  if (!onRowClick) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onRowClick(row.original);
+                  }
+                }}
+                tabIndex={onRowClick ? 0 : -1}
+              >
+                <div className="space-y-2.5">
+                  {row.getVisibleCells().map((cell) => {
+                    const metaClass = cell.column.columnDef.meta?.tdClassName;
+                    const colClass =
+                      typeof metaClass === "function"
+                        ? metaClass(row.original)
+                        : (metaClass ?? "");
+                    const extraClass =
+                      typeof tdClassName === "function"
+                        ? (tdClassName(cell) ?? "")
+                        : (tdClassName ?? "");
+                    const align = cell.column.columnDef.meta?.align;
+                    const label = resolveHeaderLabel(
+                      cell.column.columnDef.header,
+                      String(cell.column.id ?? "Campo"),
+                    );
 
-                  return (
-                    <div
-                      key={cell.id}
-                      className="grid grid-cols-[minmax(6.5rem,38%)_1fr] items-start gap-2"
-                    >
-                      <span className="pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        {label}
-                      </span>
+                    return (
                       <div
-                        className={`text-sm text-slate-700 ${resolveAlignmentClass(
-                          align,
-                        )} ${colClass} ${extraClass}`}
+                        key={cell.id}
+                        className="grid grid-cols-[minmax(6.5rem,38%)_1fr] items-start gap-2"
                       >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
+                        <span className="pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                          {label}
+                        </span>
+                        <div
+                          className={`text-sm text-slate-700 ${resolveAlignmentClass(
+                            align,
+                          )} ${colClass} ${extraClass}`}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </article>
+                    );
+                  })}
+                </div>
+              </article>
             );
           })
         ) : (
@@ -595,7 +604,7 @@ export default function DataTable<T extends RowData>({
 
       <div
         className="hidden overflow-auto md:block"
-        style={{ maxHeight: tableMaxHeight }}
+        style={{ maxHeight: effectiveTableMaxHeight }}
       >
         <table className="w-full min-w-[38rem] border-collapse lg:min-w-[44rem]">
           <thead
@@ -667,48 +676,48 @@ export default function DataTable<T extends RowData>({
                   rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50/45";
 
                 return (
-                <tr
-                  key={row.id}
-                  className={`border-b border-slate-200 transition ${
-                    customRowClass ?? defaultRowClass
-                  } ${onRowClick ? "cursor-pointer hover:bg-rose-50/45" : ""}`}
-                  onClick={() => onRowClick?.(row.original)}
-                  onKeyDown={(event) => {
-                    if (!onRowClick) return;
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onRowClick(row.original);
-                    }
-                  }}
-                  tabIndex={onRowClick ? 0 : -1}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const metaClass = cell.column.columnDef.meta?.tdClassName;
-                    const colClass =
-                      typeof metaClass === "function"
-                        ? metaClass(row.original)
-                        : (metaClass ?? "");
-                    const extraClass =
-                      typeof tdClassName === "function"
-                        ? (tdClassName(cell) ?? "")
-                        : (tdClassName ?? "");
-                    const align = cell.column.columnDef.meta?.align;
+                  <tr
+                    key={row.id}
+                    className={`border-b border-slate-200 transition ${
+                      customRowClass ?? defaultRowClass
+                    } ${onRowClick ? "cursor-pointer hover:bg-rose-50/45" : ""}`}
+                    onClick={() => onRowClick?.(row.original)}
+                    onKeyDown={(event) => {
+                      if (!onRowClick) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row.original);
+                      }
+                    }}
+                    tabIndex={onRowClick ? 0 : -1}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const metaClass = cell.column.columnDef.meta?.tdClassName;
+                      const colClass =
+                        typeof metaClass === "function"
+                          ? metaClass(row.original)
+                          : (metaClass ?? "");
+                      const extraClass =
+                        typeof tdClassName === "function"
+                          ? (tdClassName(cell) ?? "")
+                          : (tdClassName ?? "");
+                      const align = cell.column.columnDef.meta?.align;
 
-                    return (
-                      <td
-                        key={cell.id}
-                        className={`px-4 py-3 text-sm text-slate-700 ${resolveAlignmentClass(
-                          align,
-                        )} ${colClass} ${extraClass}`}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
+                      return (
+                        <td
+                          key={cell.id}
+                          className={`px-4 py-3 text-sm text-slate-700 ${resolveAlignmentClass(
+                            align,
+                          )} ${colClass} ${extraClass}`}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
                 );
               })
             ) : (
@@ -741,7 +750,7 @@ export default function DataTable<T extends RowData>({
               ))}
             </select>
             <span className="text-slate-500">
-              {start}-{end} de {totalCount}
+              {start.toLocaleString("en-US")}-{end.toLocaleString("en-US")} de {totalCount.toLocaleString("en-US")}
             </span>
           </div>
 

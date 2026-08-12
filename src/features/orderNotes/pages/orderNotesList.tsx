@@ -82,7 +82,10 @@ const splitDocumentLabel = (value: unknown) => {
 const isAnnulledStatus = (value: unknown) =>
   String(value ?? "")
     .toUpperCase()
-    .includes("ANULAD");
+    .includes("ANULAD") ||
+  String(value ?? "")
+    .toUpperCase()
+    .includes("RECHAZADO");
 
 const isCancelledStatus = (value: unknown) =>
   String(value ?? "")
@@ -278,13 +281,14 @@ const OrderNotesList = () => {
         { header: "Tipo Documento", key: "tipoDocumento", width: 20 },
         { header: "N° Documento", key: "numeroDocumento", width: 18 },
         { header: "Fecha", key: "fecha", width: 14 },
+        { header: "Código cliente", key: "codigoCliente", width: 16 },
         { header: "Cliente", key: "cliente", width: 34 },
         { header: "Condicion", key: "notaCondicion", width: 14 },
         { header: "Forma Pago", key: "formaPago", width: 18 },
         { header: "Total", key: "total", width: 14 },
         { header: "A cuenta", key: "acuenta", width: 14 },
         { header: "Saldo", key: "saldo", width: 14 },
-        { header: "Usuario", key: "notaUsuario", width: 18 },
+        { header: "Usuario", key: "usuario", width: 18 },
         { header: "Estado", key: "estado", width: 14 },
       ];
 
@@ -321,6 +325,7 @@ const OrderNotesList = () => {
           tipoDocumento: toExcelSafeText(tipoDocumento || "-"),
           numeroDocumento: toExcelSafeText(numeroDocumento || "-"),
           fecha: toExcelSafeText(note.fecha),
+          codigoCliente: toExcelSafeText(note.codigoCliente),
           cliente: toExcelSafeText(note.cliente),
           notaCondicion: toExcelSafeText(note.notaCondicion || "-"),
           formaPago: toExcelSafeText(note.formaPago),
@@ -332,7 +337,7 @@ const OrderNotesList = () => {
         });
 
         excelRow.eachCell((cell, colNumber) => {
-          const isAmountColumn = colNumber >= 8 && colNumber <= 10;
+          const isAmountColumn = colNumber >= 9 && colNumber <= 11;
 
           cell.border = {
             top: { style: "thin", color: { argb: "FFE2E8F0" } },

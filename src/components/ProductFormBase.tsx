@@ -847,8 +847,8 @@ export default function ProductFormBase({
       preCosto: initialData?.preCosto ?? null,
       preVenta: initialData?.preVenta ?? null,
       preVentaB: 0,
-      pv: initialData?.pv ?? 0,
-      sv: initialData?.sv ?? 0,
+      pv: initialData?.pv ?? null,
+      sv: initialData?.sv ?? null,
       aplicaINV:
         initialData?.aplicaINV === "N" || initialData?.aplicaINV === "S"
           ? initialData.aplicaINV
@@ -1859,7 +1859,7 @@ export default function ProductFormBase({
                   </div>
 
                   <div className="md:col-span-2 space-y-3">
-                    <HookFormAutocomplete<ProductFormValues>
+                    {/**<HookFormAutocomplete<ProductFormValues>
                       name="unidadMedida"
                       label="Unidad de Medida"
                       options={unidadMedidaOptions}
@@ -1871,7 +1871,7 @@ export default function ProductFormBase({
                       showCreateOption={false}
                       syncInputToValue
                       className="w-full"
-                    />
+                    /> */}
 
                     <div className="grid grid-cols-2 gap-3">
                       <HookFormInput<ProductFormValues>
@@ -1915,7 +1915,6 @@ export default function ProductFormBase({
                         label="Produc. PV"
                         type="number"
                         step="0.0001"
-                        min="0"
                         rules={{
                           valueAsNumber: true,
                           validate: (v) =>
