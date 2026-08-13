@@ -36,7 +36,10 @@ const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/sales/pos" replace /> },
+      {
+        index: true,
+        element: <Navigate to="/sales/html_capture/new" replace />,
+      },
       ...productRoutes,
       ...customerRoutes,
       ...salesRoutes,

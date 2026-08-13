@@ -100,7 +100,13 @@ export function GlobalDialog() {
     >
       {title || showTitleActionsOnMobile ? (
         <DialogTitle
-          sx={showTitleActionsOnMobile ? { py: 1.25, px: 2 } : undefined}
+          sx={{
+            display: title ? "flex" : undefined,
+            alignItems: "center",
+            justifyContent: "space-between",
+            py: showTitleActionsOnMobile ? 1.25 : undefined,
+            px: showTitleActionsOnMobile ? 2 : undefined,
+          }}
         >
           {showTitleActionsOnMobile ? (
             <Box
@@ -109,6 +115,7 @@ export function GlobalDialog() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 1,
+                width: "100%",
               }}
             >
               <Box
@@ -163,7 +170,27 @@ export function GlobalDialog() {
               </Box>
             </Box>
           ) : (
-            title
+            <>
+              <Box sx={{ fontWeight: 600, fontSize: "1rem", minWidth: 0 }}>
+                {title}
+              </Box>
+              {!disableClose && (
+                <IconButton
+                  onClick={handleClose}
+                  disabled={loading}
+                  size="small"
+                  aria-label={cancelText}
+                  title={cancelText}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    flexShrink: 0,
+                  }}
+                >
+                  <X size={20} />
+                </IconButton>
+              )}
+            </>
           )}
         </DialogTitle>
       ) : null}

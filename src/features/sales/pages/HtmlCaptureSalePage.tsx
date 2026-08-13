@@ -23,6 +23,7 @@ import { useForm } from "react-hook-form";
 import { useLocation, useNavigate, useParams } from "react-router";
 import CustomerDialogContent from "@/components/CustomerDialogContent";
 import TicketDocument from "@/components/Ticket";
+import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { HookForm } from "@/components/forms/HookForm";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
@@ -532,6 +533,8 @@ export default function HtmlCaptureSalePage() {
   const [capture, setCapture] = useState<CaptureData | null>(null);
   const [pendingExternalCapture, setPendingExternalCapture] =
     useState<CaptureData | null>(null);
+  const [isApplyingCapture, setIsApplyingCapture] = useState(false);
+  const [loadedRecordId, setLoadedRecordId] = useState<number | null>(null);
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [manualProductSearch, setManualProductSearch] = useState("");
   const [manualProductSearchFocused, setManualProductSearchFocused] =
@@ -571,6 +574,7 @@ export default function HtmlCaptureSalePage() {
   const form = formMethods.watch();
   const manualProductSearchRef = useRef<HTMLInputElement | null>(null);
   const isCapturedSale = Boolean(capture);
+  const isLoadingRecord = isExistingRoute && loadedRecordId !== routeNoteId;
   const saleType = isCapturedSale ? "CASHBILL" : manualSaleType;
   const saleTypeForDatabase = isCapturedSale
     ? "VENTA"
@@ -639,12 +643,14 @@ export default function HtmlCaptureSalePage() {
 
   useEffect(() => {
     if (!isExistingRoute) {
+      setLoadedRecordId(null);
       resetDraft();
       return;
     }
 
     let active = true;
     const loadRecord = async () => {
+      setLoadedRecordId(null);
       try {
         const [notaResult, detailsResult] = await Promise.all([
           apiRequest<Record<string, unknown>, unknown, null>({
@@ -799,8 +805,10 @@ export default function HtmlCaptureSalePage() {
           documentNumber: [serie, numero].filter(Boolean).join("-"),
           noteId: routeNoteId,
         });
+        setLoadedRecordId(routeNoteId);
       } catch (error) {
         if (active) {
+          setLoadedRecordId(routeNoteId);
           toast.error(
             error instanceof Error
               ? error.message
@@ -1815,6 +1823,8 @@ export default function HtmlCaptureSalePage() {
       const captureKey = JSON.stringify(data);
       if (appliedCaptureKeyRef.current === captureKey) return;
       appliedCaptureKeyRef.current = captureKey;
+      setIsApplyingCapture(true);
+      try {
       formMethods.setValue("transactionNumber", data.transactionNumber, {
         shouldDirty: true,
       });
@@ -1989,6 +1999,9 @@ export default function HtmlCaptureSalePage() {
       }
 
       setLastTicket(null);
+      } finally {
+        setIsApplyingCapture(false);
+      }
     },
     [
       applyClient,
@@ -3215,6 +3228,14 @@ export default function HtmlCaptureSalePage() {
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
+      <BlockingSpinner
+        show={isLoadingRecord || isApplyingCapture}
+        text={
+          isLoadingRecord
+            ? "Cargando registro..."
+            : "Cargando datos de la extensión..."
+        }
+      />
       {PagoVariosModal}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         {isExistingRoute ? (
