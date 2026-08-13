@@ -28,6 +28,7 @@ import { HookForm } from "@/components/forms/HookForm";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { buildApiUrl, buildRootApiUrl } from "@/config";
+import { ServiceInvoicePdfDocument } from "@/features/serviceInvoices/components/ServiceInvoicePdf";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import {
@@ -42,6 +43,7 @@ import { useProductsStore } from "@/store/products/products.store";
 import type { Client } from "@/types/customer";
 import type { Product } from "@/types/product";
 import type { PosCartItem } from "@/types/pos";
+import type { ServiceInvoiceListItem } from "@/types/serviceInvoice";
 
 type CaptureLine = { code: string; quantity: number };
 type CaptureData = {
@@ -468,6 +470,7 @@ const readSession = () => {
       companyRuc: "",
       companyAddress: "",
       companyDistrict: "",
+      companyPhone: "",
       userId: 0,
     };
   }
@@ -493,6 +496,7 @@ const readSession = () => {
     companyRuc: safeTrim(user?.companyRuc),
     companyAddress: safeTrim(user?.companySunatAddress),
     companyDistrict: safeTrim(user?.companyUbigeoName),
+    companyPhone: safeTrim(user?.companyPhone),
   };
 };
 
@@ -1245,6 +1249,16 @@ export default function HtmlCaptureSalePage() {
       formMatchesClient,
     ],
   );
+  const canEditCapturedClient =
+    isCapturedSale &&
+    !isReadOnly &&
+    !selectedClient &&
+    Boolean(
+      safeTrim(form.customerName) ||
+      safeTrim(form.memberCode) ||
+      safeTrim(form.customerRuc) ||
+      safeTrim(form.customerDoc),
+    );
   const findClientFromForm = useCallback(
     (source: Client[] = useClientsStore.getState().clients) => {
       const code = safeTrim(form.memberCode);
@@ -1780,6 +1794,35 @@ export default function HtmlCaptureSalePage() {
     session.username,
   ]);
 
+  const handleCreateAndEditCapturedClient = useCallback(async () => {
+    const client = await createClientFromCapturedForm();
+    if (!client) return;
+
+    openDialog({
+      title: "",
+      maxWidth: "lg",
+      fullWidth: true,
+      cancelText: "Cerrar",
+      hideCancelButton: true,
+      content: (
+        <CustomerDialogContent
+          initialEditingClient={client}
+          onSelectClient={handleSelectClientFromDialog}
+          onCreateClient={handleCreateClientFromDialog}
+          onUpdateClient={handleUpdateClientFromDialog}
+          onDeleteClient={handleDeleteClientFromDialog}
+        />
+      ),
+    });
+  }, [
+    createClientFromCapturedForm,
+    handleCreateClientFromDialog,
+    handleDeleteClientFromDialog,
+    handleSelectClientFromDialog,
+    handleUpdateClientFromDialog,
+    openDialog,
+  ]);
+
   useEffect(() => {
     const code = safeTrim(form.memberCode);
     if (!code || selectedClient || appliedClientRef.current) return;
@@ -1817,7 +1860,6 @@ export default function HtmlCaptureSalePage() {
   const applyCaptureData = useCallback(
     async (data: CaptureData) => {
       if (isReadOnly) {
-        toast.error("Este registro solo se puede visualizar.");
         return;
       }
       const captureKey = JSON.stringify(data);
@@ -1825,180 +1867,180 @@ export default function HtmlCaptureSalePage() {
       appliedCaptureKeyRef.current = captureKey;
       setIsApplyingCapture(true);
       try {
-      formMethods.setValue("transactionNumber", data.transactionNumber, {
-        shouldDirty: true,
-      });
+        formMethods.setValue("transactionNumber", data.transactionNumber, {
+          shouldDirty: true,
+        });
 
-      const docMatches =
-        data.ruc
-          .replace(/FACTURA|BOLETA|RUC|DNI|DOCUMENTO|:/gi, " ")
-          .match(/\d{8,11}/g) ?? [];
-      const docValue = docMatches.at(-1) ?? "";
-      const nextRows = buildRows(data);
-      setCapture(data);
-      setRows(nextRows);
-      appliedClientRef.current = null;
-      capturedInvoiceApiClientRef.current = null;
-      capturedInvoiceApiRucRef.current = "";
-      const docTypeText = data.ruc.toUpperCase();
-      const nextDocTypeCode = docTypeText.includes("FACTURA")
-        ? "01"
-        : docTypeText.includes("BOLETA")
-          ? "03"
-          : docValue.length === 11
-            ? "01"
-            : "03";
-      const customerDocValue = docValue;
-      const localClient =
-        clientOptions.find(
-          (opt) =>
-            isActiveClient(opt.client) &&
-            ((opt.code && opt.code === safeTrim(data.memberCode)) ||
-              (nextDocTypeCode === "01" &&
-                customerDocValue &&
-                normalizeDocumentText(opt.client.ruc) === customerDocValue) ||
-              (nextDocTypeCode !== "01" &&
-                customerDocValue &&
-                normalizeDocumentText(opt.client.dni) === customerDocValue)),
-        )?.client ?? null;
-      const memberCode = safeTrim(data.memberCode);
-      const rawCodeClient =
-        !localClient && memberCode
-          ? await fetchClientByCodigo(memberCode).catch(() => null)
-          : null;
-      const codeClient = isActiveClient(rawCodeClient) ? rawCodeClient : null;
-      const searchedClients =
-        !localClient &&
-        !codeClient &&
-        nextDocTypeCode === "01" &&
-        customerDocValue
-          ? await searchClients(customerDocValue).catch(() => [])
-          : [];
-      const searchedClient =
-        searchedClients.find(
-          (client) =>
-            isActiveClient(client) &&
-            (normalizeDocumentText(client.ruc) === customerDocValue ||
-              (memberCode && getClientCode(client) === memberCode)),
-        ) ?? null;
-      const matchedClient = localClient ?? codeClient ?? searchedClient;
-      if (nextDocTypeCode === "01" && matchedClient && !localClient) {
-        capturedInvoiceApiClientRef.current = matchedClient;
-        capturedInvoiceApiRucRef.current = customerDocValue;
-      }
-      formMethods.setValue("docTypeCode", nextDocTypeCode, {
-        shouldDirty: true,
-      });
-      formMethods.setValue(
-        "customerRuc",
-        nextDocTypeCode === "01" ? customerDocValue : "",
-        { shouldDirty: true },
-      );
-      formMethods.setValue(
-        "customerDoc",
-        nextDocTypeCode !== "01" ? customerDocValue : "",
-        { shouldDirty: true },
-      );
-      if (matchedClient) {
-        applyClient(matchedClient, { preserveDocType: true });
+        const docMatches =
+          data.ruc
+            .replace(/FACTURA|BOLETA|RUC|DNI|DOCUMENTO|:/gi, " ")
+            .match(/\d{8,11}/g) ?? [];
+        const docValue = docMatches.at(-1) ?? "";
+        const nextRows = buildRows(data);
+        setCapture(data);
+        setRows(nextRows);
+        appliedClientRef.current = null;
+        capturedInvoiceApiClientRef.current = null;
+        capturedInvoiceApiRucRef.current = "";
+        const docTypeText = data.ruc.toUpperCase();
+        const nextDocTypeCode = docTypeText.includes("FACTURA")
+          ? "01"
+          : docTypeText.includes("BOLETA")
+            ? "03"
+            : docValue.length === 11
+              ? "01"
+              : "03";
+        const customerDocValue = docValue;
+        const localClient =
+          clientOptions.find(
+            (opt) =>
+              isActiveClient(opt.client) &&
+              ((opt.code && opt.code === safeTrim(data.memberCode)) ||
+                (nextDocTypeCode === "01" &&
+                  customerDocValue &&
+                  normalizeDocumentText(opt.client.ruc) === customerDocValue) ||
+                (nextDocTypeCode !== "01" &&
+                  customerDocValue &&
+                  normalizeDocumentText(opt.client.dni) === customerDocValue)),
+          )?.client ?? null;
+        const memberCode = safeTrim(data.memberCode);
+        const rawCodeClient =
+          !localClient && memberCode
+            ? await fetchClientByCodigo(memberCode).catch(() => null)
+            : null;
+        const codeClient = isActiveClient(rawCodeClient) ? rawCodeClient : null;
+        const searchedClients =
+          !localClient &&
+          !codeClient &&
+          nextDocTypeCode === "01" &&
+          customerDocValue
+            ? await searchClients(customerDocValue).catch(() => [])
+            : [];
+        const searchedClient =
+          searchedClients.find(
+            (client) =>
+              isActiveClient(client) &&
+              (normalizeDocumentText(client.ruc) === customerDocValue ||
+                (memberCode && getClientCode(client) === memberCode)),
+          ) ?? null;
+        const matchedClient = localClient ?? codeClient ?? searchedClient;
+        if (nextDocTypeCode === "01" && matchedClient && !localClient) {
+          capturedInvoiceApiClientRef.current = matchedClient;
+          capturedInvoiceApiRucRef.current = customerDocValue;
+        }
         formMethods.setValue("docTypeCode", nextDocTypeCode, {
           shouldDirty: true,
         });
-        if (nextDocTypeCode === "01") {
-          formMethods.setValue(
-            "customerRuc",
-            customerDocValue || matchedClient.ruc || "",
-            { shouldDirty: true },
-          );
-          formMethods.setValue("customerDoc", "", { shouldDirty: true });
-        } else {
-          formMethods.setValue("customerRuc", "", { shouldDirty: true });
-          formMethods.setValue(
-            "customerDoc",
-            customerDocValue ||
-              (normalizeDocumentText(matchedClient.dni) === memberCode
-                ? ""
-                : matchedClient.dni) ||
-              "",
-            { shouldDirty: true },
-          );
-        }
-        if (data.customerEmail) {
-          formMethods.setValue("customerEmail", data.customerEmail, {
+        formMethods.setValue(
+          "customerRuc",
+          nextDocTypeCode === "01" ? customerDocValue : "",
+          { shouldDirty: true },
+        );
+        formMethods.setValue(
+          "customerDoc",
+          nextDocTypeCode !== "01" ? customerDocValue : "",
+          { shouldDirty: true },
+        );
+        if (matchedClient) {
+          applyClient(matchedClient, { preserveDocType: true });
+          formMethods.setValue("docTypeCode", nextDocTypeCode, {
             shouldDirty: true,
           });
-        }
-      } else {
-        if (nextDocTypeCode === "01") {
-          const lookup =
-            customerDocValue.length === 11
-              ? await consultarDocumentoCliente("ruc", customerDocValue)
-              : null;
-          const lookupClient = lookup?.ok ? lookup.client : null;
-          if (!lookupClient) {
-            formMethods.setValue("customerName", "", { shouldDirty: true });
-            formMethods.setValue("customerDoc", "", { shouldDirty: true });
-            formMethods.setValue("address", "", { shouldDirty: true });
-            formMethods.setValue("customerEmail", "", { shouldDirty: true });
-            appliedClientRef.current = null;
-            capturedInvoiceApiClientRef.current = null;
-            capturedInvoiceApiRucRef.current = "";
-            focusSaleField("customerRuc");
-            toast.error(
-              (lookup && !lookup.ok ? lookup.message : "") ||
-                "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
+          if (nextDocTypeCode === "01") {
+            formMethods.setValue(
+              "customerRuc",
+              customerDocValue || matchedClient.ruc || "",
+              { shouldDirty: true },
             );
-            return;
+            formMethods.setValue("customerDoc", "", { shouldDirty: true });
+          } else {
+            formMethods.setValue("customerRuc", "", { shouldDirty: true });
+            formMethods.setValue(
+              "customerDoc",
+              customerDocValue ||
+                (normalizeDocumentText(matchedClient.dni) === memberCode
+                  ? ""
+                  : matchedClient.dni) ||
+                "",
+              { shouldDirty: true },
+            );
           }
-          formMethods.setValue("customerName", lookupClient.nombreRazon, {
-            shouldDirty: true,
-          });
-          formMethods.setValue("customerRuc", lookupClient.ruc, {
-            shouldDirty: true,
-          });
-          formMethods.setValue("customerDoc", "", { shouldDirty: true });
-          formMethods.setValue("address", lookupClient.direccionFiscal, {
-            shouldDirty: true,
-          });
-          formMethods.setValue("customerEmail", data.customerEmail, {
-            shouldDirty: true,
-          });
-          appliedClientRef.current = null;
-          capturedInvoiceApiClientRef.current = null;
-          capturedInvoiceApiRucRef.current = "";
+          if (data.customerEmail) {
+            formMethods.setValue("customerEmail", data.customerEmail, {
+              shouldDirty: true,
+            });
+          }
         } else {
-          const lookup =
-            customerDocValue.length === 8
-              ? await consultarDocumentoCliente("dni", customerDocValue)
-              : null;
-          const lookupClient = lookup?.ok ? lookup.client : null;
-          formMethods.setValue(
-            "customerName",
-            lookupClient?.nombreRazon || data.customerName,
-            { shouldDirty: true },
-          );
-          if (lookupClient?.direccionFiscal) {
+          if (nextDocTypeCode === "01") {
+            const lookup =
+              customerDocValue.length === 11
+                ? await consultarDocumentoCliente("ruc", customerDocValue)
+                : null;
+            const lookupClient = lookup?.ok ? lookup.client : null;
+            if (!lookupClient) {
+              formMethods.setValue("customerName", "", { shouldDirty: true });
+              formMethods.setValue("customerDoc", "", { shouldDirty: true });
+              formMethods.setValue("address", "", { shouldDirty: true });
+              formMethods.setValue("customerEmail", "", { shouldDirty: true });
+              appliedClientRef.current = null;
+              capturedInvoiceApiClientRef.current = null;
+              capturedInvoiceApiRucRef.current = "";
+              focusSaleField("customerRuc");
+              toast.error(
+                (lookup && !lookup.ok ? lookup.message : "") ||
+                  "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
+              );
+              return;
+            }
+            formMethods.setValue("customerName", lookupClient.nombreRazon, {
+              shouldDirty: true,
+            });
+            formMethods.setValue("customerRuc", lookupClient.ruc, {
+              shouldDirty: true,
+            });
+            formMethods.setValue("customerDoc", "", { shouldDirty: true });
             formMethods.setValue("address", lookupClient.direccionFiscal, {
               shouldDirty: true,
             });
+            formMethods.setValue("customerEmail", data.customerEmail, {
+              shouldDirty: true,
+            });
+            appliedClientRef.current = null;
+            capturedInvoiceApiClientRef.current = null;
+            capturedInvoiceApiRucRef.current = "";
           } else {
-            formMethods.setValue("address", "", { shouldDirty: true });
+            const lookup =
+              customerDocValue.length === 8
+                ? await consultarDocumentoCliente("dni", customerDocValue)
+                : null;
+            const lookupClient = lookup?.ok ? lookup.client : null;
+            formMethods.setValue(
+              "customerName",
+              lookupClient?.nombreRazon || data.customerName,
+              { shouldDirty: true },
+            );
+            if (lookupClient?.direccionFiscal) {
+              formMethods.setValue("address", lookupClient.direccionFiscal, {
+                shouldDirty: true,
+              });
+            } else {
+              formMethods.setValue("address", "", { shouldDirty: true });
+            }
+            formMethods.setValue("customerEmail", data.customerEmail, {
+              shouldDirty: true,
+            });
           }
-          formMethods.setValue("customerEmail", data.customerEmail, {
-            shouldDirty: true,
-          });
         }
-      }
-      formMethods.setValue("memberCode", data.memberCode, {
-        shouldDirty: true,
-      });
-      if (nextDocTypeCode !== "01") {
-        formMethods.setValue("customerRuc", "", { shouldDirty: true });
-      } else {
-        formMethods.setValue("customerDoc", "", { shouldDirty: true });
-      }
+        formMethods.setValue("memberCode", data.memberCode, {
+          shouldDirty: true,
+        });
+        if (nextDocTypeCode !== "01") {
+          formMethods.setValue("customerRuc", "", { shouldDirty: true });
+        } else {
+          formMethods.setValue("customerDoc", "", { shouldDirty: true });
+        }
 
-      setLastTicket(null);
+        setLastTicket(null);
       } finally {
         setIsApplyingCapture(false);
       }
@@ -2227,6 +2269,23 @@ export default function HtmlCaptureSalePage() {
         field: "customerDoc",
       };
     }
+    const total = Number(totals.total.toFixed(2));
+    if (form.docTypeCode === "03" && total >= 700 && customerDni.length !== 8) {
+      return {
+        message: "Boleta desde S/ 700.00 requiere DNI de 8 digitos.",
+        field: "customerDoc",
+      };
+    }
+    if (
+      form.docTypeCode === "01" &&
+      total >= 2000 &&
+      form.paymentMethod.includes("EFECTIVO")
+    ) {
+      return {
+        message: "Factura desde S/ 2,000.00 no permite pago en efectivo.",
+        field: "paymentMethod",
+      };
+    }
     if (
       form.condition !== "PAGO/VARIOS" &&
       form.paymentMethod === "(SELECCIONE)"
@@ -2253,7 +2312,6 @@ export default function HtmlCaptureSalePage() {
       form.paymentMethod.includes("/") &&
       form.paymentMethod.includes("EFECTIVO");
     const paymentDeposit = Number(form.paymentDeposit || 0);
-    const total = Number(totals.total.toFixed(2));
     if (isCashSplitPayment && paymentDeposit <= 0) {
       return {
         message: "Ingresa el monto por banco.",
@@ -2372,6 +2430,75 @@ export default function HtmlCaptureSalePage() {
     ).toBlob();
   };
 
+  const buildInvoiceBlob = async (documentNumber: string, noteId: number) => {
+    const qrClientDoc = safeTrim(form.customerRuc) || "00000000000";
+    const qrData = [
+      session.companyRuc || "20601070155",
+      "01",
+      documentNumber,
+      totals.igv.toFixed(2),
+      totals.total.toFixed(2),
+      form.emissionDate || localDate(),
+      "06",
+      qrClientDoc,
+    ].join("|");
+    const preGeneratedQrBase64 = await generateTicketQrBase64(qrData);
+    const [serie = "FA01", ...numberParts] = documentNumber.split("-");
+    const invoice: ServiceInvoiceListItem = {
+      compra: {
+        compraId: noteId,
+        notaId: noteId,
+        companiaId: session.companyId,
+        documento: "FACTURA",
+        tipoCodigo: "01",
+        compraConcepto: form.concept,
+        serie,
+        numero: numberParts.join("-") || documentNumber,
+        nroComprobante: documentNumber,
+        fechaEmision: form.emissionDate || localDate(),
+        fechaRegistro: form.emissionDate || localDate(),
+        clienteId: selectedClient?.id,
+        clienteRazon: form.customerName || "CLIENTE",
+        clienteRuc: form.customerRuc,
+        clienteDni: form.customerDoc,
+        direccionFiscal: form.address || "-",
+        subTotal: totals.base,
+        igv: totals.igv,
+        total: totals.total,
+        saldo: totals.total,
+        formaPago: form.condition.replace("ALCONTADO", "AL CONTADO"),
+        condicion: form.condition,
+        totalDetalles: rows.length,
+      },
+      detalles: rows.map((row, index) => ({
+        detalleCompraId: index + 1,
+        compraId: noteId,
+        productId: row.product.id,
+        codigoProducto: row.code,
+        unidadMedida: row.product.unidadMedida || "NIU",
+        detalleDesc: row.description,
+        detalleCant: row.quantity,
+        detallePrecio: row.price,
+        importe: row.quantity * row.price,
+        pv: row.pv,
+        sv: row.sv,
+      })),
+    };
+
+    return await pdf(
+      ServiceInvoicePdfDocument({
+        invoice,
+        company: {
+          name: session.companyName,
+          ruc: session.companyRuc,
+          address: session.companyAddress,
+          phone: session.companyPhone,
+        },
+        preGeneratedQrBase64,
+      }),
+    ).toBlob();
+  };
+
   const isTicketOutputBlocked = () =>
     [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some((value) =>
       ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
@@ -2478,7 +2605,9 @@ export default function HtmlCaptureSalePage() {
         throw new Error("No se encontraron el XML y CDR del comprobante.");
       }
 
-      const blob = await buildTicketBlob(documentNumber, noteId);
+      const blob = isInvoice
+        ? await buildInvoiceBlob(documentNumber, noteId)
+        : await buildTicketBlob(documentNumber, noteId);
       const formData = new FormData();
       formData.append(
         "pdf",
@@ -2487,14 +2616,18 @@ export default function HtmlCaptureSalePage() {
         }),
       );
       formData.append("para", recipient);
-      formData.append("asunto", `Comprobante ${documentNumber}`);
       formData.append(
-        "cuerpo",
-        "<p>Adjuntamos su comprobante electrónico.</p>",
+        "asunto",
+        `${isInvoice ? "Factura electrónica" : "Boleta electrónica"} ${documentNumber}`,
       );
       formData.append("esHtml", "true");
       formData.append("rucEmisor", session.companyRuc || "20601070155");
       formData.append("nroComprobante", documentNumber);
+      formData.append("nombreCompania", session.companyName || "Mi Empresa");
+      formData.append(
+        "tipoComprobante",
+        isInvoice ? "Factura electrónica" : "Boleta electrónica",
+      );
       if (xmlUrl) {
         formData.append("xmlUrl", xmlUrl);
       }
@@ -2613,7 +2746,10 @@ export default function HtmlCaptureSalePage() {
               ? { ...current, estadoSunat: "ANULADO", docuEstado: "ANULADO" }
               : current,
           );
-          toast.success(safeTrim(response?.mensaje ?? response?.message) || `La ${documentLabel} fue anulada correctamente.`);
+          toast.success(
+            safeTrim(response?.mensaje ?? response?.message) ||
+              `La ${documentLabel} fue anulada correctamente.`,
+          );
         } catch (error) {
           toast.error(
             error instanceof Error
@@ -3243,7 +3379,9 @@ export default function HtmlCaptureSalePage() {
             type="button"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50"
             onClick={() =>
-              isFromOrderNotesView ? navigate("/sales/order_notes") : navigate(-1)
+              isFromOrderNotesView
+                ? navigate("/sales/order_notes")
+                : navigate(-1)
             }
           >
             <ArrowLeft className="h-4 w-4" />
@@ -3251,56 +3389,56 @@ export default function HtmlCaptureSalePage() {
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           {canVoidViewedNote ? (
-          <button
-            type="button"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 text-sm font-medium text-red-800 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={handleVoidViewedNote}
-          >
-            <Trash2 className="h-4 w-4" />
-            Anular
-          </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 text-sm font-medium text-red-800 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleVoidViewedNote}
+            >
+              <Trash2 className="h-4 w-4" />
+              Anular
+            </button>
           ) : null}
           {isExistingRoute ? (
-          <button
-            type="button"
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-            onClick={openNewRecord}
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo
-          </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              onClick={openNewRecord}
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo
+            </button>
           ) : null}
           {lastTicket ? (
-          <>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() =>
-                void printTicket().catch((error) => {
-                  toast.error(
-                    error instanceof Error
-                      ? error.message
-                      : "No se pudo enviar a la tiketera.",
-                  );
-                })
-              }
-              disabled={isBlockedViewedNote}
-            >
-              <Printer className="h-4 w-4" />
-              Imprimir
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() =>
-                downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
-              }
-              disabled={isBlockedViewedNote}
-            >
-              <FileDown className="h-4 w-4" />
-              Descargar
-            </button>
-          </>
+            <>
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() =>
+                  void printTicket().catch((error) => {
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "No se pudo enviar a la tiketera.",
+                    );
+                  })
+                }
+                disabled={isBlockedViewedNote}
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() =>
+                  downloadTicket(lastTicket.documentNumber, lastTicket.noteId)
+                }
+                disabled={isBlockedViewedNote}
+              >
+                <FileDown className="h-4 w-4" />
+                Descargar
+              </button>
+            </>
           ) : null}
         </div>
       </div>
@@ -3478,6 +3616,7 @@ export default function HtmlCaptureSalePage() {
               <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
                 <tr>
                   {[
+                    "Código",
                     "Descripcion",
                     "Cantidad",
                     "Precio",
@@ -3502,7 +3641,7 @@ export default function HtmlCaptureSalePage() {
                 {rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-5 py-14 text-center text-sm text-slate-400"
                     >
                       Captura un HTML o agrega productos para venta libre.
@@ -3514,6 +3653,9 @@ export default function HtmlCaptureSalePage() {
                       key={row.code}
                       className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
                     >
+                      <td className="px-4 py-2 font-medium text-slate-500">
+                        {row.code}
+                      </td>
                       <td className="px-4 py-2 text-slate-600">
                         <span className="flex items-center gap-2">
                           {row.description}
@@ -3656,6 +3798,11 @@ export default function HtmlCaptureSalePage() {
                 sendingEmail={isSendingEmail}
                 onCreateClient={
                   isReadOnly ? undefined : handleOpenCreateClientModal
+                }
+                onCreateAndEditCapturedClient={
+                  canEditCapturedClient
+                    ? () => void handleCreateAndEditCapturedClient()
+                    : undefined
                 }
               />
             </div>

@@ -50,6 +50,8 @@ export interface ServiceInvoiceListDetail {
   detalleCant: number;
   detallePrecio: number;
   importe?: number;
+  pv?: number;
+  sv?: number;
 }
 
 export interface ServiceInvoiceListItem {

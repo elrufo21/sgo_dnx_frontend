@@ -763,15 +763,27 @@ export default function ServiceInvoiceCreate() {
       }
 
       form.append("para", correoCliente);
-      form.append("asunto", `Factura ${viewInvoice.compra.nroComprobante}`);
-
-      form.append("cuerpo", "<p>Adjuntamos su comprobante electrónico.</p>");
+      form.append(
+        "asunto",
+        `Factura electrónica ${viewInvoice.compra.nroComprobante}`,
+      );
+      const emailCompanyName =
+        invoicePdfCompany.commercialName || invoicePdfCompany.name || "Mi Empresa";
+      form.append(
+        "cuerpo",
+        `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.10);"><tr><td style="padding:26px 32px;background:#9f3028;color:#fff;text-align:center;font-size:20px;font-weight:700;">${emailCompanyName}</td></tr><tr><td style="padding:34px 32px;"><div style="font-size:20px;font-weight:700;color:#172033;">Factura electrónica · ${viewInvoice.compra.nroComprobante}</div><div style="width:44px;height:3px;margin:16px 0 22px;background:#9f3028;"></div><p style="font-size:15px;line-height:1.6;">Buen día,</p><p style="font-size:15px;line-height:1.65;">Se adjunta su <strong>Factura electrónica</strong>, aceptada por SUNAT, en formato PDF, XML y CDR.</p><div style="margin-top:24px;padding:14px 16px;background:#eef8f0;border-radius:10px;color:#24713a;font-size:14px;font-weight:700;">✓ Comprobante aceptado por SUNAT</div><p style="margin-top:26px;font-size:15px;line-height:1.6;">Saludos cordiales,<br><strong>${emailCompanyName}</strong></p></td></tr></table></td></tr></table>`,
+      );
 
       form.append("esHtml", "true");
 
       form.append("pdf", pdfFile);
       form.append("rucEmisor", invoicePdfCompany.ruc || "15390049339");
       form.append("nroComprobante", viewInvoice.compra.numero);
+      form.append(
+        "nombreCompania",
+        emailCompanyName,
+      );
+      form.append("tipoComprobante", "Factura electrónica");
 
       if (viewInvoice.compra.xmlUrl)
         form.append("xmlUrl", viewInvoice.compra.xmlUrl);

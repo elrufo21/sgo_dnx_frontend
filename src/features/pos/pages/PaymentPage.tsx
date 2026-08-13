@@ -5242,14 +5242,18 @@ const PaymentPage = () => {
         new File([blob], getComprobanteFileName(), { type: "application/pdf" }),
       );
       formData.append("para", customerEmail);
-      formData.append("asunto", `Comprobante ${documentNumber}`);
       formData.append(
-        "cuerpo",
-        "<p>Adjuntamos su comprobante electrónico.</p>",
+        "asunto",
+        `${isFactura ? "Factura electrónica" : "Boleta electrónica"} ${documentNumber}`,
       );
       formData.append("esHtml", "true");
       formData.append("rucEmisor", companyRucFromSession || "20601070155");
       formData.append("nroComprobante", documentNumber);
+      formData.append("nombreCompania", companyNameFromSession || "Mi Empresa");
+      formData.append(
+        "tipoComprobante",
+        isFactura ? "Factura electrónica" : "Boleta electrónica",
+      );
       if (xmlUrl) formData.append("xmlUrl", xmlUrl);
       if (cdrUrl) formData.append("cdrUrl", cdrUrl);
 

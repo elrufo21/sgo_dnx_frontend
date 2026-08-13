@@ -396,7 +396,7 @@ function DxnLogo() {
   return (
     <View style={[styles.logoArea, styles.center]}>
       <Image
-        src="/LogoManuel.png"
+        src="/LogoDXN.png"
         style={{
           width: 86,
           height: 51,
@@ -427,14 +427,11 @@ export function ServiceInvoicePdfDocument({
   );
   const companyName = safeText(
     company?.name,
-    safeText(company?.commercialName, "CENTRO DE SERVICIO DXN HUARAL"),
+    safeText(company?.commercialName, "MI EMPRESA"),
   ).toUpperCase();
-  const companyRuc = safeText(company?.ruc, "15390049339");
-  const companyAddress = safeText(
-    company?.address,
-    "CALLE LUIS COLAN NRO 456 Huaral-Huaral-Lima",
-  );
-  const companyPhone = safeText(company?.phone, "409-5092 /969-772-377");
+  const companyRuc = safeText(company?.ruc, "-");
+  const companyAddress = safeText(company?.address, "-");
+  const companyPhone = safeText(company?.phone);
   const clientRuc = safeText(compra.clienteRuc, safeText(compra.clienteDni));
   const amountWords = safeText(
     compra.letras,
@@ -466,9 +463,9 @@ export function ServiceInvoicePdfDocument({
             <View style={styles.titleArea}>
               <Text style={styles.title}>{companyName}</Text>
               <Text style={styles.address}>
-                {companyAddress} Telef: {companyPhone}
+                {companyAddress}
+                {companyPhone ? ` Telef: ${companyPhone}` : ""}
               </Text>
-              <Text style={styles.address}>ICA ICA ICA</Text>
             </View>
 
             <View style={styles.documentBox}>
@@ -583,65 +580,69 @@ export function ServiceInvoicePdfDocument({
                 </View>
               ))}
             </View>
-            <View style={styles.itemRow}>
-              {[
-                ["no", 30],
-                ["codigo", 66],
-                ["descripcion", 217],
-                ["punit", 52],
-                ["cant", 52],
-                ["pv", 52],
-                ["sv", 52],
-                ["importe", 52],
-              ].map(([key, width], index) => {
-                const first = details[0];
-                const content =
-                  key === "no"
-                    ? "1"
-                    : key === "codigo"
-                      ? safeText(
-                          first.codigoProducto,
-                          safeText(first.codigoSunat, "SERV001"),
-                        )
-                      : key === "descripcion"
-                        ? safeText(first.detalleDesc, "SERVICIO").toUpperCase()
-                        : key === "punit"
-                          ? money(first.detallePrecio)
-                          : key === "cant"
-                            ? safeNumber(first.detalleCant).toFixed(2)
-                            : key === "pv"
-                              ? "0.00"
-                              : key === "sv"
-                                ? "0.00"
-                                : money(total);
+            {details.map((detail, detailIndex) => (
+              <View
+                key={`${detail.detalleCompraId}-${detailIndex}`}
+                style={styles.itemRow}
+              >
+                {[
+                  ["no", 30],
+                  ["codigo", 66],
+                  ["descripcion", 217],
+                  ["punit", 52],
+                  ["cant", 52],
+                  ["pv", 52],
+                  ["sv", 52],
+                  ["importe", 52],
+                ].map(([key, width], index) => {
+                  const content =
+                    key === "no"
+                      ? String(detailIndex + 1)
+                      : key === "codigo"
+                        ? safeText(
+                            detail.codigoProducto,
+                            safeText(detail.codigoSunat, "SERV001"),
+                          )
+                        : key === "descripcion"
+                          ? safeText(detail.detalleDesc, "SERVICIO").toUpperCase()
+                          : key === "punit"
+                            ? money(detail.detallePrecio)
+                            : key === "cant"
+                              ? safeNumber(detail.detalleCant).toFixed(2)
+                              : key === "pv"
+                                ? money(detail.pv)
+                                : key === "sv"
+                                  ? money(detail.sv)
+                                  : money(resolveLineImporte(detail));
 
-                return (
-                  <View
-                    key={key}
-                    style={[
-                      styles.itemCell,
-                      { width: Number(width) },
-                      ...(index === 7 ? [{ borderRightWidth: 0 }] : []),
-                    ]}
-                  >
-                    <Text
+                  return (
+                    <View
+                      key={key}
                       style={[
-                        key === "descripcion"
-                          ? styles.itemDescription
-                          : styles.smallLine,
-                        ...(["punit", "cant", "pv", "sv", "importe"].includes(
-                          String(key),
-                        )
-                          ? [styles.numeric]
-                          : []),
+                        styles.itemCell,
+                        { width: Number(width) },
+                        ...(index === 7 ? [{ borderRightWidth: 0 }] : []),
                       ]}
                     >
-                      {content}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+                      <Text
+                        style={[
+                          key === "descripcion"
+                            ? styles.itemDescription
+                            : styles.smallLine,
+                          ...(["punit", "cant", "pv", "sv", "importe"].includes(
+                            String(key),
+                          )
+                            ? [styles.numeric]
+                            : []),
+                        ]}
+                      >
+                        {content}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </View>
 
           <View style={styles.footer}>
@@ -655,20 +656,10 @@ export function ServiceInvoicePdfDocument({
                 </View>
                 <View>
                   <Text style={styles.legalText}>
-                    Autorizado mediante la resolucion de intendencia
-                  </Text>
-                  <Text style={styles.legalText}>SUNAT N° 0180050003180</Text>
-                  <Text style={styles.legalText}>
                     Representacion impresa de la Factura Electronica.
                   </Text>
                   <Text style={styles.legalText}>
                     HASH: {safeText(compra.docuHash, "-")}
-                  </Text>
-                  <Text style={styles.legalText}>
-                    Consulta tu Comprobante en: https://www.nubefact.com/buscar
-                  </Text>
-                  <Text style={styles.legalText}>
-                    Email: 42772235m@gmail.com
                   </Text>
                   <Text style={styles.legalText}>
                     Nro Id: {compra.compraId}

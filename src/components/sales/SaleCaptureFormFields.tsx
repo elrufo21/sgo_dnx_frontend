@@ -5,7 +5,7 @@ import {
   useRef,
   type KeyboardEvent,
 } from "react";
-import { Send, UserPlus } from "lucide-react";
+import { Pencil, Send, UserPlus } from "lucide-react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { HookFormAutocomplete } from "@/components/forms/HookFormAutocomplete";
 import { HookFormInput } from "@/components/forms/HookFormInput";
@@ -64,6 +64,7 @@ interface SaleCaptureFormFieldsProps {
     options?: { documentType?: "01" | "03" },
   ) => void;
   onCreateClient?: () => void;
+  onCreateAndEditCapturedClient?: () => void;
   onSendEmail?: () => void;
   sendEmailDisabled?: boolean;
   sendingEmail?: boolean;
@@ -112,6 +113,7 @@ export function SaleCaptureFormFields({
   preserveMissingClientData = false,
   onClientSelected,
   onCreateClient,
+  onCreateAndEditCapturedClient,
   onSendEmail,
   sendEmailDisabled = false,
   sendingEmail = false,
@@ -777,20 +779,34 @@ export function SaleCaptureFormFields({
               className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-lg border border-sky-300 bg-sky-50 px-3 text-sm font-medium text-sky-800 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3"
               onClick={onSendEmail}
               disabled={sendEmailDisabled || sendingEmail}
+              title="ENVIAR CORREO"
             >
               <Send className="h-4 w-4" />
               {sendingEmail ? "Enviando..." : "Enviar"}
             </button>
           ) : onCreateClient ? (
-            <button
-              type="button"
-              className="inline-flex h-10 w-full items-center justify-center gap-2 self-end whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-3"
-              onClick={onCreateClient}
-              disabled={disabled}
-            >
-              <UserPlus className="h-4 w-4" />
-              Cliente
-            </button>
+            <div className="flex w-full gap-2 self-end sm:mt-3">
+              <button
+                type="button"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={onCreateClient}
+                disabled={disabled}
+              >
+                <UserPlus className="h-4 w-4" />
+                Agregar
+              </button>
+              {onCreateAndEditCapturedClient ? (
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={onCreateAndEditCapturedClient}
+                  disabled={disabled}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </button>
+              ) : null}
+            </div>
           ) : null}
           <div className="sm:col-span-2">
             <HookFormAutocomplete
