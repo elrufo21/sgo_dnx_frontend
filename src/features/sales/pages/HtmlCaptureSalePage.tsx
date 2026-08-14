@@ -39,7 +39,6 @@ import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useClientsStore } from "@/store/customers/customers.store";
-import { useOrderNoteStore } from "@/store/orderNote/orderNote.store";
 import { useProductsStore } from "@/store/products/products.store";
 import type { Client } from "@/types/customer";
 import type { Product } from "@/types/product";
@@ -511,9 +510,9 @@ export default function HtmlCaptureSalePage() {
   const routeNoteId = Number(id ?? 0);
   const isExistingRoute =
     !isNewRoute && Number.isFinite(routeNoteId) && routeNoteId > 0;
-  const { viewedOrderNoteId, setViewedOrderNoteId } = useOrderNoteStore();
   const isFromOrderNotesView =
-    isExistingRoute && viewedOrderNoteId === routeNoteId;
+    isExistingRoute &&
+    new URLSearchParams(location.search).get("from") === "order-notes";
   const isReadOnly = isExistingRoute;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const externalCaptureKeyRef = useRef("");
@@ -643,14 +642,12 @@ export default function HtmlCaptureSalePage() {
 
   const openNewRecord = useCallback(() => {
     resetDraft();
-    setViewedOrderNoteId(null);
     navigate("/sales/html_capture/new", { replace: true });
-  }, [navigate, resetDraft, setViewedOrderNoteId]);
+  }, [navigate, resetDraft]);
 
   useEffect(() => {
     if (!isExistingRoute) {
       setLoadedRecordId(null);
-      setViewedOrderNoteId(null);
       resetDraft();
       return;
     }
@@ -829,14 +826,7 @@ export default function HtmlCaptureSalePage() {
     return () => {
       active = false;
     };
-  }, [
-    fetchClientById,
-    formMethods,
-    isExistingRoute,
-    resetDraft,
-    routeNoteId,
-    setViewedOrderNoteId,
-  ]);
+  }, [fetchClientById, formMethods, isExistingRoute, resetDraft, routeNoteId]);
 
   useEffect(() => {
     if (!isExistingRoute) {
@@ -3364,7 +3354,7 @@ export default function HtmlCaptureSalePage() {
     );
   const isBlockedViewedNote = isRejectedInvoiceView || isAnnulledViewedNote;
   const canVoidViewedNote =
-    isFromOrderNotesView &&
+    isExistingRoute &&
     ["01", "03"].includes(form.docTypeCode) &&
     Boolean(lastTicket) &&
     !isVoidingTicket &&
@@ -3722,9 +3712,7 @@ export default function HtmlCaptureSalePage() {
                           className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
                         />
                       </td>
-                      <td className="px-4 py-2 text-right text-slate-500">
-                        {money(row.pv)}
-                      </td>
+
                       <td className="px-4 py-2 text-right font-medium text-slate-700">
                         {money(row.pv * safeRowNumber(row.quantity))}
                       </td>
