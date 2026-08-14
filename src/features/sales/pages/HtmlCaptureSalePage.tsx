@@ -3639,7 +3639,7 @@ export default function HtmlCaptureSalePage() {
                     <th
                       key={header}
                       className={`border-b border-slate-100 px-4 py-2 font-medium ${
-                        i > 0 ? "text-right" : "text-left"
+                        i > 1 ? "text-right" : "text-left"
                       }`}
                     >
                       {header}
