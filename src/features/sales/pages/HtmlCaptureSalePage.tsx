@@ -777,8 +777,8 @@ export default function HtmlCaptureSalePage() {
           customerName:
             client?.nombreRazon || safeTrim(nota.miembro ?? nota.Miembro),
           customerEmail: client?.email || "",
-          customerDoc: docTypeCode === "01" ? "" : client?.dni || "",
-          customerRuc: docTypeCode === "01" ? client?.ruc || "" : "",
+          customerDoc: client?.dni || "",
+          customerRuc: client?.ruc || "",
           address:
             client?.direccionFiscal ||
             client?.direccionDespacho ||
