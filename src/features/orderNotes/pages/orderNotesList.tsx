@@ -140,7 +140,8 @@ const getSignedTotal = (
 const OrderNotesList = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { notes, fetchNotes, loading } = useOrderNoteStore();
+  const { notes, fetchNotes, loading, setViewedOrderNoteId } =
+    useOrderNoteStore();
   const initialDate = useMemo(() => getLocalDateISO(), []);
   const resetRangeFromMainLayout = useMemo(() => {
     if (!state || typeof state !== "object") return false;
@@ -481,9 +482,10 @@ const OrderNotesList = () => {
             <button
               type="button"
               className="text-sm font-medium text-blue-600 hover:underline"
-              onClick={() =>
-                navigate(`/sales/html_capture/${noteId}?from=order-notes`)
-              }
+              onClick={() => {
+                setViewedOrderNoteId(Number(noteId));
+                navigate(`/sales/html_capture/${noteId}`);
+              }}
             >
               Ver
             </button>
@@ -617,7 +619,7 @@ const OrderNotesList = () => {
         meta: { tdClassName: "text-right" },
       }),
     ],
-    [navigate],
+    [navigate, setViewedOrderNoteId],
   );
 
   return (

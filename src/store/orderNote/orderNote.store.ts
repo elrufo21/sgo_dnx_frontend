@@ -16,6 +16,8 @@ interface OrderNoteState {
   notes: OrderNote[];
   totalNotes: number;
   loading: boolean;
+  viewedOrderNoteId: number | null;
+  setViewedOrderNoteId: (noteId: number | null) => void;
   fetchNotes: (params?: FetchOrderNotesParams) => Promise<void>;
   fetchNoteDetail: (noteId: number | string) => Promise<SendNote | null>;
   updateNoteDetail: (
@@ -475,6 +477,8 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
   notes: [],
   totalNotes: 0,
   loading: false,
+  viewedOrderNoteId: null,
+  setViewedOrderNoteId: (noteId) => set({ viewedOrderNoteId: noteId }),
   fetchNotes: async (params) => {
     const today = getLocalDateISO();
     const fechaInicio = String(params?.fechaInicio ?? "").trim() || today;
