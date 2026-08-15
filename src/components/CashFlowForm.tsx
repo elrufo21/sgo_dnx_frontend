@@ -3,9 +3,10 @@ import { Save, Printer, Trash2 } from "lucide-react";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
+import { useUsersStore } from "@/store/users/users.store";
 import type { ActiveCashFlow } from "@/types/cashFlow";
 import { toast } from "@/shared/ui/toast";
-import { useNavigate } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 // Mock components para demostración
 const HookFormInput = ({
@@ -98,19 +99,34 @@ export default function CashFlowForm({
   readOnly?: boolean;
 }) {
   const navigate = useNavigate();
+  const { cajaId } = useParams();
   const sessionUser = useAuthStore((state) => state.user);
   const {
     openCashFlow,
     closeCashFlow,
-    getActiveCashFlow,
+    updateCashFlowState,
+    getCashFlowDetail,
     loading,
-    selectedCashId,
-    selectCashForClosing,
   } = useCashFlowStore();
+  const { users, fetchUsers } = useUsersStore();
   const containerRef = useRef(null);
   const monedaInputRefs = useRef([]);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
   const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
+  const [responsableId, setResponsableId] = useState<number | null>(null);
+  const sessionUserId = Number(sessionUser?.id);
+  const viewedCashId = Number(cajaId);
+  const selectedResponsableId = responsableId ?? sessionUserId;
+  const responsableOptions = users.map((user) => ({
+    value: String(user.UsuarioID),
+    label: user.UsuarioAlias,
+  }));
+  if (sessionUserId > 0 && !responsableOptions.some((user) => user.value === String(sessionUserId))) {
+    responsableOptions.unshift({
+      value: String(sessionUserId),
+      label: sessionUser?.displayName || sessionUser?.username || "Usuario de sesión",
+    });
+  }
 
   const [formData, setFormData] = useState({
     caja: "",
@@ -126,24 +142,23 @@ export default function CashFlowForm({
   });
 
   useEffect(() => {
-    const usuarioId = Number(sessionUser?.id);
-    if (!Number.isFinite(usuarioId) || usuarioId <= 0) return;
+    if (!users.length) void fetchUsers();
+  }, [fetchUsers, users.length]);
+
+  useEffect(() => {
+    if (!Number.isInteger(viewedCashId) || viewedCashId <= 0) return;
     let mounted = true;
 
-    void getActiveCashFlow(usuarioId).then((caja) => {
+    void getCashFlowDetail(viewedCashId).then((caja) => {
       if (!mounted) return;
-      if (selectedCashId && (!caja || caja.id !== selectedCashId)) {
-        toast.error("Solo el responsable de la caja abierta puede cerrarla.");
-        selectCashForClosing(null);
-        navigate("/cash_flow_control");
-        return;
-      }
       if (!caja) return;
       setActiveCash(caja);
       setFormData((prev) => ({
         ...prev,
         sencillo: caja.montoInicial,
         fechaApertura: caja.fechaApertura,
+        fechaCierre: caja.fechaCierre,
+        estado: caja.estado.trim().toUpperCase().startsWith("CERR") ? "CERRADA" : caja.estado,
         observaciones: caja.observacion,
         conteoMonedas: DEFAULT_CONTEO.map((item) => ({
           ...item,
@@ -158,9 +173,11 @@ export default function CashFlowForm({
     });
 
     return () => { mounted = false; };
-  }, [getActiveCashFlow, navigate, selectCashForClosing, selectedCashId, sessionUser?.id]);
+  }, [getCashFlowDetail, viewedCashId]);
 
-  const isClosing = activeCash !== null;
+  const isViewing = Number.isInteger(viewedCashId) && viewedCashId > 0;
+  const isClosed = activeCash?.estado.trim().toUpperCase().startsWith("CERR") ?? false;
+  const isClosing = isViewing && !isClosed;
 
   const handleCantidadChange = (index, valor) => {
     const cantidad = valor === "" ? "" : parseInt(valor, 10) || 0;
@@ -204,15 +221,15 @@ export default function CashFlowForm({
     const cantidad = Number(item.cantidad || 0);
     return sum + cantidad * item.denominacion;
   }, 0);
-  const totalIngresos = isClosing ? activeCash.ventasEfectivo : formData.ingresos.reduce(
+  const totalIngresos = isViewing ? activeCash?.ventasEfectivo ?? 0 : formData.ingresos.reduce(
     (sum, item) => sum + item.importe,
     0
   );
-  const totalGastos = isClosing ? activeCash.salidas : formData.gastos.reduce(
+  const totalGastos = isViewing ? activeCash?.salidas ?? 0 : formData.gastos.reduce(
     (sum, item) => sum + item.importe,
     0
   );
-  const efectivoCaja = isClosing ? activeCash.efectivoEsperado : totalIngresos - totalGastos;
+  const efectivoCaja = isViewing ? activeCash?.efectivoEsperado ?? 0 : totalIngresos - totalGastos;
   const ventasBO_FA =
     (formData.ventaTotal.efectivo ?? 0) +
     (formData.ventaTotal.tarjeta ?? 0) +
@@ -239,8 +256,9 @@ export default function CashFlowForm({
     }, 0);
 
   const abrirCaja = async () => {
-    const usuarioId = Number(sessionUser?.id);
-    const encargado = sessionUser?.displayName || sessionUser?.username || "";
+    const usuarioId = selectedResponsableId;
+    const responsable = users.find((user) => user.UsuarioID === usuarioId);
+    const encargado = responsable?.UsuarioAlias || sessionUser?.displayName || sessionUser?.username || "";
     const montoInicial = Number(formData.sencillo);
     if (!Number.isFinite(usuarioId) || usuarioId <= 0 || !encargado) {
       toast.error("No se pudo identificar al usuario de la sesión.");
@@ -254,7 +272,7 @@ export default function CashFlowForm({
     const result = await openCashFlow({
       usuarioId,
       encargado,
-      usuario: sessionUser?.username || encargado,
+      usuario: responsable?.UsuarioAlias || encargado,
       montoInicial,
       observacion: formData.observaciones,
     });
@@ -264,12 +282,14 @@ export default function CashFlowForm({
     }
 
     toast.success("Caja abierta correctamente.");
-    selectCashForClosing(null);
     navigate("/cash_flow_control");
   };
 
   const cerrarCaja = async () => {
-    if (!activeCash) return;
+    if (!activeCash) {
+      toast.error("No se pudo cargar la caja para cerrarla.");
+      return;
+    }
     const usuarioId = Number(sessionUser?.id);
     if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
       toast.error("No se pudo identificar al usuario de la sesión.");
@@ -290,7 +310,22 @@ export default function CashFlowForm({
     }
 
     toast.success(`Caja cerrada. Diferencia: S/ ${result.diferencia.toFixed(2)}`);
-    selectCashForClosing(null);
+    navigate("/cash_flow_control");
+  };
+
+  const guardarEstadoCaja = async () => {
+    if (!activeCash) {
+      toast.error("No se pudo cargar la caja.");
+      return;
+    }
+
+    const result = await updateCashFlowState(activeCash.id, { estado: formData.estado });
+    if (!result.ok) {
+      toast.error(result.mensaje);
+      return;
+    }
+
+    toast.success("Estado de caja actualizado.");
     navigate("/cash_flow_control");
   };
 
@@ -311,19 +346,19 @@ export default function CashFlowForm({
         <div className="flex items-center gap-2">
           <BackArrowButton className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white hover:bg-white/20 transition-colors" />
           <h1 className="text-xs sm:text-sm font-semibold">
-            {isClosing ? "Cierre de Control de Flujo de Caja" : "Nuevo Control de Flujo de Caja"}
+            {isViewing ? (isClosed ? "Detalle de Caja" : "Cierre de Control de Flujo de Caja") : "Nuevo Control de Flujo de Caja"}
           </h1>
         </div>
         <div className="flex gap-1 sm:gap-2">
           <button
             type="button"
-            onClick={() => void (isClosing ? cerrarCaja() : abrirCaja())}
+            onClick={() => void (isClosed ? guardarEstadoCaja() : isClosing ? cerrarCaja() : abrirCaja())}
             disabled={loading || readOnly}
             className="inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
-            title={isClosing ? "Cerrar caja" : "Abrir caja"}
+            title={isClosed ? "Guardar" : isClosing ? "Cerrar caja" : "Abrir caja"}
           >
             <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>{isClosing ? "Cerrar caja" : "Abrir caja"}</span>
+            <span>{isClosed ? "Guardar" : isClosing ? "Cerrar caja" : "Abrir caja"}</span>
           </button>
           <button
             type="button"
@@ -343,15 +378,28 @@ export default function CashFlowForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 mb-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   <div className="col-span-2">
-                    <HookFormInput
-                      name="encargado"
-                      label="Encargado"
-                      value={sessionUser?.displayName || sessionUser?.username || ""}
-                      onChange={() => {}}
-                      readOnly
-                      inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md bg-slate-50"
-                      labelClassName="text-xs font-semibold text-gray-700"
-                    />
+                    {isViewing ? (
+                      <HookFormInput
+                        name="encargado"
+                        label="Encargado"
+                        value={activeCash?.encargado || ""}
+                        onChange={() => {}}
+                        readOnly
+                        inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md bg-slate-50"
+                        labelClassName="text-xs font-semibold text-gray-700"
+                      />
+                    ) : (
+                      <HookFormSelect
+                        name="encargado"
+                        label="Encargado"
+                        value={String(selectedResponsableId)}
+                        onChange={(e) => setResponsableId(Number(e.target.value))}
+                        options={responsableOptions}
+                        disabled={loading || readOnly}
+                        labelClassName="text-xs font-semibold text-gray-700"
+                        selectClassName="text-xs"
+                      />
+                    )}
                   </div>
                   <div>
                     <HookFormInput
@@ -365,7 +413,7 @@ export default function CashFlowForm({
                           sencillo: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      readOnly={isClosing}
+                      readOnly={isViewing}
                       inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
                       labelClassName="text-xs font-semibold text-gray-700"
                       step="any"
@@ -383,12 +431,13 @@ export default function CashFlowForm({
                         }))
                       }
                       options={[
-                        { value: "ABIERTA", label: "ABIERTA" },
+                        { value: "ACTIVO", label: "ACTIVO" },
+                        { value: "CERRADA", label: "CERRADA" },
                       ]}
-                      disabled
+                      disabled={!isClosed || loading || readOnly}
                       labelClassName="text-xs font-semibold text-gray-700"
                       selectClassName={`text-center font-medium text-xs ${
-                        formData.estado === "ABIERTA"
+                        ["ABIERTA", "ACTIVO"].includes(formData.estado.trim().toUpperCase())
                           ? "bg-green-50 text-green-700 border-green-200 focus:border-green-400"
                           : "bg-red-50 text-red-700 border-red-200 focus:border-red-400"
                       }`}
@@ -475,7 +524,7 @@ export default function CashFlowForm({
                                     }
                                   }}
                                   className="w-full min-w-0 px-1 py-0.5 border border-gray-200 rounded text-center focus:border-slate-500 focus:outline-none text-xs"
-                                  disabled={!isClosing || loading || readOnly}
+                      disabled={!isClosing || loading || readOnly}
                                 />
                               </td>
                               <td className="py-0.5 px-2 text-right text-gray-700 text-xs w-1/3">
@@ -505,6 +554,7 @@ export default function CashFlowForm({
                   <button
                     type="button"
                     onClick={() => setTipoMovimiento("ingresos")}
+                    disabled={isClosed}
                     className={`flex-1 py-1 text-xs rounded font-medium ${
                       tipoMovimiento === "ingresos"
                         ? "bg-slate-800 text-white"
@@ -516,6 +566,7 @@ export default function CashFlowForm({
                   <button
                     type="button"
                     onClick={() => setTipoMovimiento("gastos")}
+                    disabled={isClosed}
                     className={`flex-1 py-1 text-xs rounded font-medium ${
                       tipoMovimiento === "gastos"
                         ? "bg-slate-800 text-white"
@@ -563,6 +614,7 @@ export default function CashFlowForm({
                                 onClick={() =>
                                   eliminarMovimiento(item.id, tipoMovimiento)
                                 }
+                                disabled={isClosed}
                                 className="p-0.5 text-red-600 hover:bg-red-50 rounded"
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -637,6 +689,7 @@ export default function CashFlowForm({
                           observaciones: e.target.value,
                         }))
                       }
+                      readOnly={isClosed}
                       className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-slate-500 focus:outline-none w-full"
                       rows={2}
                       placeholder="Escriba sus observaciones..."

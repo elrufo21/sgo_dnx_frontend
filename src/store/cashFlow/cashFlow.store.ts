@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
-import type { ActiveCashFlow, CashFlow, CloseCashFlow, OpenCashFlow } from "@/types/cashFlow";
+import type { ActiveCashFlow, CashFlow, CloseCashFlow, OpenCashFlow, UpdateCashFlowState } from "@/types/cashFlow";
 import { create } from "zustand";
 
 type ApiRow = Record<string, unknown>;
@@ -31,6 +31,9 @@ const mapCashFlow = (value: unknown): CashFlow => {
     fechaApertura: asString(row.fechaApertura, row.FechaApertura),
     fechaCierre: asString(row.fechaCierre, row.FechaCierre),
     montoInicial: asNumber(row.montoInicial, row.MontoInicial),
+    ingresos: asNumber(row.ingresos, row.Ingresos),
+    salidas: asNumber(row.salidas, row.Salidas),
+    diferencia: asNumber(row.diferencia, row.Diferencia),
     encargado: asString(row.encargado, row.Encargado),
     usuario: asString(row.usuario, row.Usuario),
     estado: asString(row.estado, row.Estado),
@@ -56,6 +59,8 @@ const mapActiveCashFlow = (value: unknown): ActiveCashFlow | null => {
     ventasDeposito: asNumber(row.ventasDeposito, row.VentasDeposito),
     salidas: asNumber(row.salidas, row.Salidas),
     efectivoEsperado: asNumber(row.efectivoEsperado, row.EfectivoEsperado),
+    estado: asString(row.estado, row.Estado) || "ACTIVO",
+    fechaCierre: asString(row.fechaCierre, row.FechaCierre),
     monedas: monedas.map((item) => {
       const moneda = asRecord(item);
       return {
@@ -69,25 +74,25 @@ const mapActiveCashFlow = (value: unknown): ActiveCashFlow | null => {
 interface CashFlowState {
   flows: CashFlow[];
   loading: boolean;
-  selectedCashId: number | null;
-  selectCashForClosing: (cajaId: number | null) => void;
-  fetchFlows: () => Promise<void>;
+  fetchFlows: (range?: { fechaInicio: string; fechaFin: string }) => Promise<void>;
   openCashFlow: (flow: OpenCashFlow) => Promise<{ ok: boolean; mensaje: string }>;
   getActiveCashFlow: (usuarioId: number) => Promise<ActiveCashFlow | null>;
+  getCashFlowDetail: (cajaId: number) => Promise<ActiveCashFlow | null>;
   closeCashFlow: (cajaId: number, flow: CloseCashFlow) => Promise<{ ok: boolean; mensaje: string; diferencia: number }>;
+  updateCashFlowState: (cajaId: number, flow: UpdateCashFlowState) => Promise<{ ok: boolean; mensaje: string }>;
 }
 
 export const useCashFlowStore = create<CashFlowState>((set, get) => ({
   flows: [],
   loading: false,
-  selectedCashId: null,
-  selectCashForClosing: (cajaId) => set({ selectedCashId: cajaId }),
-
-  fetchFlows: async () => {
+  fetchFlows: async (range) => {
     set({ loading: true });
     try {
+      const query = range
+        ? `?${new URLSearchParams(range).toString()}`
+        : "";
       const response = await apiRequest<unknown[]>({
-        url: `${API_BASE_URL}/CashFlow`,
+        url: `${API_BASE_URL}/CashFlow${query}`,
         method: "GET",
         fallback: [],
       });
@@ -126,6 +131,15 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
     return mapActiveCashFlow(response);
   },
 
+  getCashFlowDetail: async (cajaId) => {
+    const response = await apiRequest<unknown>({
+      url: `${API_BASE_URL}/CashFlow/${cajaId}/detail`,
+      method: "GET",
+      fallback: null,
+    });
+    return mapActiveCashFlow(response);
+  },
+
   closeCashFlow: async (cajaId, flow) => {
     const response = await apiRequest<unknown>({
       url: `${API_BASE_URL}/CashFlow/${cajaId}/close`,
@@ -140,5 +154,20 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
 
     if (ok) await get().fetchFlows();
     return { ok, mensaje: mensaje || "No se pudo cerrar la caja.", diferencia };
+  },
+
+  updateCashFlowState: async (cajaId, flow) => {
+    const response = await apiRequest<unknown>({
+      url: `${API_BASE_URL}/CashFlow/${cajaId}/state`,
+      method: "PUT",
+      data: flow,
+    });
+    const result = asRecord(response);
+    const error = asRecord(asRecord(result.response).data);
+    const ok = result.ok === true;
+    const mensaje = asString(result.mensaje, result.message, error.mensaje, error.message);
+
+    if (ok) await get().fetchFlows();
+    return { ok, mensaje: mensaje || "No se pudo guardar el estado de la caja." };
   },
 }));

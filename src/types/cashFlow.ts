@@ -3,6 +3,9 @@ export interface CashFlow {
   fechaApertura: string;
   fechaCierre: string;
   montoInicial: number;
+  ingresos: number;
+  salidas: number;
+  diferencia: number;
   encargado: string;
   usuario: string;
   estado: string;
@@ -35,10 +38,16 @@ export interface ActiveCashFlow {
   salidas: number;
   efectivoEsperado: number;
   monedas: CashCount[];
+  estado: string;
+  fechaCierre: string;
 }
 
 export interface CloseCashFlow {
   usuarioId: number;
   observacion?: string;
   monedas: CashCount[];
+}
+
+export interface UpdateCashFlowState {
+  estado: string;
 }

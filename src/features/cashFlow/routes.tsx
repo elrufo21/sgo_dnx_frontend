@@ -19,4 +19,14 @@ export default [
       ],
     },
   },
+  {
+    path: "cash_flow_control/view/:cajaId",
+    element: <CashFlowCreate />,
+    handle: {
+      breadcrumb: [
+        { label: "Control de Caja", to: "/cash_flow_control" },
+        { label: "Caja" },
+      ],
+    },
+  },
 ];
