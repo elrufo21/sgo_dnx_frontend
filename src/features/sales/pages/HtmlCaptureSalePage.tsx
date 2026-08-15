@@ -1849,12 +1849,11 @@ export default function HtmlCaptureSalePage() {
   ]);
 
   useEffect(() => {
-    const code = safeTrim(form.memberCode);
-    if (!code || selectedClient || appliedClientRef.current) return;
-    const match =
-      clientOptions.find((opt) => opt.code === code)?.client ?? null;
-    if (match) applyClient(match, { preserveDocType: true });
-  }, [applyClient, clientOptions, form.memberCode, selectedClient]);
+    if (!selectedClient || appliedClientRef.current?.id === selectedClient.id) {
+      return;
+    }
+    applyClient(selectedClient, { preserveDocType: true });
+  }, [applyClient, selectedClient]);
 
   const buildRows = useCallback(
     (data: CaptureData) =>
@@ -3037,7 +3036,8 @@ export default function HtmlCaptureSalePage() {
           applyClient(saleClient, { preserveDocType: true });
         } else {
           toast.warning(
-            "Venta registrada, pero no se pudo actualizar el documento predeterminado del cliente.",
+            updated.error ??
+              "Venta registrada, pero no se pudo actualizar el documento predeterminado del cliente.",
           );
         }
       }
@@ -3820,6 +3820,7 @@ export default function HtmlCaptureSalePage() {
                 totalAmount={totals.total}
                 preserveMissingClientData={isCapturedSale}
                 onClientSelected={applyClient}
+                onSearchClients={(search) => void searchClients(search)}
                 allowEmailEdit={isExistingRoute}
                 onSendEmail={
                   isExistingRoute ? () => void sendTicketEmail() : undefined

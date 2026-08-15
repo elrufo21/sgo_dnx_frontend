@@ -14,7 +14,8 @@ const formatDate = (value: string) => {
 };
 
 const CashFlowList = () => {
-  const { flows, fetchFlows, loading, selectCashForClosing } = useCashFlowStore();
+  const { flows, fetchFlows, loading, selectCashForClosing } =
+    useCashFlowStore();
   const navigate = useNavigate();
   const columnHelper = createColumnHelper<CashFlow>();
 
@@ -43,7 +44,9 @@ const CashFlowList = () => {
       cell: (info) => {
         const activa = info.getValue().trim().toUpperCase() === "ACTIVO";
         return (
-          <span className={`rounded border px-2 py-1 text-xs font-medium ${activa ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+          <span
+            className={`rounded border px-2 py-1 text-xs font-medium ${activa ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}
+          >
             {activa ? "ABIERTA" : info.getValue() || "-"}
           </span>
         );
@@ -87,7 +90,6 @@ const CashFlowList = () => {
         data={flows}
         isLoading={loading}
         emptyMessage="No hay cajas registradas"
-        toolbarLeading={<BackArrowButton className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100" />}
         toolbarAction={
           <button
             type="button"

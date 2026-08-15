@@ -596,6 +596,22 @@ export function SaleCaptureFormFields({
     if (client) applyClientSelection(client, documentType);
   };
 
+  const selectCustomerNameInput = (inputValue: string) => {
+    queueClientSearch(inputValue);
+    const client = findClientByName(inputValue);
+    if (client) {
+      applyClientSelection(client);
+      return;
+    }
+
+    setValue("memberCode", "", { shouldDirty: true });
+    setValue("customerDoc", "", { shouldDirty: true });
+    setValue("customerRuc", "", { shouldDirty: true });
+    setValue("customerEmail", "", { shouldDirty: true });
+    setValue("address", "", { shouldDirty: true });
+    onClientSelected?.(null);
+  };
+
   const handleDocumentBlur =
     (type: "dni" | "ruc") =>
     ({ inputValue }: { inputValue: string }) => {
@@ -819,7 +835,7 @@ export function SaleCaptureFormFields({
               showCreateOption={false}
               createLabel={(value) => `Usar cliente: ${value}`}
               syncInputToValue
-              onInputValueChange={queueClientSearch}
+              onInputValueChange={selectCustomerNameInput}
               filterOptions={(options, state) =>
                 filterByClientData(options, state.inputValue)
               }

@@ -501,6 +501,10 @@ const OrderNotesList = () => {
         header: "Documento",
         cell: ({ row }) =>
           splitDocumentLabel(row.original.documento).tipoDocumento || "-",
+        meta: {
+          thClassName: "min-w-[6rem] whitespace-nowrap",
+          tdClassName: "min-w-[6rem] whitespace-nowrap",
+        },
       }),
       columnHelper.display({
         id: "Número",
