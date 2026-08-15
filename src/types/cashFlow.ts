@@ -1,41 +1,44 @@
 export interface CashFlow {
   id: number;
-  caja: string;
-  encargado: string;
-  sencillo: number;
-  estado: "ABIERTA" | "CERRADA";
   fechaApertura: string;
-  fechaCierre?: string;
-  conteoMonedas: ConteoMoneda[];
-  ingresos: Movement[];
-  gastos: Movement[];
-  observaciones?: string;
-  ventaTotal: VentaTotal;
+  fechaCierre: string;
+  montoInicial: number;
+  encargado: string;
+  usuario: string;
+  estado: string;
+  observacion: string;
 }
 
-export interface ConteoMoneda {
-  cantidad: number;
+export interface OpenCashFlow {
+  usuarioId: number;
+  encargado: string;
+  usuario: string;
+  montoInicial: number;
+  observacion?: string;
+}
+
+export interface CashCount {
   denominacion: number;
+  cantidad: number;
 }
 
-export interface Movement {
+export interface ActiveCashFlow {
   id: number;
-  descripcion: string;
-  importe: number;
+  fechaApertura: string;
+  montoInicial: number;
+  encargado: string;
+  usuario: string;
+  observacion: string;
+  ventasEfectivo: number;
+  ventasTarjeta: number;
+  ventasDeposito: number;
+  salidas: number;
+  efectivoEsperado: number;
+  monedas: CashCount[];
 }
 
-export interface VentaTotal {
-  efectivo: number;
-  tarjeta: number;
-  deposito: number;
-}
-
-export interface CashFlowCalculated extends CashFlow {
-  totalEfectivo: number;
-  totalIngresos: number;
-  totalGastos: number;
-  efectivoCaja: number;
-  ventasBO_FA: number;
-  diferencial: number;
-  total: number;
+export interface CloseCashFlow {
+  usuarioId: number;
+  observacion?: string;
+  monedas: CashCount[];
 }

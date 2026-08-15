@@ -32,6 +32,10 @@ export interface ServiceInvoiceListCompra {
   docuHash?: string;
   formaPago?: string;
   condicion?: string;
+  entidadBancaria?: string;
+  nroOperacion?: string;
+  codigoCliente?: string;
+  notaTransaccion?: string;
   origenModulo?: string;
   totalDetalles?: number;
   xmlUrl?: string;

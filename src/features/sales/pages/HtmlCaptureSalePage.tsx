@@ -125,6 +125,7 @@ type PagoVariosItem = {
 };
 type PagoVariosResponse = {
   ok?: boolean;
+  codigo?: string;
   count?: number;
   items?: PagoVariosItem[];
   mensaje?: string;
@@ -1153,6 +1154,20 @@ export default function HtmlCaptureSalePage() {
       const errorData = asRecord(asRecord(response)?.response)?.data;
       const errorRecord = asRecord(errorData);
       if (!response?.ok) {
+        const codigo = safeTrim(response?.codigo) || safeTrim(errorRecord?.codigo);
+        if (codigo === "CAJA_CHICA_CERRADA") {
+          openDialog({
+            title: "Caja chica",
+            content: (
+              <p className="text-sm text-slate-700">
+                No se aperturó caja chica. Favor de abrir una nueva caja.
+              </p>
+            ),
+            confirmText: "Aceptar",
+            hideCancelButton: true,
+          });
+          return;
+        }
         toast.error(
           safeTrim(response?.mensaje) ||
             safeTrim(errorRecord?.mensaje) ||
@@ -2440,27 +2455,31 @@ export default function HtmlCaptureSalePage() {
     ).toBlob();
   };
 
-  const buildInvoiceBlob = async (documentNumber: string, noteId: number) => {
-    const qrClientDoc = safeTrim(form.customerRuc) || "00000000000";
+  const buildDocumentBlob = async (documentNumber: string, noteId: number) => {
+    const isBoleta = form.docTypeCode === "03";
+    const qrClientDoc = isBoleta
+      ? safeTrim(form.customerDoc) || "00000000"
+      : safeTrim(form.customerRuc) || "00000000000";
     const qrData = [
       session.companyRuc || "20601070155",
-      "01",
+      form.docTypeCode,
       documentNumber,
       totals.igv.toFixed(2),
       totals.total.toFixed(2),
       form.emissionDate || localDate(),
-      "06",
+      isBoleta ? "01" : "06",
       qrClientDoc,
     ].join("|");
     const preGeneratedQrBase64 = await generateTicketQrBase64(qrData);
-    const [serie = "FA01", ...numberParts] = documentNumber.split("-");
+    const [serie = isBoleta ? "BA01" : "FA01", ...numberParts] =
+      documentNumber.split("-");
     const invoice: ServiceInvoiceListItem = {
       compra: {
         compraId: noteId,
         notaId: noteId,
         companiaId: session.companyId,
-        documento: "FACTURA",
-        tipoCodigo: "01",
+        documento: DOC_CONFIG[form.docTypeCode].docu,
+        tipoCodigo: form.docTypeCode,
         compraConcepto: form.concept,
         serie,
         numero: numberParts.join("-") || documentNumber,
@@ -2476,8 +2495,12 @@ export default function HtmlCaptureSalePage() {
         igv: totals.igv,
         total: totals.total,
         saldo: totals.total,
-        formaPago: form.condition.replace("ALCONTADO", "AL CONTADO"),
+        formaPago: form.paymentMethod,
         condicion: form.condition,
+        entidadBancaria: form.bankEntity,
+        nroOperacion: form.operationNumber,
+        codigoCliente: form.memberCode,
+        notaTransaccion: form.transactionNumber,
         totalDetalles: rows.length,
       },
       detalles: rows.map((row, index) => ({
@@ -2615,9 +2638,10 @@ export default function HtmlCaptureSalePage() {
         throw new Error("No se encontraron el XML y CDR del comprobante.");
       }
 
-      const blob = isInvoice
-        ? await buildInvoiceBlob(documentNumber, noteId)
-        : await buildTicketBlob(documentNumber, noteId);
+      const blob =
+        isInvoice || form.docTypeCode === "03"
+          ? await buildDocumentBlob(documentNumber, noteId)
+          : await buildTicketBlob(documentNumber, noteId);
       const formData = new FormData();
       formData.append(
         "pdf",
@@ -2983,10 +3007,17 @@ export default function HtmlCaptureSalePage() {
       const parsed = parseNotaResult(result);
       const documentNumber = `${notaSerie}-${parsed.number || notaNumero}`;
       if (!parsed.noteId) {
+        const validationMessage = parsed.raw.trim().toUpperCase();
         toast.error(
-          parsed.raw.toLowerCase().includes("existe")
-            ? "El Numero de transacción que ingreso ya existe"
-            : parsed.raw || "No se pudo registrar la venta.",
+          validationMessage === "FALSE"
+            ? "Debe abrir una caja antes de registrar la venta."
+            : validationMessage === "OPERACION"
+              ? "El número de operación que ingresó ya existe."
+              : validationMessage === "OPERACION_REQUERIDA"
+                ? "Ingrese el número de operación para este pago."
+                : validationMessage.includes("EXISTE")
+                  ? "El número de transacción que ingresó ya existe."
+                  : parsed.raw || "No se pudo registrar la venta.",
         );
         return;
       }
@@ -3385,15 +3416,11 @@ export default function HtmlCaptureSalePage() {
       />
       {PagoVariosModal}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        {isExistingRoute ? (
+        {isFromOrderNotesView ? (
           <button
             type="button"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50"
-            onClick={() =>
-              isFromOrderNotesView
-                ? navigate("/sales/order_notes")
-                : navigate(-1)
-            }
+            onClick={() => navigate("/sales/order_notes")}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>

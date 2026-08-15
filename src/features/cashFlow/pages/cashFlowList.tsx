@@ -1,207 +1,105 @@
 import DataTable from "@/components/DataTable";
+import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
 import type { CashFlow } from "@/types/cashFlow";
-import { createColumnHelper } from "@tanstack/react-table";
-import { Pencil, PlusIcon, Trash2 } from "lucide-react";
+import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
+import { Eye, PlusIcon } from "lucide-react";
 import { useEffect } from "react";
-import { Link, useNavigate } from "react-router";
-import { toast } from "@/shared/ui/toast";
-import { formatDate } from "@/shared/helpers/formatDate";
-import { BackArrowButton } from "@/components/common/BackArrowButton";
+import { useNavigate } from "react-router";
+
+const formatDate = (value: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-PE");
+};
 
 const CashFlowList = () => {
-  const { flows, fetchFlows, deleteFlow, loading } = useCashFlowStore();
+  const { flows, fetchFlows, loading, selectCashForClosing } = useCashFlowStore();
   const navigate = useNavigate();
   const columnHelper = createColumnHelper<CashFlow>();
 
   useEffect(() => {
-    fetchFlows();
+    void fetchFlows();
   }, [fetchFlows]);
 
-  // Función para calcular totales de cada flujo
-  const calcularTotales = (flow: CashFlow) => {
-    const totalEfectivo = flow.conteoMonedas.reduce(
-      (sum, item) => sum + item.cantidad * item.denominacion,
-      0
-    );
-    const totalIngresos = flow.ingresos.reduce(
-      (sum, item) => sum + item.importe,
-      0
-    );
-    const totalGastos = flow.gastos.reduce(
-      (sum, item) => sum + item.importe,
-      0
-    );
-    const efectivoCaja = totalEfectivo + totalIngresos - totalGastos;
-    const ventasTotal =
-      flow.ventaTotal.efectivo +
-      flow.ventaTotal.tarjeta +
-      flow.ventaTotal.deposito;
-    const total = ventasTotal - totalGastos;
-
-    return { totalEfectivo, efectivoCaja, ventasTotal, total };
-  };
-
   const columns = [
-    columnHelper.accessor("id", {
-      header: "ID",
-      cell: (info) => info.getValue(),
-    }),
-    columnHelper.accessor("caja", {
-      header: "Caja",
-      cell: (info) => info.getValue(),
-    }),
-    columnHelper.accessor("encargado", {
-      header: "Encargado",
-      cell: (info) => info.getValue(),
-    }),
-    columnHelper.accessor("sencillo", {
-      header: "Sencillo",
+    columnHelper.accessor("id", { header: "Caja" }),
+    columnHelper.accessor("encargado", { header: "Responsable" }),
+    columnHelper.accessor("montoInicial", {
+      header: "Monto inicial",
       cell: (info) => `S/ ${info.getValue().toFixed(2)}`,
+      meta: { tdClassName: "text-right" },
+    }),
+    columnHelper.accessor("fechaApertura", {
+      header: "Apertura",
+      cell: (info) => formatDate(info.getValue()),
+    }),
+    columnHelper.accessor("fechaCierre", {
+      header: "Cierre",
+      cell: (info) => formatDate(info.getValue()),
     }),
     columnHelper.accessor("estado", {
       header: "Estado",
       cell: (info) => {
-        const estado = info.getValue();
+        const activa = info.getValue().trim().toUpperCase() === "ACTIVO";
         return (
-          <span
-            className={`px-2 py-1 rounded text-xs font-medium ${
-              estado === "ABIERTA"
-                ? "bg-green-100 text-green-700 border border-green-200"
-                : "bg-red-100 text-red-700 border border-red-200"
-            }`}
-          >
-            {estado}
-          </span>
-        );
-      },
-    }),
-    columnHelper.accessor("fechaApertura", {
-      header: "Fecha Apertura",
-      cell: (info) => formatDate(info.getValue()),
-    }),
-    columnHelper.accessor("fechaCierre", {
-      header: "Fecha Cierre",
-      cell: (info) => (info.getValue() ? formatDate(info.getValue()) : "-"),
-    }),
-    columnHelper.display({
-      id: "efectivoCaja",
-      header: "Efectivo en Caja",
-      cell: ({ row }) => {
-        const { efectivoCaja } = calcularTotales(row.original);
-        return (
-          <span className="font-medium text-gray-700">
-            S/ {efectivoCaja.toFixed(2)}
+          <span className={`rounded border px-2 py-1 text-xs font-medium ${activa ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+            {activa ? "ABIERTA" : info.getValue() || "-"}
           </span>
         );
       },
     }),
     columnHelper.display({
-      id: "ventasTotal",
-      header: "Ventas Total",
-      cell: ({ row }) => {
-        const { ventasTotal } = calcularTotales(row.original);
-        return (
-          <span className="font-medium text-blue-700">
-            S/ {ventasTotal.toFixed(2)}
-          </span>
-        );
-      },
-    }),
-    columnHelper.display({
-      id: "total",
-      header: "Total",
-      cell: ({ row }) => {
-        const { total } = calcularTotales(row.original);
-        return (
-          <span className="font-bold text-slate-800">
-            S/ {total.toFixed(2)}
-          </span>
-        );
-      },
-    }),
-    columnHelper.accessor("id", {
-      id: "actions",
+      id: "acciones",
       header: "Acciones",
-      cell: (info) => {
-        const id = info.getValue();
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to={`/cash_flow_control/${id}/edit`}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
-              title="Editar"
-            >
-              <Pencil className="w-4 h-4" />
-            </Link>
+      cell: ({ row }) => {
+        const caja = row.original;
+        const activa = caja.estado.trim().toUpperCase() === "ACTIVO";
+        if (!activa) return <span className="text-xs text-slate-400">-</span>;
 
-            <button
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "¿Estás seguro de eliminar este flujo de caja?"
-                  )
-                ) {
-                  deleteFlow(id);
-                  toast.success("Flujo de caja eliminado correctamente");
-                }
-              }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100"
-              title="Eliminar"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              selectCashForClosing(caja.id);
+              navigate("/cash_flow_control/create");
+            }}
+            title="Ver caja"
+            aria-label="Ver caja"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition-colors hover:bg-slate-100"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
         );
       },
     }),
-  ];
-
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-gray-600 text-lg">Cargando flujos de caja...</div>
-      </div>
-    );
-  }
+  ] as unknown as ColumnDef<CashFlow, unknown>[];
 
   return (
     <div className="p-3 sm:p-4">
       <div className="mb-3">
         <h1 className="text-2xl font-semibold text-[#0f2748]">Flujo de Caja</h1>
+        <p className="text-sm text-slate-500">Aperturas registradas.</p>
       </div>
 
-      {flows.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-gray-500 mb-4">
-            No hay flujos de caja registrados
-          </p>
+      <DataTable
+        columns={columns}
+        data={flows}
+        isLoading={loading}
+        emptyMessage="No hay cajas registradas"
+        toolbarLeading={<BackArrowButton className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-100" />}
+        toolbarAction={
           <button
-            className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded transition-colors"
+            type="button"
             onClick={() => navigate("/cash_flow_control/create")}
+            title="Abrir caja"
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#B23636] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#96312a]"
           >
-            Crear el primero
+            <PlusIcon className="h-5 w-5" />
+            Abrir caja
           </button>
-        </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={flows}
-          toolbarLeading={
-            <BackArrowButton className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors" />
-          }
-          toolbarAction={
-            <button
-              type="button"
-              onClick={() => navigate("/cash_flow_control/create")}
-              title="Añadir Flujo de Caja"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#B23636] text-white hover:bg-[#96312a] transition-colors shadow-sm"
-            >
-              <PlusIcon className="h-5 w-5" />
-            </button>
-          }
-        />
-      )}
+        }
+      />
     </div>
   );
 };

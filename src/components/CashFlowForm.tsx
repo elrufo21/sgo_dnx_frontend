@@ -1,7 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Save, Printer, X, Plus, Trash2 } from "lucide-react";
-import { useUsersStore } from "@/store/users/users.store";
+import React, { useEffect, useRef, useState } from "react";
+import { Save, Printer, Trash2 } from "lucide-react";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
+import { useAuthStore } from "@/store/auth/auth.store";
+import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
+import type { ActiveCashFlow } from "@/types/cashFlow";
+import { toast } from "@/shared/ui/toast";
+import { useNavigate } from "react-router";
 
 // Mock components para demostración
 const HookFormInput = ({
@@ -33,35 +37,6 @@ const HookFormInput = ({
       disabled={disabled}
       {...props}
     />
-  </div>
-);
-
-const HookFormAutocomplete = ({
-  name,
-  label,
-  options,
-  placeholder,
-  className,
-  value,
-  onChange,
-  disabled,
-}) => (
-  <div className="space-y-1">
-    <label className="block text-xs font-semibold text-gray-700">{label}</label>
-    <select
-      name={name}
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-      className={`w-full px-2 py-1.5 border border-gray-200 rounded-md focus:border-blue-500 outline-none ${className}`}
-    >
-      <option value="">{placeholder}</option>
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
   </div>
 );
 
@@ -122,32 +97,70 @@ export default function CashFlowForm({
 }: {
   readOnly?: boolean;
 }) {
+  const navigate = useNavigate();
+  const sessionUser = useAuthStore((state) => state.user);
+  const {
+    openCashFlow,
+    closeCashFlow,
+    getActiveCashFlow,
+    loading,
+    selectedCashId,
+    selectCashForClosing,
+  } = useCashFlowStore();
   const containerRef = useRef(null);
   const monedaInputRefs = useRef([]);
-  const { users, fetchUsers } = useUsersStore();
-  const [nuevoMovimiento, setNuevoMovimiento] = useState({
-    id: Date.now(),
-    descripcion: "",
-    importe: 0,
-  });
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
+  const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
 
   const [formData, setFormData] = useState({
     caja: "",
-    encargado: "",
     sencillo: 0,
     estado: "ABIERTA",
     fechaApertura: new Date().toISOString(),
     fechaCierre: "",
     observaciones: "",
     conteoMonedas: DEFAULT_CONTEO,
-    ingresos: [
-      { id: Date.now(), descripcion: "Ingreso inicial", importe: 150 },
-      { id: Date.now() + 1, descripcion: "Venta referencial", importe: 320 },
-    ],
+    ingresos: [],
     gastos: [],
     ventaTotal: DEFAULT_VENTA_TOTAL,
   });
+
+  useEffect(() => {
+    const usuarioId = Number(sessionUser?.id);
+    if (!Number.isFinite(usuarioId) || usuarioId <= 0) return;
+    let mounted = true;
+
+    void getActiveCashFlow(usuarioId).then((caja) => {
+      if (!mounted) return;
+      if (selectedCashId && (!caja || caja.id !== selectedCashId)) {
+        toast.error("Solo el responsable de la caja abierta puede cerrarla.");
+        selectCashForClosing(null);
+        navigate("/cash_flow_control");
+        return;
+      }
+      if (!caja) return;
+      setActiveCash(caja);
+      setFormData((prev) => ({
+        ...prev,
+        sencillo: caja.montoInicial,
+        fechaApertura: caja.fechaApertura,
+        observaciones: caja.observacion,
+        conteoMonedas: DEFAULT_CONTEO.map((item) => ({
+          ...item,
+          cantidad: caja.monedas.find((moneda) => moneda.denominacion === item.denominacion)?.cantidad ?? "",
+        })),
+        ventaTotal: {
+          efectivo: caja.ventasEfectivo,
+          tarjeta: caja.ventasTarjeta,
+          deposito: caja.ventasDeposito,
+        },
+      }));
+    });
+
+    return () => { mounted = false; };
+  }, [getActiveCashFlow, navigate, selectCashForClosing, selectedCashId, sessionUser?.id]);
+
+  const isClosing = activeCash !== null;
 
   const handleCantidadChange = (index, valor) => {
     const cantidad = valor === "" ? "" : parseInt(valor, 10) || 0;
@@ -173,12 +186,6 @@ export default function CashFlowForm({
     focusMonedaAt(index - 1);
   };
 
-  useEffect(() => {
-    if (users.length === 0) {
-      fetchUsers();
-    }
-  }, [users.length, fetchUsers]);
-
   const eliminarMovimiento = (id, tipo) => {
     if (tipo === "ingresos") {
       setFormData((prev) => ({
@@ -197,20 +204,20 @@ export default function CashFlowForm({
     const cantidad = Number(item.cantidad || 0);
     return sum + cantidad * item.denominacion;
   }, 0);
-  const totalIngresos = formData.ingresos.reduce(
+  const totalIngresos = isClosing ? activeCash.ventasEfectivo : formData.ingresos.reduce(
     (sum, item) => sum + item.importe,
     0
   );
-  const totalGastos = formData.gastos.reduce(
+  const totalGastos = isClosing ? activeCash.salidas : formData.gastos.reduce(
     (sum, item) => sum + item.importe,
     0
   );
-  const efectivoCaja = totalIngresos - totalGastos;
+  const efectivoCaja = isClosing ? activeCash.efectivoEsperado : totalIngresos - totalGastos;
   const ventasBO_FA =
     (formData.ventaTotal.efectivo ?? 0) +
     (formData.ventaTotal.tarjeta ?? 0) +
     (formData.ventaTotal.deposito ?? 0);
-  const diferencial = totalEfectivo - totalIngresos;
+  const diferencial = totalEfectivo - efectivoCaja;
   const diferencialClass =
     diferencial > 0
       ? "text-blue-700"
@@ -231,22 +238,60 @@ export default function CashFlowForm({
       return sum + cantidad * item.denominacion;
     }, 0);
 
-  const userOptions = useMemo(
-    () =>
-      (users ?? []).map((u) => ({
-        label: u.UsuarioAlias ?? `Usuario ${u.UsuarioID}`,
-        value: String(u.UsuarioID),
-        data: u,
-      })),
-    [users]
-  );
+  const abrirCaja = async () => {
+    const usuarioId = Number(sessionUser?.id);
+    const encargado = sessionUser?.displayName || sessionUser?.username || "";
+    const montoInicial = Number(formData.sencillo);
+    if (!Number.isFinite(usuarioId) || usuarioId <= 0 || !encargado) {
+      toast.error("No se pudo identificar al usuario de la sesión.");
+      return;
+    }
+    if (!Number.isFinite(montoInicial) || montoInicial < 0) {
+      toast.error("Ingresa un monto inicial válido.");
+      return;
+    }
 
-  const setFechaCierre = () => {
-    setFormData((prev) => ({
-      ...prev,
-      estado: "CERRADA",
-      fechaCierre: new Date().toISOString(),
-    }));
+    const result = await openCashFlow({
+      usuarioId,
+      encargado,
+      usuario: sessionUser?.username || encargado,
+      montoInicial,
+      observacion: formData.observaciones,
+    });
+    if (!result.ok) {
+      toast.error(result.mensaje);
+      return;
+    }
+
+    toast.success("Caja abierta correctamente.");
+    selectCashForClosing(null);
+    navigate("/cash_flow_control");
+  };
+
+  const cerrarCaja = async () => {
+    if (!activeCash) return;
+    const usuarioId = Number(sessionUser?.id);
+    if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
+      toast.error("No se pudo identificar al usuario de la sesión.");
+      return;
+    }
+
+    const result = await closeCashFlow(activeCash.id, {
+      usuarioId,
+      observacion: formData.observaciones,
+      monedas: formData.conteoMonedas.map((item) => ({
+        denominacion: item.denominacion,
+        cantidad: Number(item.cantidad || 0),
+      })),
+    });
+    if (!result.ok) {
+      toast.error(result.mensaje);
+      return;
+    }
+
+    toast.success(`Caja cerrada. Diferencia: S/ ${result.diferencia.toFixed(2)}`);
+    selectCashForClosing(null);
+    navigate("/cash_flow_control");
   };
 
   const formatDate = (dateString) => {
@@ -266,29 +311,28 @@ export default function CashFlowForm({
         <div className="flex items-center gap-2">
           <BackArrowButton className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white hover:bg-white/20 transition-colors" />
           <h1 className="text-xs sm:text-sm font-semibold">
-            Nuevo Control de Flujo de Caja
+            {isClosing ? "Cierre de Control de Flujo de Caja" : "Nuevo Control de Flujo de Caja"}
           </h1>
         </div>
         <div className="flex gap-1 sm:gap-2">
           <button
-            className="p-1 rounded bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
-            title="Guardar"
+            type="button"
+            onClick={() => void (isClosing ? cerrarCaja() : abrirCaja())}
+            disabled={loading || readOnly}
+            className="inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+            title={isClosing ? "Cerrar caja" : "Abrir caja"}
           >
             <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>{isClosing ? "Cerrar caja" : "Abrir caja"}</span>
           </button>
-          <button className="p-1 hover:bg-slate-700 rounded" title="Imprimir">
+          <button
+            type="button"
+            disabled
+            className="p-1 rounded opacity-50"
+            title="Disponible al cerrar la caja"
+          >
             <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
-          {formData.estado === "ABIERTA" && (
-            <button
-              onClick={setFechaCierre}
-              type="button"
-              className="p-1 hover:bg-slate-700 rounded"
-              title="Cerrar Caja"
-            >
-              <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -299,19 +343,14 @@ export default function CashFlowForm({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 mb-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   <div className="col-span-2">
-                    <HookFormAutocomplete
+                    <HookFormInput
                       name="encargado"
                       label="Encargado"
-                      value={formData.encargado}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          encargado: e.target.value,
-                        }))
-                      }
-                      options={userOptions}
-                      placeholder="Seleccionar usuario"
-                      className="text-xs"
+                      value={sessionUser?.displayName || sessionUser?.username || ""}
+                      onChange={() => {}}
+                      readOnly
+                      inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md bg-slate-50"
+                      labelClassName="text-xs font-semibold text-gray-700"
                     />
                   </div>
                   <div>
@@ -326,6 +365,7 @@ export default function CashFlowForm({
                           sencillo: parseFloat(e.target.value) || 0,
                         }))
                       }
+                      readOnly={isClosing}
                       inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
                       labelClassName="text-xs font-semibold text-gray-700"
                       step="any"
@@ -344,8 +384,8 @@ export default function CashFlowForm({
                       }
                       options={[
                         { value: "ABIERTA", label: "ABIERTA" },
-                        { value: "CERRADA", label: "CERRADA" },
                       ]}
+                      disabled
                       labelClassName="text-xs font-semibold text-gray-700"
                       selectClassName={`text-center font-medium text-xs ${
                         formData.estado === "ABIERTA"
@@ -435,6 +475,7 @@ export default function CashFlowForm({
                                     }
                                   }}
                                   className="w-full min-w-0 px-1 py-0.5 border border-gray-200 rounded text-center focus:border-slate-500 focus:outline-none text-xs"
+                                  disabled={!isClosing || loading || readOnly}
                                 />
                               </td>
                               <td className="py-0.5 px-2 text-right text-gray-700 text-xs w-1/3">
@@ -697,4 +738,3 @@ export default function CashFlowForm({
     </div>
   );
 }
-

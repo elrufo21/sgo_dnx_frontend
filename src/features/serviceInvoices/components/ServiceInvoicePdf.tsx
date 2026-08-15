@@ -138,6 +138,11 @@ const resolveDueDate = (invoice: ServiceInvoiceListItem) => {
   if (explicitDueDate) return explicitDueDate;
 
   const fechaEmision = formatDateISO(compra.fechaEmision);
+  const esContado = safeText(compra.condicion, compra.formaPago)
+    .toUpperCase()
+    .includes("CONTADO");
+
+  if (fechaEmision && esContado) return fechaEmision;
 
   if (fechaEmision) {
     const [year, month] = fechaEmision.split("-");
@@ -416,10 +421,6 @@ export function ServiceInvoicePdfDocument({
   const subtotal = resolveSubtotal(invoice);
   const igv = resolveIgv(invoice, subtotal);
   const total = safeNumber(compra.total) || subtotal + igv;
-  const pendingAmount =
-    compra.saldo === undefined || compra.saldo === null
-      ? total
-      : safeNumber(compra.saldo);
   const documentNumber = splitDocumentNumber(
     safeText(compra.nroComprobante),
     compra.serie,
@@ -432,7 +433,13 @@ export function ServiceInvoicePdfDocument({
   const companyRuc = safeText(company?.ruc, "-");
   const companyAddress = safeText(company?.address, "-");
   const companyPhone = safeText(company?.phone);
-  const clientRuc = safeText(compra.clienteRuc, safeText(compra.clienteDni));
+  const isBoleta =
+    safeText(compra.tipoCodigo) === "03" ||
+    safeText(compra.documento).toUpperCase().includes("BOLETA");
+  const documentLabel = isBoleta ? "BOLETA" : "FACTURA";
+  const clientDocument = isBoleta
+    ? safeText(compra.clienteDni, safeText(compra.clienteRuc))
+    : safeText(compra.clienteRuc, safeText(compra.clienteDni));
   const amountWords = safeText(
     compra.letras,
     numberToWords(total, "SOLES"),
@@ -462,6 +469,7 @@ export function ServiceInvoicePdfDocument({
             <DxnLogo />
             <View style={styles.titleArea}>
               <Text style={styles.title}>{companyName}</Text>
+              <Text style={styles.subtitle}>De: {companyName}</Text>
               <Text style={styles.address}>
                 {companyAddress}
                 {companyPhone ? ` Telef: ${companyPhone}` : ""}
@@ -470,7 +478,9 @@ export function ServiceInvoicePdfDocument({
 
             <View style={styles.documentBox}>
               <Text style={styles.documentText}>RUC: {companyRuc}</Text>
-              <Text style={styles.documentType}>FACTURA ELECTRONICA</Text>
+              <Text style={styles.documentType}>
+                {documentLabel} ELECTRONICA
+              </Text>
               <Text style={styles.documentNumber}>Nro. {documentNumber}</Text>
             </View>
           </View>
@@ -484,16 +494,21 @@ export function ServiceInvoicePdfDocument({
                 Direccion : {safeText(compra.direccionFiscal, "-")}
               </Text>
               <Text style={styles.smallLine}>
-                R.U.C.{"     "} :{clientRuc}
+                {isBoleta ? "D.N.I." : "R.U.C."}{"     "} :{clientDocument}
               </Text>
             </View>
             <View style={styles.clientRight}>
               <Text style={styles.smallLine}>
                 Fecha Emision: {formatDateTime(compra.fechaRegistro)}
               </Text>
-              <Text style={styles.smallLine}>Cuotas: 1</Text>
               <Text style={styles.smallLine}>
-                M.Pen Pago : {money(pendingAmount)}
+                Fecha Venc: {formatDate(resolveDueDate(invoice))}
+              </Text>
+              <Text style={styles.smallLine}>
+                Hora Emision: {formatDateTime(compra.fechaRegistro)
+                  .split(" ")
+                  .slice(1)
+                  .join(" ")}
               </Text>
             </View>
           </View>
@@ -501,11 +516,12 @@ export function ServiceInvoicePdfDocument({
           <View style={styles.termsBox}>
             <View style={styles.termsHeaderRow}>
               {[
-                ["Condicion", 86],
-                ["Moneda", 70],
-                ["N° Cuota", 76],
-                ["Fec. Venc.", 86],
-                ["Monto", 78],
+                ["Condicion", 68],
+                ["Forma Pago", 76],
+                ["Entidad Bancaria", 103],
+                ["Moneda", 55],
+                ["Nro Membresia", 88],
+                ["Nro Transaccion", 100],
                 ["G.Remisión", 1],
               ].map(([label, width], index) => (
                 <View
@@ -525,17 +541,21 @@ export function ServiceInvoicePdfDocument({
             </View>
             <View style={styles.termsValueRow}>
               {[
-                [safeText(compra.formaPago, "CREDITO").toUpperCase(), 86],
+                [safeText(compra.condicion, "CONTADO").toUpperCase(), 68],
+                [safeText(compra.formaPago, "-").toUpperCase(), 76],
+                [safeText(compra.entidadBancaria, "-"), 103],
                 [
                   safeText(
                     (compra as typeof compra & { moneda?: string }).moneda,
                     "SOLES",
                   ).toUpperCase(),
-                  70,
+                  55,
                 ],
-                ["1", 76],
-                [formatDate(resolveDueDate(invoice)), 86],
-                [money(pendingAmount), 78],
+                [safeText(compra.codigoCliente), 88],
+                [
+                  safeText(compra.notaTransaccion, safeText(compra.nroOperacion)),
+                  100,
+                ],
                 ["", 1],
               ].map(([value, width], index) => (
                 <View
@@ -656,10 +676,16 @@ export function ServiceInvoicePdfDocument({
                 </View>
                 <View>
                   <Text style={styles.legalText}>
-                    Representacion impresa de la Factura Electronica.
+                    Representacion impresa de la {documentLabel} Electronica.
+                  </Text>
+                  <Text style={styles.legalText}>
+                    Autorizado mediante la resolucion de intendencia SUNAT/N° 0180050003180
                   </Text>
                   <Text style={styles.legalText}>
                     HASH: {safeText(compra.docuHash, "-")}
+                  </Text>
+                  <Text style={styles.legalText}>
+                    Consulta tu Comprobante en: https://www.nubefact.com/buscar
                   </Text>
                   <Text style={styles.legalText}>
                     Nro Id: {compra.compraId}
@@ -706,16 +732,21 @@ export default function ServiceInvoicePdf(props: ServiceInvoicePdfProps) {
     compra.numero,
   );
   const companyRuc = safeText(props.company?.ruc, "15390049339");
-  const clientRuc = safeText(compra.clienteRuc, safeText(compra.clienteDni));
+  const isBoleta =
+    safeText(compra.tipoCodigo) === "03" ||
+    safeText(compra.documento).toUpperCase().includes("BOLETA");
+  const clientDocument = isBoleta
+    ? safeText(compra.clienteDni, safeText(compra.clienteRuc))
+    : safeText(compra.clienteRuc, safeText(compra.clienteDni));
   const qrData = [
     companyRuc,
-    "01",
+    isBoleta ? "03" : "01",
     documentNumber || "-",
     igv.toFixed(2),
     total.toFixed(2),
     formatDateISO(compra.fechaEmision),
-    "06",
-    clientRuc || "00000000000",
+    isBoleta ? "01" : "06",
+    clientDocument || (isBoleta ? "00000000" : "00000000000"),
   ].join("|");
 
   useEffect(() => {
