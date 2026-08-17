@@ -119,7 +119,7 @@ export default function CashFlowForm({
   const selectedResponsableId = responsableId ?? sessionUserId;
   const responsableOptions = users.map((user) => ({
     value: String(user.UsuarioID),
-    label: user.UsuarioAlias,
+    label: user.Nombre?.trim() || user.UsuarioAlias,
   }));
   if (sessionUserId > 0 && !responsableOptions.some((user) => user.value === String(sessionUserId))) {
     responsableOptions.unshift({
@@ -130,7 +130,7 @@ export default function CashFlowForm({
 
   const [formData, setFormData] = useState({
     caja: "",
-    sencillo: 0,
+    sencillo: "" as number | "",
     estado: "ABIERTA",
     fechaApertura: new Date().toISOString(),
     fechaCierre: "",
@@ -254,6 +254,11 @@ export default function CashFlowForm({
       const cantidad = Number(item.cantidad || 0);
       return sum + cantidad * item.denominacion;
     }, 0);
+  const formatAmount = (value: number) =>
+    Number(value || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
   const abrirCaja = async () => {
     const usuarioId = selectedResponsableId;
@@ -410,7 +415,10 @@ export default function CashFlowForm({
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          sencillo: parseFloat(e.target.value) || 0,
+                          sencillo:
+                            e.target.value === ""
+                              ? ""
+                              : parseFloat(e.target.value) || 0,
                         }))
                       }
                       readOnly={isViewing}
@@ -505,9 +513,7 @@ export default function CashFlowForm({
                                     (monedaInputRefs.current[idx] = el)
                                   }
                                   type="number"
-                                  value={
-                                    item.cantidad === "" ? "" : item.cantidad
-                                  }
+                                  value={item.cantidad || ""}
                                   onChange={(e) =>
                                     handleCantidadChange(idx, e.target.value)
                                   }
@@ -528,10 +534,10 @@ export default function CashFlowForm({
                                 />
                               </td>
                               <td className="py-0.5 px-2 text-right text-gray-700 text-xs w-1/3">
-                                {item.denominacion.toFixed(2)}
+                                {formatAmount(item.denominacion)}
                               </td>
                               <td className="py-0.5 px-2 text-right font-semibold text-slate-800 text-xs w-1/3">
-                                {(cantidad * item.denominacion).toFixed(2)}
+                                {formatAmount(cantidad * item.denominacion)}
                               </td>
                             </tr>
                           );
@@ -540,7 +546,7 @@ export default function CashFlowForm({
                     </table>
                   </div>
                   <div className="bg-slate-900 text-white font-semibold text-right px-2 py-1.5 text-xs">
-                    Total S/ {totalEfectivo.toFixed(2)}
+                    Total S/ {formatAmount(totalEfectivo)}
                   </div>
                 </div>
               </div>
@@ -606,7 +612,7 @@ export default function CashFlowForm({
                               {item.descripcion}
                             </td>
                             <td className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
-                              S/ {item.importe.toFixed(2)}
+                              S/ {formatAmount(item.importe)}
                             </td>
                             <td className="py-1 px-1">
                               <button
@@ -633,7 +639,7 @@ export default function CashFlowForm({
                       Efectivo en Caja
                     </span>
                     <span className="text-base sm:text-lg font-bold whitespace-nowrap">
-                      S/ {efectivoCaja.toFixed(2)}
+                      S/ {formatAmount(efectivoCaja)}
                     </span>
                   </div>
                 </div>
@@ -653,7 +659,7 @@ export default function CashFlowForm({
                     </span>
                     <input
                       disabled
-                      value={`S/ ${totalBilletes.toFixed(2)}`}
+                      value={`S/ ${formatAmount(totalBilletes)}`}
                       className="flex-1 px-2 py-1 border  rounded text-right font-semibold text-slate-800 bg-white text-xs"
                     />
                   </div>
@@ -663,7 +669,7 @@ export default function CashFlowForm({
                     </span>
                     <input
                       disabled
-                      value={`S/ ${totalSencillo.toFixed(2)}`}
+                      value={`S/ ${formatAmount(totalSencillo)}`}
                       className="flex-1 px-2 py-1 border rounded text-right font-semibold text-slate-800 bg-gray-50 text-xs"
                     />
                   </div>
@@ -673,7 +679,7 @@ export default function CashFlowForm({
                     </span>
                     <input
                       disabled
-                      value={`S/ ${diferencial.toFixed(2)}`}
+                      value={`S/ ${formatAmount(diferencial)}`}
                       className={`flex-1 px-2 py-1 border  rounded text-right font-semibold text-xs ${diferencialClass}`}
                     />
                   </div>
@@ -708,20 +714,14 @@ export default function CashFlowForm({
                       Ingresos:
                     </span>
                     <input
-                      type="number"
-                      value={formData.ventaTotal.efectivo || ""}
-                      disabled
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          ventaTotal: {
-                            ...prev.ventaTotal,
-                            efectivo: parseFloat(e.target.value) || 0,
-                          },
-                        }))
+                      type="text"
+                      value={
+                        formData.ventaTotal.efectivo
+                          ? formatAmount(formData.ventaTotal.efectivo)
+                          : ""
                       }
+                      disabled
                       className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold focus:border-slate-500 focus:outline-none"
-                      step="0.01"
                     />
                   </div>
                   <div className="flex justify-between items-center gap-2">
@@ -729,20 +729,14 @@ export default function CashFlowForm({
                       Tarjeta:
                     </span>
                     <input
-                      type="number"
-                      value={formData.ventaTotal.tarjeta || ""}
-                      disabled
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          ventaTotal: {
-                            ...prev.ventaTotal,
-                            tarjeta: parseFloat(e.target.value) || 0,
-                          },
-                        }))
+                      type="text"
+                      value={
+                        formData.ventaTotal.tarjeta
+                          ? formatAmount(formData.ventaTotal.tarjeta)
+                          : ""
                       }
+                      disabled
                       className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold text-blue-700 focus:border-slate-500 focus:outline-none"
-                      step="0.01"
                     />
                   </div>
                   <div className="flex justify-between items-center gap-2">
@@ -750,20 +744,14 @@ export default function CashFlowForm({
                       Depósitos y/o Yape:
                     </span>
                     <input
-                      type="number"
-                      value={formData.ventaTotal.deposito || ""}
-                      disabled
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          ventaTotal: {
-                            ...prev.ventaTotal,
-                            deposito: parseFloat(e.target.value) || 0,
-                          },
-                        }))
+                      type="text"
+                      value={
+                        formData.ventaTotal.deposito
+                          ? formatAmount(formData.ventaTotal.deposito)
+                          : ""
                       }
+                      disabled
                       className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold text-green-700 focus:border-slate-500 focus:outline-none"
-                      step="0.01"
                     />
                   </div>
                   <div className="flex justify-between items-center gap-2">
@@ -771,7 +759,7 @@ export default function CashFlowForm({
                       Salidas:
                     </span>
                     <div className="w-28 sm:w-32 px-2 py-1 bg-red-500 text-white rounded text-right font-bold">
-                      S/ {totalGastos.toFixed(2)}
+                      S/ {formatAmount(totalGastos)}
                     </div>
                   </div>
                   <div className="flex justify-between items-center pt-1.5 border-t border-gray-200 gap-2">
@@ -779,7 +767,7 @@ export default function CashFlowForm({
                       Total:
                     </span>
                     <div className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-bold bg-white">
-                      S/ {totalVenta.toFixed(2)}
+                      S/ {formatAmount(totalVenta)}
                     </div>
                   </div>
                 </div>

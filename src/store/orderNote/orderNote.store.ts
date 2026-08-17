@@ -8,8 +8,6 @@ import type { SendNote, SendNoteItem } from "@/types/sendNote";
 interface FetchOrderNotesParams {
   fechaInicio?: string;
   fechaFin?: string;
-  page?: number;
-  pageSize?: number;
 }
 
 interface OrderNoteState {
@@ -309,14 +307,16 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
       const notaUsuario = at(14);
       const notaFormaPago = at(15);
       const notaCondicion = at(16);
-      const efectivo = at(39);
-      const deposito = at(40);
+      const efectivo = at(42);
+      const deposito = at(43);
       const notaTotal = at(23);
       const notaAcuenta = at(24);
       const notaSaldo = at(25);
       const notaEstado = at(29);
       const notaSerie = at(35);
       const notaNumero = at(36);
+      const estadoSunat = at(44);
+      const codigoCliente = at(45);
 
       const parsedId = Number(notaId);
       const documentNumber =
@@ -335,7 +335,7 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
         notaId,
         documento: documento || "-",
         fecha: formatDateForList(notaFecha),
-        codigoCliente: "-",
+        codigoCliente: codigoCliente || "-",
         cliente,
         notaCondicion: notaCondicion || "-",
         formaPago: notaFormaPago || "-",
@@ -347,7 +347,7 @@ const parseDelimitedOrderNotes = (rawValue: string): OrderNote[] => {
         usuario: notaUsuario || "-",
         notaUsuario: notaUsuario || "-",
         estado: notaEstado || "PENDIENTE",
-        estadoSunat: "",
+        estadoSunat,
       } satisfies OrderNote;
     });
 };
@@ -483,19 +483,15 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
     const today = getLocalDateISO();
     const fechaInicio = String(params?.fechaInicio ?? "").trim() || today;
     const fechaFin = String(params?.fechaFin ?? "").trim() || today;
-    const page = Math.max(1, Math.floor(Number(params?.page) || 1));
-    const pageSize = Math.max(1, Math.floor(Number(params?.pageSize) || 50));
 
     const query = new URLSearchParams();
     query.set("fechaInicio", fechaInicio);
     query.set("fechaFin", fechaFin);
-    query.set("page", String(page));
-    query.set("pageSize", String(pageSize));
 
     set({ loading: true });
     try {
       const response = await apiRequest<unknown>({
-        url: `${API_BASE_URL}/Nota/crud?${query.toString()}`,
+        url: `${API_BASE_URL}/Nota/lista-cadena?${query.toString()}`,
         method: "GET",
         fallback: [],
       });

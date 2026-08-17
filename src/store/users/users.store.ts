@@ -68,6 +68,7 @@ const mapApiToUser = (item: unknown): User => {
     UsuarioClave: pickString(row.usuarioClave, row.UsuarioClave),
     UsuarioFechaReg: pickString(row.usuarioFechaReg, row.UsuarioFechaReg),
     UsuarioEstado: pickString(row.usuarioEstado, row.UsuarioEstado),
+    Nombre: pickString(row.nombre, row.Nombre),
     UsuarioSerie: pickString(row.usuarioSerie, row.UsuarioSerie) || "B001",
     EnviaBoleta: pickNumber(row.enviaBoleta, row.EnviaBoleta),
     EnviarFactura: pickNumber(row.enviarFactura, row.EnviarFactura),

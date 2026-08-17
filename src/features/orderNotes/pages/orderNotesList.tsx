@@ -17,7 +17,6 @@ import { useLocation, useNavigate } from "react-router";
 
 const columnHelper = createColumnHelper<OrderNote>();
 const ORDER_NOTES_RANGE_STORAGE_KEY = "sgo.orderNotes.range";
-const ORDER_NOTES_ALL_PAGE_SIZE = 100000;
 
 const parseAmount = (value: unknown): number => {
   const raw = String(value ?? "").trim();
@@ -209,8 +208,6 @@ const OrderNotesList = () => {
       void fetchNotes({
         fechaInicio: from,
         fechaFin: to,
-        page: 1,
-        pageSize: ORDER_NOTES_ALL_PAGE_SIZE,
       });
       lastFetchedRangeRef.current = { from, to };
       return true;

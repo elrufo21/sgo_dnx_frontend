@@ -19,6 +19,11 @@ const formatDate = (value: string) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-PE");
 };
+const formatAmount = (value: number) =>
+  value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const CashFlowList = () => {
   const { flows, fetchFlows, loading } = useCashFlowStore();
@@ -60,7 +65,7 @@ const CashFlowList = () => {
             aria-label="Ver caja"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition-colors hover:bg-slate-100"
           >
-            <Eye className="h-4 w-4" />
+            VER
           </button>
         );
       },
@@ -75,22 +80,22 @@ const CashFlowList = () => {
     }),
     columnHelper.accessor("montoInicial", {
       header: "Monto inic.",
-      cell: (info) => `S/ ${info.getValue().toFixed(2)}`,
+      cell: (info) => formatAmount(info.getValue()),
       meta: { tdClassName: "text-right" },
     }),
     columnHelper.accessor("ingresos", {
       header: "Ingresos",
-      cell: (info) => `S/ ${info.getValue().toFixed(2)}`,
+      cell: (info) => formatAmount(info.getValue()),
       meta: { tdClassName: "text-right" },
     }),
     columnHelper.accessor("salidas", {
       header: "Salidas",
-      cell: (info) => `S/ ${info.getValue().toFixed(2)}`,
+      cell: (info) => formatAmount(info.getValue()),
       meta: { tdClassName: "text-right" },
     }),
     columnHelper.accessor("diferencia", {
       header: "Diferencia",
-      cell: (info) => `S/ ${info.getValue().toFixed(2)}`,
+      cell: (info) => formatAmount(info.getValue()),
       meta: { tdClassName: "text-right" },
     }),
     columnHelper.accessor("encargado", { header: "Encargado" }),
@@ -99,7 +104,9 @@ const CashFlowList = () => {
       cell: (info) => {
         const activa = info.getValue().trim().toUpperCase() === "ACTIVO";
         return (
-          <span className={`rounded border px-2 py-1 text-xs font-medium ${activa ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+          <span
+            className={`rounded border px-2 py-1 text-xs font-medium ${activa ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}
+          >
             {activa ? "ABIERTA" : info.getValue() || "-"}
           </span>
         );
@@ -109,11 +116,6 @@ const CashFlowList = () => {
 
   return (
     <div className="p-3 sm:p-4">
-      <div className="mb-3">
-        <h1 className="text-2xl font-semibold text-[#0f2748]">Flujo de Caja</h1>
-        <p className="text-sm text-slate-500">Aperturas registradas.</p>
-      </div>
-
       <DataTable
         columns={columns}
         data={flows}
@@ -125,7 +127,9 @@ const CashFlowList = () => {
           <LocalizationProvider
             dateAdapter={AdapterDayjs}
             adapterLocale="es"
-            localeText={esES.components.MuiLocalizationProvider.defaultProps.localeText}
+            localeText={
+              esES.components.MuiLocalizationProvider.defaultProps.localeText
+            }
           >
             <div className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 xl:w-auto">
               <label className="flex min-w-[160px] flex-col gap-1 text-xs text-slate-600">
@@ -133,8 +137,22 @@ const CashFlowList = () => {
                 <DatePicker
                   format="DD/MM/YY"
                   value={fechaInicio ? dayjs(fechaInicio) : null}
-                  onChange={(value: Dayjs | null) => setFechaInicio(value?.format("YYYY-MM-DD") ?? "")}
-                  slotProps={{ textField: { size: "small", sx: { width: "100%", "& .MuiOutlinedInput-root": { height: 44, borderRadius: "0.5rem", backgroundColor: "#ffffff" } } } }}
+                  onChange={(value: Dayjs | null) =>
+                    setFechaInicio(value?.format("YYYY-MM-DD") ?? "")
+                  }
+                  slotProps={{
+                    textField: {
+                      size: "small",
+                      sx: {
+                        width: "100%",
+                        "& .MuiOutlinedInput-root": {
+                          height: 44,
+                          borderRadius: "0.5rem",
+                          backgroundColor: "#ffffff",
+                        },
+                      },
+                    },
+                  }}
                 />
               </label>
               <label className="flex min-w-[160px] flex-col gap-1 text-xs text-slate-600">
@@ -142,8 +160,22 @@ const CashFlowList = () => {
                 <DatePicker
                   format="DD/MM/YY"
                   value={fechaFin ? dayjs(fechaFin) : null}
-                  onChange={(value: Dayjs | null) => setFechaFin(value?.format("YYYY-MM-DD") ?? "")}
-                  slotProps={{ textField: { size: "small", sx: { width: "100%", "& .MuiOutlinedInput-root": { height: 44, borderRadius: "0.5rem", backgroundColor: "#ffffff" } } } }}
+                  onChange={(value: Dayjs | null) =>
+                    setFechaFin(value?.format("YYYY-MM-DD") ?? "")
+                  }
+                  slotProps={{
+                    textField: {
+                      size: "small",
+                      sx: {
+                        width: "100%",
+                        "& .MuiOutlinedInput-root": {
+                          height: 44,
+                          borderRadius: "0.5rem",
+                          backgroundColor: "#ffffff",
+                        },
+                      },
+                    },
+                  }}
                 />
               </label>
               <button

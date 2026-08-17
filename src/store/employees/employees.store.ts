@@ -216,6 +216,7 @@ export interface User {
   UsuarioClave: string;
   UsuarioFechaReg: string;
   UsuarioEstado: string;
+  Nombre?: string;
   UsuarioSerie: string;
   EnviaBoleta: number;
   EnviarFactura: number;
