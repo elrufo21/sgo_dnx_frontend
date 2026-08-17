@@ -726,6 +726,12 @@ export default function HtmlCaptureSalePage() {
           const quantity = Number(
             detail?.detalleCantidad ?? detail?.DetalleCantidad ?? 0,
           );
+          const detailPv = Number(
+            detail?.detallePV ?? detail?.DetallePV ?? 0,
+          );
+          const detailSv = Number(
+            detail?.detalleSV ?? detail?.DetalleSV ?? 0,
+          );
           return {
             product,
             code: product.codigo,
@@ -737,12 +743,14 @@ export default function HtmlCaptureSalePage() {
             price,
             cost,
             stock: Number(product.cantidad ?? 0),
-            pv: Number(
-              detail?.detallePV ?? detail?.DetallePV ?? product.pv ?? 0,
-            ),
-            sv: Number(
-              detail?.detalleSV ?? detail?.DetalleSV ?? product.sv ?? 0,
-            ),
+            pv:
+              Number.isFinite(detailPv) && quantity > 0
+                ? detailPv / quantity
+                : Number(product.pv ?? 0),
+            sv:
+              Number.isFinite(detailSv) && quantity > 0
+                ? detailSv / quantity
+                : Number(product.sv ?? 0),
             matched: true,
           } satisfies SaleRow;
         });
