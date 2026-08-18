@@ -6,6 +6,7 @@ interface BackArrowButtonProps {
   className?: string;
   title?: string;
   ariaLabel?: string;
+  preserveSearch?: boolean;
 }
 
 export function BackArrowButton({
@@ -13,6 +14,7 @@ export function BackArrowButton({
   className,
   title = "Volver",
   ariaLabel = "Volver",
+  preserveSearch = false,
 }: BackArrowButtonProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,7 +77,7 @@ export function BackArrowButton({
 
   const handleBack = () => {
     const target = resolveParentPath(location.pathname);
-    navigate(target, { replace: true });
+    navigate(`${target}${preserveSearch ? location.search : ""}`, { replace: true });
   };
 
   return (

@@ -49,7 +49,9 @@ const ProductList = () => {
     stockFormatter.format(Number.isFinite(value) ? value : 0);
 
   const normalizeUnitLabel = (value: unknown) =>
-    String(value ?? "").trim().toUpperCase();
+    String(value ?? "")
+      .trim()
+      .toUpperCase();
   const getReductionValue = (_row: Product, um: ProductUnitOption) => {
     const rawFactor = Number(um.valorUM ?? um.factor ?? 0);
     if (Number.isFinite(rawFactor) && rawFactor > 0) {
@@ -224,7 +226,9 @@ const ProductList = () => {
       basePath="/products"
       createLabel="Añadir producto"
       deleteMessage="¿Estás seguro de eliminar este producto?"
+      showBackButton={false}
       onFilteredDataChange={setFilteredProducts}
+      isMaintenanceList={false}
       renderFilters={
         <div className="flex items-center gap-2">
           <select

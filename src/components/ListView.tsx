@@ -27,6 +27,7 @@ export interface CrudListConfig<T> {
   onFilteredDataChange?: (rows: T[]) => void;
   onCreate?: () => void;
   onEdit?: (row: T, id: number) => void;
+  showBackButton?: boolean;
 }
 
 interface CrudListProps<T> {
@@ -62,6 +63,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
     onFilteredDataChange,
     onCreate,
     onEdit,
+    showBackButton = true,
   } = props;
 
   const openDialog = useDialogStore((s) => s.openDialog);
@@ -218,7 +220,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
         columns={tableColumns}
         filterKeys={filterKeys}
         toolbarLeading={
-          !isMaintenanceList ? (
+          !isMaintenanceList && showBackButton ? (
             <BackArrowButton
               fallbackTo={maintenanceFallbackTo}
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors"

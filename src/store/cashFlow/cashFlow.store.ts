@@ -78,6 +78,7 @@ interface CashFlowState {
   openCashFlow: (flow: OpenCashFlow) => Promise<{ ok: boolean; mensaje: string }>;
   getActiveCashFlow: (usuarioId: number) => Promise<ActiveCashFlow | null>;
   getCashFlowDetail: (cajaId: number) => Promise<ActiveCashFlow | null>;
+  deleteCashFlow: (cajaId: number) => Promise<{ ok: boolean; mensaje: string }>;
   closeCashFlow: (cajaId: number, flow: CloseCashFlow) => Promise<{ ok: boolean; mensaje: string; diferencia: number }>;
   updateCashFlowState: (cajaId: number, flow: UpdateCashFlowState) => Promise<{ ok: boolean; mensaje: string }>;
 }
@@ -138,6 +139,25 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
       fallback: null,
     });
     return mapActiveCashFlow(response);
+  },
+
+  deleteCashFlow: async (cajaId) => {
+    const response = await apiRequest<unknown>({
+      url: `${API_BASE_URL}/CashFlow/${cajaId}`,
+      method: "DELETE",
+    });
+    const result = asRecord(response);
+    const error = asRecord(asRecord(result.response).data);
+    const ok = result.ok === true;
+    const mensaje = asString(
+      result.mensaje,
+      error.mensaje,
+      error.message,
+      result.message,
+    );
+
+    if (ok) await get().fetchFlows();
+    return { ok, mensaje: mensaje || "No se pudo eliminar la caja." };
   },
 
   closeCashFlow: async (cajaId, flow) => {

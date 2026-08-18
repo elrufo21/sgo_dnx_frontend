@@ -10,9 +10,9 @@ import { esES } from "@mui/x-date-pickers/locales";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
-import { Eye, PlusIcon, Search } from "lucide-react";
+import { PlusIcon, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 const formatDate = (value: string) => {
   if (!value) return "-";
@@ -25,13 +25,35 @@ const formatAmount = (value: number) =>
     maximumFractionDigits: 2,
   });
 
+const getCurrentMonthRange = () => {
+  const today = new Date();
+  return {
+    fechaInicio: getLocalDateISO(new Date(today.getFullYear(), today.getMonth(), 1)),
+    fechaFin: getLocalDateISO(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+  };
+};
+
 const CashFlowList = () => {
   const { flows, fetchFlows, loading } = useCashFlowStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const columnHelper = createColumnHelper<CashFlow>();
-  const today = useMemo(() => getLocalDateISO(), []);
-  const [fechaInicio, setFechaInicio] = useState(today);
-  const [fechaFin, setFechaFin] = useState(today);
+  const defaultRange = useMemo(() => getCurrentMonthRange(), []);
+  const initialFilters = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const [fechaInicio, setFechaInicio] = useState(() => initialFilters.get("fechaInicio") || defaultRange.fechaInicio);
+  const [fechaFin, setFechaFin] = useState(() => initialFilters.get("fechaFin") || defaultRange.fechaFin);
+  const [search, setSearch] = useState(() => initialFilters.get("buscar") || "");
+
+  useEffect(() => {
+    const filters = new URLSearchParams(location.search);
+    filters.set("fechaInicio", fechaInicio);
+    filters.set("fechaFin", fechaFin);
+    if (search.trim()) filters.set("buscar", search);
+    else filters.delete("buscar");
+    const nextSearch = filters.toString();
+    if (nextSearch !== location.search.slice(1))
+      navigate(`${location.pathname}?${nextSearch}`, { replace: true });
+  }, [fechaFin, fechaInicio, location.pathname, location.search, navigate, search]);
 
   const buscar = useCallback(() => {
     if (!fechaInicio || !fechaFin) {
@@ -59,13 +81,13 @@ const CashFlowList = () => {
           <button
             type="button"
             onClick={() => {
-              navigate(`/cash_flow_control/view/${caja.id}`);
+              navigate(`/cash_flow_control/view/${caja.id}${location.search}`);
             }}
             title="Ver caja"
             aria-label="Ver caja"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition-colors hover:bg-slate-100"
+            className="text-sm font-medium text-blue-600 hover:underline"
           >
-            VER
+            Ver
           </button>
         );
       },
@@ -123,6 +145,8 @@ const CashFlowList = () => {
         emptyMessage="No hay cajas registradas"
         searchPlaceholder="Buscar caja, encargado o estado..."
         filterKeys={["id", "encargado", "usuario", "estado"]}
+        globalFilterValue={search}
+        onGlobalFilterValueChange={setSearch}
         renderFilters={
           <LocalizationProvider
             dateAdapter={AdapterDayjs}
@@ -193,7 +217,7 @@ const CashFlowList = () => {
         toolbarAction={
           <button
             type="button"
-            onClick={() => navigate("/cash_flow_control/create")}
+            onClick={() => navigate(`/cash_flow_control/create${location.search}`)}
             title="Abrir caja"
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#B23636] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#96312a]"
           >
