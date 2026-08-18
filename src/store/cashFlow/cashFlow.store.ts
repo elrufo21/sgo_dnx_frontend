@@ -114,9 +114,9 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
     const ok = result.ok === true;
     const mensaje = asString(
       result.mensaje,
-      result.message,
       error.mensaje,
       error.message,
+      result.message,
     );
 
     if (ok) await get().fetchFlows();
