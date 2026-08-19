@@ -10,6 +10,7 @@ import PurchanseCreate from "@/features/purchanses/pages/purchanseCreate";
 import PurchanseEdit from "@/features/purchanses/pages/purchanseEdit";
 import SmallCashPage from "./pages/SmallCashPage";
 import HtmlCaptureSalePage from "./pages/HtmlCaptureSalePage";
+import ObsCashierCapturePage from "./pages/ObsCashierCapturePage";
 import { Navigate } from "react-router";
 
 export default [
@@ -87,6 +88,16 @@ export default [
       breadcrumb: [
         { label: "Ventas", to: "/sales" },
         { label: "Captura HTML" },
+      ],
+    },
+  },
+  {
+    path: "sales/obs_capture",
+    element: <ObsCashierCapturePage />,
+    handle: {
+      breadcrumb: [
+        { label: "Ventas", to: "/sales" },
+        { label: "Datos OBS por cajero" },
       ],
     },
   },

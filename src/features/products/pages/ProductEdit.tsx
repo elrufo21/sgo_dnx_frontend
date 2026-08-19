@@ -33,7 +33,7 @@ export default function ProductEdit() {
     const ok = await updateProduct(Number(id), frm);
     if (ok) {
       toast.success("Producto guardado correctamente");
-      navigate("/products");
+      navigate("/maintenance/products");
     } else {
       toast.error("El codigo de producto ya existe.");
     }
@@ -52,7 +52,7 @@ export default function ProductEdit() {
             return;
           }
           toast.success("Producto eliminado correctamente");
-          navigate("/products");
+          navigate("/maintenance/products");
         } catch (error) {
           console.error("Error eliminando producto", error);
           toast.error("Ocurrio un error al eliminar el producto.");
@@ -68,7 +68,7 @@ export default function ProductEdit() {
       onSave={handleSave}
       onArchive={() => {}}
       onNew={() => {
-        navigate("/products/create");
+        navigate("/maintenance/products/create");
       }}
       onDelete={handleDelete}
     />

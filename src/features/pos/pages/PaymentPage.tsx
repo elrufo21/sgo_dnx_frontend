@@ -3202,7 +3202,7 @@ const PaymentPage = () => {
         notaId: notaId ?? 0,
         notaDocu: docTypeName,
         clienteId: clienteIdNumber,
-        notaFecha: `${today}T00:00:00`,
+        notaFecha: `${today}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`,
         notaUsuario: resolvedNotaUsuario,
         notaFormaPago: paymentMethod,
         notaCondicion: "ALCONTADO",

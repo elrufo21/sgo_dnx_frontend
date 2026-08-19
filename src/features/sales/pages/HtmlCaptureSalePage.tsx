@@ -303,6 +303,10 @@ const localDate = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 };
+const localDateTime = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+};
 const parseNumber = (value: unknown) => {
   const chunks = String(value ?? "").match(/-?\d+(?:[.,]\d+)?/g) ?? [];
   return chunks.reduce((total, chunk) => {
@@ -2945,7 +2949,7 @@ export default function HtmlCaptureSalePage() {
             notaId: 0,
             notaDocu: doc.docu,
             clienteId,
-            notaFecha: `${localDate()}T00:00:00`,
+            notaFecha: localDateTime(),
             notaUsuario: session.username,
             usuarioId: session.userId,
             notaFormaPago,

@@ -223,7 +223,7 @@ const ProductList = () => {
       deleteItem={deleteProduct}
       columns={productColumns}
       filterKeys={filterKeys}
-      basePath="/products"
+      basePath="/maintenance/products"
       createLabel="Añadir producto"
       deleteMessage="¿Estás seguro de eliminar este producto?"
       showBackButton={false}

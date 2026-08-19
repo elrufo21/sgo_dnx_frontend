@@ -1,6 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import {
-  Package,
   UserCheck,
   Menu,
   X,
@@ -13,6 +12,7 @@ import {
   ReceiptText,
   FileInput,
   Bell,
+  TableProperties,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "@/config";
@@ -470,6 +470,12 @@ export default function MainLayout() {
         state: { resetSearchFilter: true },
       },
       {
+        label: "Datos OBS por cajero",
+        to: "/sales/obs_capture",
+        icon: <TableProperties size={18} />,
+        state: { resetSearchFilter: true },
+      },
+      {
         label: "Lista de ventas ",
         to: "/sales/order_notes",
         icon: <CopySlashIcon size={18} />,
@@ -491,12 +497,6 @@ export default function MainLayout() {
         label: "Facturas servicio",
         to: "/service-invoices",
         icon: <ReceiptText size={18} />,
-        state: { resetSearchFilter: true },
-      },
-      {
-        label: "Productos",
-        to: "/products",
-        icon: <Package size={18} />,
         state: { resetSearchFilter: true },
       },
       {

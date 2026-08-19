@@ -2,6 +2,7 @@ import {
   ArrowRight,
   DollarSign,
   FileInput,
+  TableProperties,
   LucideDollarSign,
   NotebookPen,
 } from "lucide-react";
@@ -19,6 +20,12 @@ const cards = [
     desc: "Carga la venta desde el comprobante HTML de DXN.",
     icon: <FileInput className="w-10 h-10 text-sky-600" />,
     route: "/sales/html_capture/new",
+  },
+  {
+    title: "Datos OBS por cajero",
+    desc: "Recibe el resumen Cash Bill extraído desde DXN.",
+    icon: <TableProperties className="w-10 h-10 text-violet-600" />,
+    route: "/sales/obs_capture",
   },
   {
     title: "Lista pedidos",

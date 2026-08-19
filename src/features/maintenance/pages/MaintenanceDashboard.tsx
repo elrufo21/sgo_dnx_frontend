@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarDays,
   ReceiptText,
+  Package,
 } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
@@ -19,6 +20,12 @@ export default function MaintenanceDashboard() {
 
   const items = useMemo(() => {
     const baseItems = [
+      {
+        title: "Productos",
+        desc: "Administra el catálogo de productos.",
+        icon: <Package className="w-10 h-10 text-sky-600" />,
+        route: "/maintenance/products",
+      },
       {
         title: "SubLineas",
         desc: "Gestiona sublineas y códigos SUNAT.",

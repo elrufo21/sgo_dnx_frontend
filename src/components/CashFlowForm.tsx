@@ -517,7 +517,10 @@ export default function CashFlowForm({
     >
       <div className="sticky top-2 z-30 bg-[#B23636] text-white px-2 sm:px-4 py-2 flex items-center justify-between flex-shrink-0 shadow-lg shadow-black/10">
         <div className="flex items-center gap-2">
-          <BackArrowButton preserveSearch className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white hover:bg-white/20 transition-colors" />
+          <BackArrowButton
+            preserveSearch
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white hover:bg-white/20 transition-colors"
+          />
 
           <div
             role="tablist"
@@ -549,10 +552,10 @@ export default function CashFlowForm({
             onClick={() => void guardarCaja()}
             disabled={loading || !canEdit}
             className="inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
-            title={isViewing ? "Guardar" : "Abrir caja"}
+            title={isViewing ? "Guardar" : "Guardar"}
           >
             <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>{isViewing ? "Guardar" : "Abrir caja"}</span>
+            <span>{isViewing ? "Guardar" : "Guardar"}</span>
           </button>
           {isViewing && (
             <button
@@ -560,10 +563,16 @@ export default function CashFlowForm({
               onClick={alternarEdicion}
               disabled={loading || readOnly}
               title={isEditing ? "Bloquear y descartar cambios" : "Editar caja"}
-              aria-label={isEditing ? "Bloquear formulario" : "Editar formulario"}
+              aria-label={
+                isEditing ? "Bloquear formulario" : "Editar formulario"
+              }
               className="inline-flex items-center rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
             >
-              {isEditing ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              {isEditing ? (
+                <Unlock className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
             </button>
           )}
           {isViewing && (
@@ -810,7 +819,7 @@ export default function CashFlowForm({
                                 {item.descripcion}
                               </td>
                               <td className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
-                                S/ {formatAmount(item.importe)}
+                                {formatAmount(item.importe)}
                               </td>
                             </tr>
                           ))}
@@ -882,7 +891,9 @@ export default function CashFlowForm({
                           }))
                         }
                         readOnly={!canEdit || isClosed}
-                        data-auto-next={!canEdit || isClosed ? undefined : "true"}
+                        data-auto-next={
+                          !canEdit || isClosed ? undefined : "true"
+                        }
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-slate-500 focus:outline-none w-full"
                         rows={2}
                         placeholder="Escriba sus observaciones..."
