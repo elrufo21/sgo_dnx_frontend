@@ -22,7 +22,7 @@ const cards = [
     route: "/sales/html_capture/new",
   },
   {
-    title: "Datos OBS por cajero",
+    title: "Extraer Ventas OBS",
     desc: "Recibe el resumen Cash Bill extraído desde DXN.",
     icon: <TableProperties className="w-10 h-10 text-violet-600" />,
     route: "/sales/obs_capture",

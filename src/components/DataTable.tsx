@@ -52,6 +52,7 @@ interface DataTableProps<T extends RowData> {
   searchPlaceholder?: string;
   showSearch?: boolean;
   initialPageSize?: number;
+  persistPageSize?: boolean;
   pageSizeOptions?: number[];
   paginationPage?: number;
   paginationPageSize?: number;
@@ -146,6 +147,7 @@ export default function DataTable<T extends RowData>({
   searchPlaceholder = "Buscar en la tabla...",
   showSearch = true,
   initialPageSize = 10,
+  persistPageSize = true,
   pageSizeOptions = [10, 20, 50, 100],
   paginationPage,
   paginationPageSize,
@@ -306,7 +308,7 @@ export default function DataTable<T extends RowData>({
 
   const pageSizeStorageKey = `${PAGE_SIZE_STORAGE_PREFIX}${location.pathname}`;
   const persistedPageSize = useMemo(() => {
-    if (typeof window === "undefined") return null;
+    if (!persistPageSize || typeof window === "undefined") return null;
 
     try {
       const stored = window.localStorage.getItem(pageSizeStorageKey);
@@ -314,7 +316,7 @@ export default function DataTable<T extends RowData>({
     } catch {
       return null;
     }
-  }, [pageSizeStorageKey]);
+  }, [pageSizeStorageKey, persistPageSize]);
 
   const safeInitialPageSize = Math.max(1, Math.floor(initialPageSize));
   const fallbackPageSize = normalizedPageSizeOptions.includes(
@@ -475,13 +477,14 @@ export default function DataTable<T extends RowData>({
     : tableMaxHeight;
 
   useEffect(() => {
+    if (!persistPageSize) return;
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(pageSizeStorageKey, String(pageSize));
     } catch {
       // ignore storage errors
     }
-  }, [pageSize, pageSizeStorageKey]);
+  }, [pageSize, pageSizeStorageKey, persistPageSize]);
 
   return (
     <section className="w-full rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.45)]">

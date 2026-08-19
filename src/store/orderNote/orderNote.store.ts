@@ -38,7 +38,7 @@ const normalizeText = (value: unknown, fallback = "-") => {
 };
 
 const dateLikePattern =
-  /^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?)?)$/;
+  /^(\d{1,2}\/\d{1,2}\/\d{4}(?:[T\s]\d{1,2}:\d{2}(?::\d{2})?)?|\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)?)$/;
 const numberLikePattern = /^-?\d+(?:[.,]\d+)?$/;
 
 const isDateLike = (value: unknown) =>
@@ -60,20 +60,26 @@ const toNumber = (value: unknown, fallback = 0) => {
 const formatDateForList = (rawValue: unknown) => {
   const raw = String(rawValue ?? "").trim();
   if (!raw) return "-";
-  if (dateLikePattern.test(raw) && raw.includes("/")) return raw;
 
-  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    return `${day}/${month}/${year}`;
+  const formatTime = (value: string | undefined) => {
+    if (!value) return "";
+    const [hour = "0", minute = "0", second = "0"] = value.split(":");
+    return ` ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:${second.padStart(2, "0")}`;
+  };
+  const localMatch = raw.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T\s](\d{1,2}:\d{2}(?::\d{2})?))?$/,
+  );
+  if (localMatch) {
+    const [, day, month, year, time] = localMatch;
+    return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}${formatTime(time)}`;
   }
 
-  const isoDateTimeMatch = raw.match(
-    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}:\d{2}:\d{2})(?:\.\d+)?$/,
+  const isoMatch = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}:\d{2}(?::\d{2})?)(?:\.\d+)?)?$/,
   );
-  if (isoDateTimeMatch) {
-    const [, year, month, day, time] = isoDateTimeMatch;
-    return `${day}/${month}/${year} ${time}`;
+  if (isoMatch) {
+    const [, year, month, day, time] = isoMatch;
+    return `${day}/${month}/${year}${formatTime(time)}`;
   }
 
   return raw;

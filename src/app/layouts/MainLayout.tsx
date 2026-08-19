@@ -469,12 +469,7 @@ export default function MainLayout() {
         icon: <FileInput size={18} />,
         state: { resetSearchFilter: true },
       },
-      {
-        label: "Datos OBS por cajero",
-        to: "/sales/obs_capture",
-        icon: <TableProperties size={18} />,
-        state: { resetSearchFilter: true },
-      },
+
       {
         label: "Lista de ventas ",
         to: "/sales/order_notes",
@@ -485,6 +480,12 @@ export default function MainLayout() {
         label: "Control de flujo de caja",
         to: "/cash_flow_control",
         icon: <StoreIcon />,
+        state: { resetSearchFilter: true },
+      },
+      {
+        label: "Extraer Ventas OBS",
+        to: "/sales/obs_capture",
+        icon: <TableProperties size={18} />,
         state: { resetSearchFilter: true },
       },
       {
@@ -541,7 +542,9 @@ export default function MainLayout() {
 
     const activeItem = [...navItems]
       .sort((a, b) => b.to.length - a.to.length)
-      .find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
+      .find(
+        (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
+      );
     return activeItem?.label.trim() || "";
   }, [navItems, pathname]);
 
@@ -687,9 +690,7 @@ export default function MainLayout() {
               <button
                 type="button"
                 className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
-                onClick={() =>
-                  navigate("/sales/html_capture/new?pagoVarios=1")
-                }
+                onClick={() => navigate("/sales/html_capture/new?pagoVarios=1")}
                 title="Pago varios"
               >
                 <Bell size={17} />

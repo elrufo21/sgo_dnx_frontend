@@ -105,6 +105,12 @@ const DEFAULT_VENTA_TOTAL = {
   deposito: 0,
 };
 
+const EDITABLE_INGRESOS = new Set([
+  "VITRINA",
+  "REVISTAS",
+  "COPIAS Y OTROS",
+]);
+
 const formatMoney = (value: number) =>
   value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -203,7 +209,7 @@ export default function CashFlowForm({
     loading,
   } = useCashFlowStore();
   const { users, fetchUsers } = useUsersStore();
-  const { fetchMovements } = useCashFlowMovementsWebStore();
+  const { fetchMovements, updateManualIngresos } = useCashFlowMovementsWebStore();
   const containerRef = useRef(null);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
   const [activeTab, setActiveTab] = useState<"caja" | "productos">("caja");
@@ -304,6 +310,17 @@ export default function CashFlowForm({
     setFormData((prev) => ({ ...prev, conteoMonedas: updated }));
   };
 
+  const handleIngresoChange = (id: number, value: string) => {
+    const importe = value === "" ? 0 : Number(value);
+    if (!Number.isFinite(importe) || importe < 0) return;
+    setFormData((prev) => ({
+      ...prev,
+      ingresos: prev.ingresos.map((item) =>
+        item.id === id ? { ...item, importe } : item,
+      ),
+    }));
+  };
+
   const handleKeyboardNavigation = (
     event: React.KeyboardEvent<HTMLElement>,
   ) => {
@@ -337,8 +354,11 @@ export default function CashFlowForm({
   const totalGastos = isViewing
     ? (activeCash?.salidas ?? 0)
     : formData.gastos.reduce((sum, item) => sum + item.importe, 0);
+  const ingresosManuales = formData.ingresos
+    .filter((item) => EDITABLE_INGRESOS.has(item.descripcion))
+    .reduce((sum, item) => sum + Number(item.importe || 0), 0);
   const efectivoCaja = isViewing
-    ? (activeCash?.efectivoEsperado ?? 0)
+    ? (activeCash?.efectivoEsperado ?? 0) + ingresosManuales
     : totalIngresos - totalGastos;
   const ventasBO_FA =
     (formData.ventaTotal.efectivo ?? 0) +
@@ -471,8 +491,18 @@ export default function CashFlowForm({
     setIsEditing(true);
   };
 
-  const guardarCaja = () => {
+  const guardarCaja = async () => {
     if (!isViewing) return abrirCaja();
+    const result = await updateManualIngresos(
+      viewedCashId,
+      formData.ingresos
+        .filter((item) => EDITABLE_INGRESOS.has(item.descripcion))
+        .map(({ id, importe }) => ({ id, importe })),
+    );
+    if (!result.ok) {
+      toast.error(result.mensaje);
+      return;
+    }
     if (formData.estado === "CERRADA" && isClosing) return cerrarCaja();
     return guardarEstadoCaja();
   };
@@ -819,7 +849,24 @@ export default function CashFlowForm({
                                 {item.descripcion}
                               </td>
                               <td className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
-                                {formatAmount(item.importe)}
+                                {EDITABLE_INGRESOS.has(item.descripcion) ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={item.importe || ""}
+                                    onChange={(event) =>
+                                      handleIngresoChange(
+                                        item.id,
+                                        event.target.value,
+                                      )
+                                    }
+                                    disabled={!canEdit || isClosed || loading}
+                                    className="w-24 rounded border border-gray-200 px-1 py-0.5 text-right text-xs focus:border-slate-500 focus:outline-none disabled:bg-transparent disabled:border-transparent"
+                                  />
+                                ) : (
+                                  formatAmount(item.importe)
+                                )}
                               </td>
                             </tr>
                           ))}

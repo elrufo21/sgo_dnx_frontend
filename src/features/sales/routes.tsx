@@ -27,10 +27,7 @@ export default [
     path: "sales/purchases",
     element: <PurchanseList />,
     handle: {
-      breadcrumb: [
-        { label: "Ventas", to: "/sales" },
-        { label: "Ventas" },
-      ],
+      breadcrumb: [{ label: "Ventas", to: "/sales" }, { label: "Ventas" }],
     },
   },
   {
@@ -97,7 +94,7 @@ export default [
     handle: {
       breadcrumb: [
         { label: "Ventas", to: "/sales" },
-        { label: "Datos OBS por cajero" },
+        { label: "Extraer Ventas OBS" },
       ],
     },
   },
@@ -197,10 +194,7 @@ export default [
     path: "sales/small_cash",
     element: <SmallCashPage />,
     handle: {
-      breadcrumb: [
-        { label: "Ventas", to: "/sales" },
-        { label: "Caja chica" },
-      ],
+      breadcrumb: [{ label: "Ventas", to: "/sales" }, { label: "Caja chica" }],
     },
   },
 ];

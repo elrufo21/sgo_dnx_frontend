@@ -52,6 +52,10 @@ const parseMovements = (raw: string): CashFlowMovements => {
 interface CashFlowMovementsWebState extends CashFlowMovements {
   loading: boolean;
   fetchMovements: (cajaId: number) => Promise<CashFlowMovements>;
+  updateManualIngresos: (
+    cajaId: number,
+    movimientos: Array<Pick<CashFlowMovementWeb, "id" | "importe">>,
+  ) => Promise<{ ok: boolean; mensaje: string }>;
 }
 
 export const useCashFlowMovementsWebStore = create<CashFlowMovementsWebState>((set) => ({
@@ -76,5 +80,17 @@ export const useCashFlowMovementsWebStore = create<CashFlowMovementsWebState>((s
     } finally {
       set({ loading: false });
     }
+  },
+  updateManualIngresos: async (cajaId, movimientos) => {
+    const response = await apiRequest<{ ok?: boolean; mensaje?: string }>({
+      url: `${API_BASE_URL}/CashFlow/${cajaId}/manual-income`,
+      method: "PUT",
+      data: { movimientos },
+      fallback: { ok: false, mensaje: "No se pudo actualizar los ingresos." },
+    });
+    return {
+      ok: response?.ok === true,
+      mensaje: response?.mensaje || "No se pudo actualizar los ingresos.",
+    };
   },
 }));
