@@ -110,6 +110,7 @@ const EDITABLE_INGRESOS = new Set([
   "REVISTAS",
   "COPIAS Y OTROS",
 ]);
+const INGRESOS_SINCRONIZADOS = new Set([...EDITABLE_INGRESOS, "SENCILLO"]);
 
 const formatMoney = (value: number) =>
   value.toLocaleString("en-US", {
@@ -321,6 +322,19 @@ export default function CashFlowForm({
     }));
   };
 
+  const handleSencilloChange = (value: string) => {
+    const sencillo = value === "" ? "" : Number(value);
+    if (sencillo !== "" && (!Number.isFinite(sencillo) || sencillo < 0))
+      return;
+    setFormData((prev) => ({
+      ...prev,
+      sencillo,
+      ingresos: prev.ingresos.map((item) =>
+        item.descripcion === "SENCILLO" ? { ...item, importe: Number(sencillo || 0) } : item,
+      ),
+    }));
+  };
+
   const handleKeyboardNavigation = (
     event: React.KeyboardEvent<HTMLElement>,
   ) => {
@@ -358,7 +372,10 @@ export default function CashFlowForm({
     .filter((item) => EDITABLE_INGRESOS.has(item.descripcion))
     .reduce((sum, item) => sum + Number(item.importe || 0), 0);
   const efectivoCaja = isViewing
-    ? (activeCash?.efectivoEsperado ?? 0) + ingresosManuales
+    ? (activeCash?.efectivoEsperado ?? 0) -
+      (activeCash?.montoInicial ?? 0) +
+      Number(formData.sencillo || 0) +
+      ingresosManuales
     : totalIngresos - totalGastos;
   const ventasBO_FA =
     (formData.ventaTotal.efectivo ?? 0) +
@@ -496,7 +513,7 @@ export default function CashFlowForm({
     const result = await updateManualIngresos(
       viewedCashId,
       formData.ingresos
-        .filter((item) => EDITABLE_INGRESOS.has(item.descripcion))
+        .filter((item) => INGRESOS_SINCRONIZADOS.has(item.descripcion))
         .map(({ id, importe }) => ({ id, importe })),
     );
     if (!result.ok) {
@@ -667,15 +684,7 @@ export default function CashFlowForm({
                         label="Sencillo"
                         type="number"
                         value={formData.sencillo || ""}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            sencillo:
-                              e.target.value === ""
-                                ? ""
-                                : parseFloat(e.target.value) || 0,
-                          }))
-                        }
+                        onChange={(e) => handleSencilloChange(e.target.value)}
                         readOnly={!canEdit || isClosed}
                         inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
                         labelClassName="text-xs font-semibold text-gray-700"

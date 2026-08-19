@@ -192,6 +192,7 @@ export default function ObsCashierCapturePage() {
         data={rows}
         initialPageSize={50}
         persistPageSize={false}
+        tableMaxHeight="52vh"
         isLoading={loading || saving}
         emptyMessage={`No hay datos ${saleType} para el periodo seleccionado.`}
         searchPlaceholder="Buscar por cliente, código o transacción..."
