@@ -44,10 +44,13 @@ export interface ActiveCashFlow {
 
 export interface CloseCashFlow {
   usuarioId: number;
+  montoInicial?: number;
   observacion?: string;
   monedas: CashCount[];
 }
 
 export interface UpdateCashFlowState {
   estado: string;
+  montoInicial?: number;
+  observacion?: string;
 }

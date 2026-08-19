@@ -416,6 +416,10 @@ export default function DataTable<T extends RowData>({
         }),
   });
 
+  useEffect(() => {
+    if (!isRemotePagination) table.setPageIndex(0);
+  }, [globalFilter, isRemotePagination, table]);
+
   const visibleRows = table.getRowModel().rows;
   const currentPage = isRemotePagination
     ? remotePagination.pageIndex + 1

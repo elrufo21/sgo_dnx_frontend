@@ -169,7 +169,12 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
     const result = asRecord(response);
     const error = asRecord(asRecord(result.response).data);
     const ok = result.ok === true;
-    const mensaje = asString(result.mensaje, result.message, error.mensaje, error.message);
+    const mensaje = asString(
+      result.mensaje,
+      error.mensaje,
+      error.message,
+      result.message,
+    );
     const diferencia = asNumber(result.diferencia, result.Diferencia);
 
     if (ok) await get().fetchFlows();
@@ -185,7 +190,12 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
     const result = asRecord(response);
     const error = asRecord(asRecord(result.response).data);
     const ok = result.ok === true;
-    const mensaje = asString(result.mensaje, result.message, error.mensaje, error.message);
+    const mensaje = asString(
+      result.mensaje,
+      error.mensaje,
+      error.message,
+      result.message,
+    );
 
     if (ok) await get().fetchFlows();
     return { ok, mensaje: mensaje || "No se pudo guardar el estado de la caja." };

@@ -144,7 +144,7 @@ const CashFlowList = () => {
         isLoading={loading}
         emptyMessage="No hay cajas registradas"
         searchPlaceholder="Buscar caja, encargado o estado..."
-        filterKeys={["id", "encargado", "usuario", "estado"]}
+        filterKeys={["id", "encargado", "estado"]}
         globalFilterValue={search}
         onGlobalFilterValueChange={setSearch}
         renderFilters={

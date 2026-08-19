@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Save, Printer, Trash2 } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Lock, Printer, Save, Trash2, Unlock } from "lucide-react";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useCashFlowProductsWebStore } from "@/store/cashFlowProductsWeb/cashFlowProductsWeb.store";
+import { useCashFlowMovementsWebStore } from "@/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store";
 import { useDialogStore } from "@/store/app/dialog.store";
 import type { ActiveCashFlow } from "@/types/cashFlow";
 import { toast } from "@/shared/ui/toast";
@@ -202,13 +203,17 @@ export default function CashFlowForm({
     loading,
   } = useCashFlowStore();
   const { users, fetchUsers } = useUsersStore();
+  const { fetchMovements } = useCashFlowMovementsWebStore();
   const containerRef = useRef(null);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
   const [activeTab, setActiveTab] = useState<"caja" | "productos">("caja");
   const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
   const [responsableId, setResponsableId] = useState<number | null>(null);
-  const sessionUserId = Number(sessionUser?.id);
   const viewedCashId = Number(cajaId);
+  const [isEditing, setIsEditing] = useState(
+    () => !(Number.isInteger(viewedCashId) && viewedCashId > 0),
+  );
+  const sessionUserId = Number(sessionUser?.id);
   const selectedResponsableId = responsableId ?? sessionUserId;
   const responsableOptions = users.map((user) => ({
     value: String(user.UsuarioID),
@@ -244,47 +249,53 @@ export default function CashFlowForm({
     if (!users.length) void fetchUsers();
   }, [fetchUsers, users.length]);
 
-  useEffect(() => {
-    if (!Number.isInteger(viewedCashId) || viewedCashId <= 0) return;
-    let mounted = true;
-
-    void getCashFlowDetail(viewedCashId).then((caja) => {
-      if (!mounted) return;
-      if (!caja) return;
-      setActiveCash(caja);
-      setFormData((prev) => ({
-        ...prev,
-        sencillo: caja.montoInicial,
-        fechaApertura: caja.fechaApertura,
-        fechaCierre: caja.fechaCierre,
-        estado: caja.estado.trim().toUpperCase().startsWith("CERR")
-          ? "CERRADA"
-          : caja.estado,
-        observaciones: caja.observacion,
-        conteoMonedas: DEFAULT_CONTEO.map((item) => ({
-          ...item,
-          cantidad:
-            caja.monedas.find(
-              (moneda) => moneda.denominacion === item.denominacion,
-            )?.cantidad ?? "",
-        })),
-        ventaTotal: {
-          efectivo: caja.ventasEfectivo,
-          tarjeta: caja.ventasTarjeta,
-          deposito: caja.ventasDeposito,
-        },
-      }));
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [getCashFlowDetail, viewedCashId]);
-
   const isViewing = Number.isInteger(viewedCashId) && viewedCashId > 0;
+  const reloadCashFlow = useCallback(async () => {
+    if (!isViewing) return;
+    const [caja, movements] = await Promise.all([
+      getCashFlowDetail(viewedCashId),
+      fetchMovements(viewedCashId),
+    ]);
+    if (!caja) return;
+
+    setActiveCash(caja);
+    setFormData((prev) => ({
+      ...prev,
+      ...movements,
+      sencillo: caja.montoInicial,
+      fechaApertura: caja.fechaApertura,
+      fechaCierre: caja.fechaCierre,
+      estado: caja.estado.trim().toUpperCase().startsWith("CERR")
+        ? "CERRADA"
+        : caja.estado,
+      observaciones: caja.observacion,
+      conteoMonedas: DEFAULT_CONTEO.map((item) => ({
+        ...item,
+        cantidad:
+          caja.monedas.find(
+            (moneda) => moneda.denominacion === item.denominacion,
+          )?.cantidad ?? "",
+      })),
+      ventaTotal: {
+        efectivo: caja.ventasEfectivo,
+        tarjeta: caja.ventasTarjeta,
+        deposito: caja.ventasDeposito,
+      },
+    }));
+  }, [fetchMovements, getCashFlowDetail, isViewing, viewedCashId]);
+
+  useEffect(() => {
+    void reloadCashFlow();
+  }, [reloadCashFlow]);
+
+  useEffect(() => {
+    setIsEditing(!isViewing);
+  }, [isViewing]);
+
   const isClosed =
     activeCash?.estado.trim().toUpperCase().startsWith("CERR") ?? false;
   const isClosing = isViewing && !isClosed;
+  const canEdit = !readOnly && (!isViewing || isEditing);
 
   const handleCantidadChange = (index, valor) => {
     const cantidad = valor === "" ? "" : parseInt(valor, 10) || 0;
@@ -313,20 +324,6 @@ export default function CashFlowForm({
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       focusPreviousInput(target);
-    }
-  };
-
-  const eliminarMovimiento = (id, tipo) => {
-    if (tipo === "ingresos") {
-      setFormData((prev) => ({
-        ...prev,
-        ingresos: prev.ingresos.filter((item) => item.id !== id),
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        gastos: prev.gastos.filter((item) => item.id !== id),
-      }));
     }
   };
 
@@ -421,6 +418,7 @@ export default function CashFlowForm({
 
     const result = await closeCashFlow(activeCash.id, {
       usuarioId,
+      montoInicial: Number(formData.sencillo || 0),
       observacion: formData.observaciones,
       monedas: formData.conteoMonedas.map((item) => ({
         denominacion: item.denominacion,
@@ -435,25 +433,48 @@ export default function CashFlowForm({
     toast.success(
       `Caja cerrada. Diferencia: S/ ${result.diferencia.toFixed(2)}`,
     );
-    navigate(`/cash_flow_control${location.search}`);
+    setIsEditing(false);
+    await reloadCashFlow();
   };
 
-  const guardarEstadoCaja = async () => {
+  const guardarEstadoCaja = async (estado = formData.estado) => {
     if (!activeCash) {
       toast.error("No se pudo cargar la caja.");
       return;
     }
 
     const result = await updateCashFlowState(activeCash.id, {
-      estado: formData.estado,
+      estado,
+      montoInicial: Number(formData.sencillo || 0),
+      observacion: formData.observaciones,
     });
     if (!result.ok) {
       toast.error(result.mensaje);
       return;
     }
 
-    toast.success("Estado de caja actualizado.");
-    navigate(`/cash_flow_control${location.search}`);
+    toast.success("Caja actualizada correctamente.");
+    setIsEditing(false);
+    await reloadCashFlow();
+  };
+
+  const cambiarEstadoCaja = (estado: string) => {
+    setFormData((prev) => ({ ...prev, estado }));
+  };
+
+  const alternarEdicion = () => {
+    if (isEditing) {
+      setIsEditing(false);
+      void reloadCashFlow();
+      return;
+    }
+    setIsEditing(true);
+  };
+
+  const guardarCaja = () => {
+    if (!isViewing) return abrirCaja();
+    if (formData.estado === "CERRADA" && isClosing) return cerrarCaja();
+    return guardarEstadoCaja();
   };
 
   const eliminarCaja = () => {
@@ -480,7 +501,9 @@ export default function CashFlowForm({
 
   const formatDate = (dateString) => {
     if (!dateString) return "Pendiente";
-    return new Date(dateString).toLocaleString("es-PE", {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    return date.toLocaleString("es-PE", {
       dateStyle: "short",
       timeStyle: "short",
     });
@@ -523,29 +546,31 @@ export default function CashFlowForm({
         <div className="flex gap-1 sm:gap-2">
           <button
             type="button"
-            onClick={() =>
-              void (isClosed
-                ? guardarEstadoCaja()
-                : isClosing
-                  ? cerrarCaja()
-                  : abrirCaja())
-            }
-            disabled={loading || readOnly}
+            onClick={() => void guardarCaja()}
+            disabled={loading || !canEdit}
             className="inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
-            title={
-              isClosed ? "Guardar" : isClosing ? "Cerrar caja" : "Abrir caja"
-            }
+            title={isViewing ? "Guardar" : "Abrir caja"}
           >
             <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>
-              {isClosed ? "Guardar" : isClosing ? "Cerrar caja" : "Abrir caja"}
-            </span>
+            <span>{isViewing ? "Guardar" : "Abrir caja"}</span>
           </button>
           {isViewing && (
             <button
               type="button"
+              onClick={alternarEdicion}
+              disabled={loading || readOnly}
+              title={isEditing ? "Bloquear y descartar cambios" : "Editar caja"}
+              aria-label={isEditing ? "Bloquear formulario" : "Editar formulario"}
+              className="inline-flex items-center rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
+            >
+              {isEditing ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            </button>
+          )}
+          {isViewing && (
+            <button
+              type="button"
               onClick={eliminarCaja}
-              disabled={loading}
+              disabled={loading || !canEdit}
               title="Eliminar caja"
               aria-label="Eliminar caja"
               className="inline-flex items-center rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
@@ -591,7 +616,7 @@ export default function CashFlowForm({
                             setResponsableId(Number(e.target.value))
                           }
                           options={responsableOptions}
-                          disabled={loading || readOnly}
+                          disabled={loading || !canEdit}
                           labelClassName="text-xs font-semibold text-gray-700"
                           selectClassName="text-xs"
                         />
@@ -612,6 +637,7 @@ export default function CashFlowForm({
                                 : parseFloat(e.target.value) || 0,
                           }))
                         }
+                        readOnly={!canEdit || isClosed}
                         inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
                         labelClassName="text-xs font-semibold text-gray-700"
                         step="any"
@@ -622,17 +648,12 @@ export default function CashFlowForm({
                         name="estado"
                         label="Estado"
                         value={formData.estado}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            estado: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => cambiarEstadoCaja(e.target.value)}
                         options={[
                           { value: "ACTIVO", label: "ACTIVO" },
                           { value: "CERRADA", label: "CERRADA" },
                         ]}
-                        disabled={!isClosed || loading || readOnly}
+                        disabled={!isViewing || loading || !canEdit}
                         labelClassName="text-xs font-semibold text-gray-700"
                         selectClassName={`text-center font-medium text-xs ${
                           ["ABIERTA", "ACTIVO"].includes(
@@ -708,7 +729,7 @@ export default function CashFlowForm({
                                     }
                                     data-auto-next="true"
                                     className="w-full min-w-0 px-1 py-0.5 border border-gray-200 rounded text-center focus:border-slate-500 focus:outline-none text-xs"
-                                    disabled={!isClosing || loading || readOnly}
+                                    disabled={!isClosing || loading || !canEdit}
                                   />
                                 </td>
                                 <td className="py-0.5 px-2 text-right text-gray-700 text-xs w-1/3">
@@ -772,7 +793,6 @@ export default function CashFlowForm({
                             <th className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
                               Importe
                             </th>
-                            <th className="w-7 py-1 px-1"></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -791,18 +811,6 @@ export default function CashFlowForm({
                               </td>
                               <td className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
                                 S/ {formatAmount(item.importe)}
-                              </td>
-                              <td className="py-1 px-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    eliminarMovimiento(item.id, tipoMovimiento)
-                                  }
-                                  disabled={isClosed}
-                                  className="p-0.5 text-red-600 hover:bg-red-50 rounded"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
                               </td>
                             </tr>
                           ))}
@@ -873,8 +881,8 @@ export default function CashFlowForm({
                             observaciones: e.target.value,
                           }))
                         }
-                        readOnly={isClosed}
-                        data-auto-next={isClosed ? undefined : "true"}
+                        readOnly={!canEdit || isClosed}
+                        data-auto-next={!canEdit || isClosed ? undefined : "true"}
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-slate-500 focus:outline-none w-full"
                         rows={2}
                         placeholder="Escriba sus observaciones..."
