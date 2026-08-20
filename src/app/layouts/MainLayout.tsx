@@ -13,6 +13,7 @@ import {
   FileInput,
   Bell,
   TableProperties,
+  WalletCards,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "@/config";
@@ -483,6 +484,12 @@ export default function MainLayout() {
         state: { resetSearchFilter: true },
       },
       {
+        label: "Caja Chica",
+        to: "/petty-cash-movements",
+        icon: <WalletCards size={18} />,
+        state: { resetSearchFilter: true },
+      },
+      {
         label: "Extraer Ventas OBS",
         to: "/sales/obs_capture",
         icon: <TableProperties size={18} />,
@@ -700,6 +707,16 @@ export default function MainLayout() {
                     {pagoVariosCount}
                   </span>
                 ) : null}
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
+                onClick={() => navigate("/petty-cash-movements")}
+                title="Movimiento de Caja Chica"
+              >
+                <WalletCards size={17} />
+                <span className="hidden sm:inline">Caja Chica</span>
               </button>
 
               <div ref={userMenuContainerRef} className="relative shrink-0">

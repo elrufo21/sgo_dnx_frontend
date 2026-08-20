@@ -27,7 +27,7 @@ export default function MaintenanceDashboard() {
         route: "/maintenance/products",
       },
       {
-        title: "SubLineas",
+        title: "Categorías",
         desc: "Gestiona sublineas y códigos SUNAT.",
         icon: <Grid3X3 className="w-10 h-10 text-blue-600" />,
         route: "/maintenance/categories",
@@ -84,15 +84,6 @@ export default function MaintenanceDashboard() {
 
   return (
     <div className="space-y-4 px-2 py-2 sm:px-1">
-      <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
-        <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-          Mantenimiento
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Gestiona configuraciones operativas y catalogos del sistema.
-        </p>
-      </section>
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-3">
         {items.map((item) => (
           <button

@@ -10,21 +10,21 @@ export default function AccountingDashboard() {
   const items = useMemo(() => {
     const baseItems = [
       {
-        title: "PDT Empresa",
-        desc: "Administra datos base para reportes PDT de empresa.",
-        icon: <FileSpreadsheet className="h-10 w-10 text-emerald-600" />,
-        route: "/accounting/pdt-company",
-      },
-      {
         title: "Envio de facturas",
         desc: "Lista facturas emitidas y abre el comprobante para reenviar al OSE.",
         icon: <Send className="h-10 w-10 text-blue-600" />,
         route: "/accounting/invoice-dispatch",
       },
+      {
+        title: "PDT Empresa",
+        desc: "Administra datos base para reportes PDT de empresa.",
+        icon: <FileSpreadsheet className="h-10 w-10 text-emerald-600" />,
+        route: "/accounting/pdt-company",
+      },
     ];
 
     if (user?.boletaPorLote !== false) {
-      baseItems.push({
+      baseItems.unshift({
         title: "Resumen de boletas",
         desc: "Envia y consulta resumenes de boletas.",
         icon: <ReceiptText className="h-10 w-10 text-violet-600" />,
@@ -37,15 +37,6 @@ export default function AccountingDashboard() {
 
   return (
     <div className="space-y-4 px-2 py-2 sm:px-1">
-      <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
-        <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-          Contabilidad
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Gestiona submodulos contables y catalogos tributarios.
-        </p>
-      </section>
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-3">
         {items.map((item) => (
           <button

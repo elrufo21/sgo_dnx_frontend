@@ -79,9 +79,12 @@ export function CrudList<T>(props: CrudListProps<T>) {
     computers: "Computadoras",
     employees: "Empleados",
     users: "Usuarios",
+    products: "Productos",
   };
   const maintenanceTitle =
-    maintenanceTitleBySegment[maintenanceSegment] ?? "Mantenimiento";
+    maintenanceTitleBySegment[maintenanceSegment] ??
+    maintenanceSegment.replace(/[-_]/g, " ") ??
+    "Mantenimiento";
   const maintenanceFallbackTo = basePath.startsWith("/maintenance")
     ? "/maintenance"
     : undefined;
@@ -200,9 +203,6 @@ export function CrudList<T>(props: CrudListProps<T>) {
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition-colors"
             />
             <div className="leading-tight">
-              <p className="text-xs font-semibold tracking-wide uppercase text-[#B23636]">
-                Mantenimiento
-              </p>
               <div className="flex items-end gap-2">
                 <h1 className="text-xl font-semibold text-[#0f2748] sm:text-3xl lg:text-4xl">
                   {maintenanceTitle}

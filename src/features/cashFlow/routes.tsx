@@ -1,5 +1,6 @@
 import CashFlowCreate from "./pages/cashFlowCreate";
 import CashFlowList from "./pages/cashFlowList";
+import PettyCashMovementPage from "./pages/PettyCashMovementPage";
 
 export default [
   {
@@ -17,6 +18,13 @@ export default [
         { label: "Control de Caja", to: "/cash_flow_control" },
         { label: "Apertura de caja" },
       ],
+    },
+  },
+  {
+    path: "petty-cash-movements",
+    element: <PettyCashMovementPage />,
+    handle: {
+      breadcrumb: [{ label: "Movimiento de Caja Chica" }],
     },
   },
   {

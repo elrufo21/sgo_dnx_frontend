@@ -208,20 +208,6 @@ export default function ServiceInvoiceList() {
 
   return (
     <div className="space-y-4 p-3 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <BackArrowButton fallbackTo="/shopping" />
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-800">
-              Facturas de servicio
-            </h1>
-            <p className="text-sm text-slate-500">
-              Facturas de servicio enviadas al OSE
-            </p>
-          </div>
-        </div>
-      </div>
-
       <DataTable
         data={invoices}
         columns={columns}

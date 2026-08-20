@@ -105,11 +105,7 @@ const DEFAULT_VENTA_TOTAL = {
   deposito: 0,
 };
 
-const EDITABLE_INGRESOS = new Set([
-  "VITRINA",
-  "REVISTAS",
-  "COPIAS Y OTROS",
-]);
+const EDITABLE_INGRESOS = new Set(["VITRINA", "REVISTAS", "COPIAS Y OTROS"]);
 const INGRESOS_SINCRONIZADOS = new Set([...EDITABLE_INGRESOS, "SENCILLO"]);
 
 const formatMoney = (value: number) =>
@@ -210,7 +206,8 @@ export default function CashFlowForm({
     loading,
   } = useCashFlowStore();
   const { users, fetchUsers } = useUsersStore();
-  const { fetchMovements, updateManualIngresos } = useCashFlowMovementsWebStore();
+  const { fetchMovements, updateManualIngresos } =
+    useCashFlowMovementsWebStore();
   const containerRef = useRef(null);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
   const [activeTab, setActiveTab] = useState<"caja" | "productos">("caja");
@@ -324,13 +321,14 @@ export default function CashFlowForm({
 
   const handleSencilloChange = (value: string) => {
     const sencillo = value === "" ? "" : Number(value);
-    if (sencillo !== "" && (!Number.isFinite(sencillo) || sencillo < 0))
-      return;
+    if (sencillo !== "" && (!Number.isFinite(sencillo) || sencillo < 0)) return;
     setFormData((prev) => ({
       ...prev,
       sencillo,
       ingresos: prev.ingresos.map((item) =>
-        item.descripcion === "SENCILLO" ? { ...item, importe: Number(sencillo || 0) } : item,
+        item.descripcion === "SENCILLO"
+          ? { ...item, importe: Number(sencillo || 0) }
+          : item,
       ),
     }));
   };
@@ -744,9 +742,9 @@ export default function CashFlowForm({
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <div className="bg-white rounded border border-gray-200 p-2">
-                  <h3 className="text-xs font-semibold mb-2 text-gray-700">
+                  {/** <h3 className="text-xs font-semibold mb-2 text-gray-700">
                     Conteo Monedas
-                  </h3>
+                  </h3> */}
                   <div className="border border-gray-200 rounded overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs table-fixed min-w-[280px]">
@@ -792,8 +790,13 @@ export default function CashFlowForm({
                         </tbody>
                       </table>
                     </div>
-                    <div className="bg-slate-900 text-white font-semibold text-right px-2 py-1.5 text-xs">
-                      Total S/ {formatAmount(totalEfectivo)}
+                    <div className="bg-slate-800 text-white p-2 rounded">
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-xs font-medium">Total</span>
+                        <span className="text-base sm:text-lg font-bold whitespace-nowrap">
+                          S/ {formatAmount(totalEfectivo)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -807,7 +810,6 @@ export default function CashFlowForm({
                     <button
                       type="button"
                       onClick={() => setTipoMovimiento("ingresos")}
-                      disabled={isClosed}
                       className={`flex-1 py-1 text-xs rounded font-medium ${
                         tipoMovimiento === "ingresos"
                           ? "bg-slate-800 text-white"
@@ -819,7 +821,6 @@ export default function CashFlowForm({
                     <button
                       type="button"
                       onClick={() => setTipoMovimiento("gastos")}
-                      disabled={isClosed}
                       className={`flex-1 py-1 text-xs rounded font-medium ${
                         tipoMovimiento === "gastos"
                           ? "bg-slate-800 text-white"
@@ -871,6 +872,11 @@ export default function CashFlowForm({
                                       )
                                     }
                                     disabled={!canEdit || isClosed || loading}
+                                    data-auto-next={
+                                      !canEdit || isClosed || loading
+                                        ? undefined
+                                        : "true"
+                                    }
                                     className="w-24 rounded border border-gray-200 px-1 py-0.5 text-right text-xs focus:border-slate-500 focus:outline-none disabled:bg-transparent disabled:border-transparent"
                                   />
                                 ) : (
@@ -924,16 +930,7 @@ export default function CashFlowForm({
                         className="flex-1 px-2 py-1 border rounded text-right font-semibold text-slate-800 bg-gray-50 text-xs"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-800 w-24 sm:w-28 flex-shrink-0">
-                        Diferencial:
-                      </span>
-                      <input
-                        disabled
-                        value={`S/ ${formatAmount(diferencial)}`}
-                        className={`flex-1 px-2 py-1 border  rounded text-right font-semibold text-xs ${diferencialClass}`}
-                      />
-                    </div>
+
                     <div className="flex flex-col sm:flex-row sm:items-start gap-2">
                       <span className="text-xs font-bold text-slate-800 sm:w-28 flex-shrink-0">
                         Observaciones:
@@ -959,54 +956,14 @@ export default function CashFlowForm({
                 </div>
 
                 <div className="bg-white rounded border border-gray-200 p-2">
-                  <h3 className="text-xs font-semibold mb-2 text-gray-700">
-                    Venta Total
-                  </h3>
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between items-center gap-2">
                       <span className="font-semibold text-gray-700 flex-shrink-0">
-                        Ingresos:
+                        Sistema (OBS):
                       </span>
-                      <input
-                        type="text"
-                        value={
-                          formData.ventaTotal.efectivo
-                            ? formatAmount(formData.ventaTotal.efectivo)
-                            : ""
-                        }
-                        disabled
-                        className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold focus:border-slate-500 focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex justify-between items-center gap-2">
-                      <span className="font-semibold text-gray-700 flex-shrink-0">
-                        Tarjeta:
-                      </span>
-                      <input
-                        type="text"
-                        value={
-                          formData.ventaTotal.tarjeta
-                            ? formatAmount(formData.ventaTotal.tarjeta)
-                            : ""
-                        }
-                        disabled
-                        className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold text-blue-700 focus:border-slate-500 focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex justify-between items-center gap-2">
-                      <span className="font-semibold text-gray-700 flex-shrink-0">
-                        Depósitos y/o Yape:
-                      </span>
-                      <input
-                        type="text"
-                        value={
-                          formData.ventaTotal.deposito
-                            ? formatAmount(formData.ventaTotal.deposito)
-                            : ""
-                        }
-                        disabled
-                        className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold text-green-700 focus:border-slate-500 focus:outline-none"
-                      />
+                      <div className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold bg-white">
+                        S/ {formatAmount(totalVenta)}
+                      </div>
                     </div>
                     <div className="flex justify-between items-center gap-2">
                       <span className="font-semibold text-gray-700 flex-shrink-0">
@@ -1014,6 +971,16 @@ export default function CashFlowForm({
                       </span>
                       <div className="w-28 sm:w-32 px-2 py-1 bg-red-500 text-white rounded text-right font-bold">
                         S/ {formatAmount(totalGastos)}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="font-semibold text-gray-700 flex-shrink-0">
+                        Diferencial:
+                      </span>
+                      <div
+                        className={`w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold bg-white ${diferencialClass}`}
+                      >
+                        S/ {formatAmount(diferencial)}
                       </div>
                     </div>
                     <div className="flex justify-between items-center pt-1.5 border-t border-gray-200 gap-2">

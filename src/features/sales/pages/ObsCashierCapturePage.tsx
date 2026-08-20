@@ -4,7 +4,7 @@ import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Search } from "lucide-react";
 
 type ObsRow = {
@@ -43,6 +43,8 @@ const money = (value: number) =>
     maximumFractionDigits: 2,
   });
 
+const noExiste = (value: string) => value.trim().toUpperCase() === "NO EXISTE";
+
 export default function ObsCashierCapturePage() {
   const today = useMemo(() => getLocalDateISO(), []);
   const [fechaInicio, setFechaInicio] = useState(today);
@@ -71,10 +73,21 @@ export default function ObsCashierCapturePage() {
         header: "Estado",
         cell: (info) => {
           const value = info.getValue();
-          const emitted = value.trim().toUpperCase() !== "NO EXISTE";
+          const missing = noExiste(value);
           return (
-            <span className={emitted ? "text-emerald-700" : "text-amber-700"}>
-              {emitted ? value : "PENDIENTE"}
+            <span className={missing ? "font-semibold text-red-600" : "text-emerald-700"}>
+              {value}
+            </span>
+          );
+        },
+      }),
+      helper.accessor("cajaId", {
+        header: "CajaId",
+        cell: (info) => {
+          const value = info.getValue() || "NO EXISTE";
+          return (
+            <span className={noExiste(value) ? "font-semibold text-red-600" : "text-slate-700"}>
+              {value}
             </span>
           );
         },
@@ -82,16 +95,16 @@ export default function ObsCashierCapturePage() {
     ] as ColumnDef<ObsRow, unknown>[];
   }, []);
 
-  const load = useCallback(async () => {
-    if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) {
+  const fetchRows = useCallback(async (inicio: string, fin: string, tipoVenta: SaleType) => {
+    if (!inicio || !fin || inicio > fin) {
       toast.error("Selecciona un rango de fechas válido.");
       return;
     }
     setLoading(true);
     const query = new URLSearchParams({
-      fechaInicio,
-      fechaFin,
-      tipoVenta: saleType,
+      fechaInicio: inicio,
+      fechaFin: fin,
+      tipoVenta,
     });
     const result = await apiRequest<ObsRow[]>({
       url: `${API_BASE_URL}/ObsCapture?${query.toString()}`,
@@ -99,9 +112,17 @@ export default function ObsCashierCapturePage() {
     });
     setRows(Array.isArray(result) ? result : []);
     setLoading(false);
-  }, [fechaFin, fechaInicio, saleType]);
+  }, []);
+
+  const load = useCallback(
+    () => fetchRows(fechaInicio, fechaFin, saleType),
+    [fechaFin, fechaInicio, fetchRows, saleType],
+  );
+
+  const receivingCapture = useRef(false);
 
   const receive = useCallback(async (payload: ObsCapturePayload) => {
+    if (receivingCapture.current) return;
     const capturedType: SaleType = payload.saleType === "IOC" ? "IOC" : "OBS";
     const lines = payload.lines
       .filter(
@@ -123,30 +144,38 @@ export default function ObsCashierCapturePage() {
       return;
     }
 
+    receivingCapture.current = true;
     setSaving(true);
-    const response = await apiRequest<{ ok?: boolean; mensaje?: string }>({
-      url: `${API_BASE_URL}/ObsCapture`,
-      method: "POST",
-      data: { lines, tipoVenta: capturedType },
-    });
-    const result =
-      response && typeof response === "object"
-        ? (response as { ok?: boolean; mensaje?: string })
-        : null;
-    setSaving(false);
-    if (!result || typeof result !== "object" || result.ok !== true) {
-      toast.error(
-        result?.mensaje || `No se pudo guardar la captura ${capturedType}.`,
-      );
-      return;
-    }
+    try {
+      const response = await apiRequest<{ ok?: boolean; mensaje?: string }>({
+        url: `${API_BASE_URL}/ObsCapture`,
+        method: "POST",
+        data: { lines, tipoVenta: capturedType },
+      });
+      const result =
+        response && typeof response === "object"
+          ? (response as { ok?: boolean; mensaje?: string })
+          : null;
+      if (!result || result.ok !== true) {
+        toast.error(
+          result?.mensaje || `No se pudo guardar la captura ${capturedType}.`,
+        );
+        return;
+      }
 
-    const dates = lines.map((line) => line.fecha).sort();
-    setFechaInicio(dates[0]);
-    setFechaFin(dates[dates.length - 1]);
-    setSaleType(capturedType);
-    toast.success(result.mensaje || `Datos ${capturedType} actualizados.`);
-  }, []);
+      const dates = lines.map((line) => line.fecha).sort();
+      const inicio = dates[0];
+      const fin = dates[dates.length - 1];
+      setFechaInicio(inicio);
+      setFechaFin(fin);
+      setSaleType(capturedType);
+      await fetchRows(inicio, fin, capturedType);
+      toast.success(result.mensaje || `Datos ${capturedType} actualizados.`);
+    } finally {
+      setSaving(false);
+      receivingCapture.current = false;
+    }
+  }, [fetchRows]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -202,6 +231,7 @@ export default function ObsCashierCapturePage() {
           "nombreMiembro",
           "usuario",
           "estado",
+          "cajaId",
         ]}
         renderFilters={
           <div className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
