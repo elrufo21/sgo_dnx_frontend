@@ -131,14 +131,19 @@ const mapDelimitedRow = (
   const docuId = toPositiveInt(at(0), 0);
   const companiaId = toPositiveInt(at(1), 0);
   const notaId = toPositiveInt(at(2), 0);
-  if (!docuId && !notaId) return null;
+  const fechaEmision = at(3);
+  if (
+    (!docuId && !notaId) ||
+    !/^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})$/.test(fechaEmision)
+  )
+    return null;
 
   return {
     id: docuId || index + 1,
     docuId,
     companiaId,
     notaId,
-    fechaEmision: at(3),
+    fechaEmision,
     docuDocumento: at(4),
     serieNumero: at(5),
     cliente: at(6),

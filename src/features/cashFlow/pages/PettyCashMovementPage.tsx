@@ -5,14 +5,7 @@ import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
-import {
-  Eye,
-  ImagePlus,
-  RefreshCw,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Eye, ImagePlus, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 
@@ -340,7 +333,11 @@ export default function PettyCashMovementPage() {
                     setValue("formaPago", value === "-" ? "" : value);
                     setValue(
                       "entidad",
-                      value === "TARJETA" || value === "YAPE" ? "BCP" : "",
+                      value === "TARJETA" || value === "YAPE"
+                        ? "BCP"
+                        : value === "EFECTIVO"
+                          ? "-"
+                          : "",
                     );
                     setValue("nroOperacion", "");
                     if (!value || value === "-") return;
@@ -445,7 +442,7 @@ export default function PettyCashMovementPage() {
                     disabled={saving}
                     className="mr-2 inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   >
-                    <X className="h-4 w-4" /> Cerrar vista
+                    <Plus className="h-4 w-4" /> Nuevo
                   </button>
                 ) : (
                   <button
@@ -485,18 +482,13 @@ export default function PettyCashMovementPage() {
               <table className="w-full min-w-[54rem] text-left text-sm">
                 <thead className="sticky top-0 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
                   <tr>
-                    {[
-                      "Fecha",
-                      "Movimiento",
-                      "Detalle",
-                      "Importe",
-                      "Compr.",
-                      "Acciones",
-                    ].map((header) => (
-                      <th key={header} className="px-3 py-3 font-semibold">
-                        {header}
-                      </th>
-                    ))}
+                    {["Fecha", "Detalle", "Importe", "Acciones"].map(
+                      (header) => (
+                        <th key={header} className="px-3 py-3 font-semibold">
+                          {header}
+                        </th>
+                      ),
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -517,35 +509,13 @@ export default function PettyCashMovementPage() {
                         className="cursor-pointer border-t border-slate-200 hover:bg-slate-50"
                       >
                         <td className="px-3 py-2">{formatDate(item.fecha)}</td>
-                        <td
-                          className={`px-3 py-2 font-semibold ${
-                            item.movimiento === "INGRESO"
-                              ? "text-emerald-700"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {item.movimiento}
-                        </td>
+
                         <td className="px-3 py-2 text-xs">{item.detalle}</td>
 
                         <td className="px-3 py-2 text-right font-semibold">
                           {money(item.importe)}
                         </td>
-                        <td className="px-3 py-2">
-                          {item.rutaImagen ? (
-                            <a
-                              href={item.rutaImagen}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(event) => event.stopPropagation()}
-                              className="font-semibold text-blue-600 hover:underline"
-                            >
-                              Ver
-                            </a>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
+
                         <td className="px-3 py-2 text-right">
                           <button
                             type="button"

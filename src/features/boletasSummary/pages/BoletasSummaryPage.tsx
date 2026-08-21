@@ -1275,12 +1275,7 @@ export default function BoletasSummaryPage() {
             footerContent={
               <div className="flex w-full justify-end">
                 <div className="grid w-full grid-cols-2 gap-2 text-sm sm:w-auto sm:grid-cols-4">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:min-w-[160px]">
-                    <p className="text-xs text-slate-500">Cant.</p>
-                    <p className="text-lg font-semibold text-slate-800">
-                      {totals.count}
-                    </p>
-                  </div>
+                  <div className="rounded-lg  px-3 py-2 sm:min-w-[160px]"></div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:min-w-[160px]">
                     <p className="text-xs text-slate-500">SubTotal S/</p>
                     <p className="text-lg font-semibold text-slate-800">
