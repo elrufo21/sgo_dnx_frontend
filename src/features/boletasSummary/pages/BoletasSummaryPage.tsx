@@ -477,7 +477,9 @@ export default function BoletasSummaryPage() {
 
     if (isSuccess) {
       const ticket = safeTrim(response.ticket || response.msj_sunat);
-      const successPrefix = isCancelledMode ? "Baja enviada" : "Resumen enviado";
+      const successPrefix = isCancelledMode
+        ? "Baja enviada"
+        : "Resumen enviado";
       const sentRangeFrom = `${todayIso.slice(0, 8)}01`;
       const sentRangeTo = todayIso;
       if (ticket && code) {
@@ -524,7 +526,9 @@ export default function BoletasSummaryPage() {
     }
 
     toast.error(
-      isCancelledMode ? "No se pudo enviar la baja." : "No se pudo enviar el resumen.",
+      isCancelledMode
+        ? "No se pudo enviar la baja."
+        : "No se pudo enviar el resumen.",
     );
   }, [
     fetchDocuments,
@@ -886,7 +890,10 @@ export default function BoletasSummaryPage() {
             const nextTry =
               response.intentos !== null ? response.intentos : intentos + 1;
             toast.warning(message || `Intente nuevamente ${nextTry} de 3`);
-          } else if (action === "retornar_boletas" || response.requiere_reenvio) {
+          } else if (
+            action === "retornar_boletas" ||
+            response.requiere_reenvio
+          ) {
             toast.warning(
               message ||
                 "Ticket inválido. Se retornaron comprobantes a pendiente para reenviar.",
@@ -1152,17 +1159,17 @@ export default function BoletasSummaryPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          <BackArrowButton />
-        </div>
-      </div>
-
       <div className="rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+        <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-1">
+          {/* Flecha: solo ocupa lo necesario */}
+          <div className="shrink-0">
+            <BackArrowButton />
+          </div>
+
+          {/* Botón 1 */}
           <button
             type="button"
-            className={`inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+            className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
               activeTab === "pending"
                 ? "bg-[#B23636]/10 text-[#B23636]"
                 : "text-slate-600 hover:bg-slate-100"
@@ -1171,9 +1178,11 @@ export default function BoletasSummaryPage() {
           >
             Resumen de boletas
           </button>
+
+          {/* Botón 2 */}
           <button
             type="button"
-            className={`inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+            className={`inline-flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
               activeTab === "sent"
                 ? "bg-[#B23636]/10 text-[#B23636]"
                 : "text-slate-600 hover:bg-slate-100"
@@ -1184,7 +1193,6 @@ export default function BoletasSummaryPage() {
           </button>
         </div>
       </div>
-
       {activeTab === "pending" ? (
         loading ? (
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

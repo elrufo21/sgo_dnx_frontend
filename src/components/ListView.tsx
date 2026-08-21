@@ -45,6 +45,7 @@ interface CrudListProps<T> {
   onFilteredDataChange?: (rows: T[]) => void;
   onCreate?: () => void;
   onEdit?: (row: T, id: number) => void;
+  showBackButton?: boolean;
 }
 
 export function CrudList<T>(props: CrudListProps<T>) {

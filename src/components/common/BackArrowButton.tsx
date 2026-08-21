@@ -77,7 +77,9 @@ export function BackArrowButton({
 
   const handleBack = () => {
     const target = resolveParentPath(location.pathname);
-    navigate(`${target}${preserveSearch ? location.search : ""}`, { replace: true });
+    navigate(`${target}${preserveSearch ? location.search : ""}`, {
+      replace: true,
+    });
   };
 
   return (
@@ -88,7 +90,7 @@ export function BackArrowButton({
       aria-label={ariaLabel}
       className={
         className ??
-        "inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white hover:bg-white/20 transition-colors"
+        "inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/30 bg-white/10 text-black hover:bg-white/20 transition-colors"
       }
     >
       <ArrowLeft className="h-5 w-5" />

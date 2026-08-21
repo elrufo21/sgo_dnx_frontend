@@ -709,16 +709,6 @@ export default function MainLayout() {
                 ) : null}
               </button>
 
-              <button
-                type="button"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
-                onClick={() => navigate("/petty-cash-movements")}
-                title="Movimiento de Caja Chica"
-              >
-                <WalletCards size={17} />
-                <span className="hidden sm:inline">Caja Chica</span>
-              </button>
-
               <div ref={userMenuContainerRef} className="relative shrink-0">
                 <button
                   onClick={() => setUserMenuOpen((prev) => !prev)}

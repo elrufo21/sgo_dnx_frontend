@@ -25,6 +25,7 @@ const ShoppingList = () => {
       deleteItem={deleteShopping}
       columns={columns}
       basePath="/shopping"
+      showBackButton={false}
       createLabel="Crear compra"
       deleteMessage="Seguro que deseas eliminar esta compra?"
       filterKeys={["concepto", "proveedor", "documento", "ruc"]}

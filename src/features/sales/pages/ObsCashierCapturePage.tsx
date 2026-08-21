@@ -53,6 +53,8 @@ export default function ObsCashierCapturePage() {
   const [rows, setRows] = useState<ObsRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const rowsCacheRef = useRef(new Map<string, ObsRow[]>());
+  const pendingRowsRef = useRef(new Map<string, Promise<ObsRow[]>>());
   const columns = useMemo(() => {
     const helper = createColumnHelper<ObsRow>();
     return [
@@ -95,23 +97,40 @@ export default function ObsCashierCapturePage() {
     ] as ColumnDef<ObsRow, unknown>[];
   }, []);
 
-  const fetchRows = useCallback(async (inicio: string, fin: string, tipoVenta: SaleType) => {
+  const fetchRows = useCallback(async (inicio: string, fin: string, tipoVenta: SaleType, force = false) => {
     if (!inicio || !fin || inicio > fin) {
       toast.error("Selecciona un rango de fechas válido.");
       return;
     }
+    const key = `${inicio}|${fin}|${tipoVenta}`;
+    const cached = rowsCacheRef.current.get(key);
+    if (!force && cached) {
+      setRows(cached);
+      return;
+    }
+
     setLoading(true);
-    const query = new URLSearchParams({
-      fechaInicio: inicio,
-      fechaFin: fin,
-      tipoVenta,
-    });
-    const result = await apiRequest<ObsRow[]>({
+    const pending = pendingRowsRef.current.get(key);
+    if (pending && !force) {
+      setRows(await pending);
+      setLoading(false);
+      return;
+    }
+
+    const query = new URLSearchParams({ fechaInicio: inicio, fechaFin: fin, tipoVenta });
+    const request = apiRequest<ObsRow[]>({
       url: `${API_BASE_URL}/ObsCapture?${query.toString()}`,
       fallback: [],
-    });
-    setRows(Array.isArray(result) ? result : []);
-    setLoading(false);
+    }).then((result) => (Array.isArray(result) ? result : []));
+    pendingRowsRef.current.set(key, request);
+    try {
+      const result = await request;
+      rowsCacheRef.current.set(key, result);
+      setRows(result);
+    } finally {
+      pendingRowsRef.current.delete(key);
+      setLoading(false);
+    }
   }, []);
 
   const load = useCallback(
@@ -169,7 +188,8 @@ export default function ObsCashierCapturePage() {
       setFechaInicio(inicio);
       setFechaFin(fin);
       setSaleType(capturedType);
-      await fetchRows(inicio, fin, capturedType);
+      rowsCacheRef.current.clear();
+      await fetchRows(inicio, fin, capturedType, true);
       toast.success(result.mensaje || `Datos ${capturedType} actualizados.`);
     } finally {
       setSaving(false);

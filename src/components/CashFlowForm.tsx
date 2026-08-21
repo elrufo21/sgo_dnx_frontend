@@ -803,9 +803,6 @@ export default function CashFlowForm({
 
                 {/* Segunda fila - Columna derecha: Otros Movimientos */}
                 <div className="bg-white rounded border border-gray-200 p-2">
-                  <h3 className="text-xs font-semibold mb-2 text-gray-700">
-                    Otros Movimientos
-                  </h3>
                   <div className="flex gap-1 mb-2">
                     <button
                       type="button"
@@ -831,62 +828,60 @@ export default function CashFlowForm({
                     </button>
                   </div>
 
-                  <div className="border border-gray-200 rounded overflow-hidden h-[min(40vh,265px)] min-h-[180px] overflow-y-auto mb-2">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs min-w-[280px]">
-                        <thead className="sticky top-0 bg-slate-800 text-white">
-                          <tr>
-                            <th className="text-left py-1 px-2 font-medium text-xs">
-                              Descripción
-                            </th>
-                            <th className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
-                              Importe
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(tipoMovimiento === "ingresos"
-                            ? formData.ingresos
-                            : formData.gastos
-                          ).map((item, idx) => (
-                            <tr
-                              key={item.id}
-                              className={
-                                idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                              }
-                            >
-                              <td className="py-1 px-2 text-xs break-words">
-                                {item.descripcion}
-                              </td>
-                              <td className="text-right py-1 px-2 font-medium text-xs whitespace-nowrap">
-                                {EDITABLE_INGRESOS.has(item.descripcion) ? (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={item.importe || ""}
-                                    onChange={(event) =>
-                                      handleIngresoChange(
-                                        item.id,
-                                        event.target.value,
-                                      )
-                                    }
-                                    disabled={!canEdit || isClosed || loading}
-                                    data-auto-next={
-                                      !canEdit || isClosed || loading
-                                        ? undefined
-                                        : "true"
-                                    }
-                                    className="w-24 rounded border border-gray-200 px-1 py-0.5 text-right text-xs focus:border-slate-500 focus:outline-none disabled:bg-transparent disabled:border-transparent"
-                                  />
-                                ) : (
-                                  formatAmount(item.importe)
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  <div className="mb-2 h-[min(40vh,282px)] min-h-[180px] overflow-y-auto overflow-x-auto rounded border border-gray-200">
+                    <div className="flex h-full min-w-[280px] flex-col text-xs">
+                      <div className="grid grid-cols-[minmax(0,1fr)_7rem] bg-slate-800 text-white">
+                        <div className="px-2 py-1 text-left font-medium">Descripción</div>
+                        <div className="border-l border-slate-500 px-2 py-1 text-right font-medium whitespace-nowrap">
+                          Importe
+                        </div>
+                      </div>
+                      <div className="flex min-h-0 flex-1 flex-col">
+                        {(tipoMovimiento === "ingresos"
+                          ? formData.ingresos
+                          : formData.gastos
+                        ).map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className={`grid grid-cols-[minmax(0,1fr)_7rem] ${
+                              idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }`}
+                          >
+                            <div className="break-words px-2 py-1">
+                              {item.descripcion}
+                            </div>
+                            <div className="border-l border-slate-300 px-2 py-1 text-right font-medium whitespace-nowrap">
+                              {EDITABLE_INGRESOS.has(item.descripcion) ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.importe || ""}
+                                  onChange={(event) =>
+                                    handleIngresoChange(
+                                      item.id,
+                                      event.target.value,
+                                    )
+                                  }
+                                  disabled={!canEdit || isClosed || loading}
+                                  data-auto-next={
+                                    !canEdit || isClosed || loading
+                                      ? undefined
+                                      : "true"
+                                  }
+                                  className="w-24 rounded border border-gray-200 px-1 py-0.5 text-right text-xs focus:border-slate-500 focus:outline-none disabled:bg-transparent disabled:border-transparent"
+                                />
+                              ) : (
+                                formatAmount(item.importe)
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_7rem]">
+                          <div />
+                          <div className="border-l border-slate-300" />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -906,9 +901,6 @@ export default function CashFlowForm({
               {/* Tercera fila - Columna izquierda: Detalles, Columna derecha: Venta Total */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <div className="bg-white rounded border border-gray-200 p-2">
-                  <h3 className="text-xs font-semibold mb-2 text-gray-700">
-                    Detalles
-                  </h3>
                   <div className="space-y-1.5 text-xs">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-slate-800 w-24 sm:w-28 flex-shrink-0">
@@ -981,14 +973,6 @@ export default function CashFlowForm({
                         className={`w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold bg-white ${diferencialClass}`}
                       >
                         S/ {formatAmount(diferencial)}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center pt-1.5 border-t border-gray-200 gap-2">
-                      <span className="text-xs font-bold flex-shrink-0">
-                        Total:
-                      </span>
-                      <div className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-bold bg-white">
-                        S/ {formatAmount(totalVenta)}
                       </div>
                     </div>
                   </div>
