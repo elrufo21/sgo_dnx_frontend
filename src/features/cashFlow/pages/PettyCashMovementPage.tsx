@@ -440,7 +440,7 @@ export default function PettyCashMovementPage() {
                     type="button"
                     onClick={clearForm}
                     disabled={saving}
-                    className="mr-2 inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="mr-2 inline-flex h-10 items-center bg-[#B23636] gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" /> Nuevo
                   </button>
@@ -451,7 +451,7 @@ export default function PettyCashMovementPage() {
                     className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#B23636] px-4 text-sm font-semibold text-white hover:bg-[#96312a] disabled:opacity-50"
                   >
                     <Save className="h-4 w-4" />{" "}
-                    {saving ? "Guardando..." : "Guardar movimiento"}
+                    {saving ? "Guardando..." : "Guardar"}
                   </button>
                 )}
               </div>

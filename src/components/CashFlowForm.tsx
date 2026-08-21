@@ -363,9 +363,10 @@ export default function CashFlowForm({
   const totalIngresos = isViewing
     ? (activeCash?.ventasEfectivo ?? 0)
     : formData.ingresos.reduce((sum, item) => sum + item.importe, 0);
-  const totalGastos = isViewing
-    ? (activeCash?.salidas ?? 0)
-    : formData.gastos.reduce((sum, item) => sum + item.importe, 0);
+  const totalGastos = formData.gastos.reduce(
+    (sum, item) => sum + Number(item.importe || 0),
+    0,
+  );
   const ingresosManuales = formData.ingresos
     .filter((item) => EDITABLE_INGRESOS.has(item.descripcion))
     .reduce((sum, item) => sum + Number(item.importe || 0), 0);
