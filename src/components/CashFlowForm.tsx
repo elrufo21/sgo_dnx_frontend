@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Lock, Printer, Save, Trash2, Unlock } from "lucide-react";
+import { Lock, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
+import { pdf } from "@react-pdf/renderer";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
+import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
 import { useUsersStore } from "@/store/users/users.store";
@@ -135,15 +137,12 @@ function CashFlowProductsTab({ cajaId }: { cajaId: number }) {
         Productos de la caja
       </h2>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[700px] text-sm">
+        <table className="w-full min-w-[480px] text-sm">
           <thead className="bg-slate-800 text-left text-xs text-white">
             <tr>
               <th className="px-3 py-2">Código</th>
               <th className="px-3 py-2">Descripción</th>
               <th className="px-3 py-2 text-right">Cantidad</th>
-              <th className="px-3 py-2">UM</th>
-              <th className="px-3 py-2 text-right">PV Total</th>
-              <th className="px-3 py-2 text-right">SV Total</th>
               <th className="px-3 py-2 text-right">Importe</th>
             </tr>
           </thead>
@@ -157,13 +156,6 @@ function CashFlowProductsTab({ cajaId }: { cajaId: number }) {
                 <td className="px-3 py-2">{product.descripcion}</td>
                 <td className="px-3 py-2 text-right">
                   {formatMoney(product.cantidad)}
-                </td>
-                <td className="px-3 py-2">{product.unidadMedida}</td>
-                <td className="px-3 py-2 text-right">
-                  {formatMoney(product.pvTotal)}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  {formatMoney(product.svTotal)}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold">
                   {formatMoney(product.importe)}
@@ -206,12 +198,14 @@ export default function CashFlowForm({
     loading,
   } = useCashFlowStore();
   const { users, fetchUsers } = useUsersStore();
-  const { fetchMovements, updateManualIngresos } =
+  const fetchProducts = useCashFlowProductsWebStore((state) => state.fetchProducts);
+  const { fetchMovements, fetchObsTotal, updateManualIngresos, loading: movementsLoading } =
     useCashFlowMovementsWebStore();
   const containerRef = useRef(null);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
   const [activeTab, setActiveTab] = useState<"caja" | "productos">("caja");
   const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [responsableId, setResponsableId] = useState<number | null>(null);
   const viewedCashId = Number(cajaId);
   const [isEditing, setIsEditing] = useState(
@@ -246,6 +240,7 @@ export default function CashFlowForm({
     conteoMonedas: DEFAULT_CONTEO,
     ingresos: [],
     gastos: [],
+    sistemaObs: 0,
     ventaTotal: DEFAULT_VENTA_TOTAL,
   });
 
@@ -266,6 +261,11 @@ export default function CashFlowForm({
     setFormData((prev) => ({
       ...prev,
       ...movements,
+      ingresos: movements.ingresos.map((item) =>
+        item.descripcion === "SENCILLO"
+          ? { ...item, importe: caja.montoInicial }
+          : item,
+      ),
       sencillo: caja.montoInicial,
       fechaApertura: caja.fechaApertura,
       fechaCierre: caja.fechaCierre,
@@ -360,34 +360,39 @@ export default function CashFlowForm({
     const cantidad = Number(item.cantidad || 0);
     return sum + cantidad * item.denominacion;
   }, 0);
-  const totalIngresos = isViewing
-    ? (activeCash?.ventasEfectivo ?? 0)
-    : formData.ingresos.reduce((sum, item) => sum + item.importe, 0);
   const totalGastos = formData.gastos.reduce(
     (sum, item) => sum + Number(item.importe || 0),
     0,
   );
-  const ingresosManuales = formData.ingresos
-    .filter((item) => EDITABLE_INGRESOS.has(item.descripcion))
-    .reduce((sum, item) => sum + Number(item.importe || 0), 0);
+  const efectivoParaIngreso = isViewing
+    ? Number(formData.sistemaObs || 0) - totalGastos
+    : 0;
+  const ingresosCalculados = formData.ingresos.map((item) =>
+    item.descripcion === "TOTAL EFECTIVO"
+      ? { ...item, importe: efectivoParaIngreso }
+      : item.descripcion === "SENCILLO"
+        ? { ...item, importe: Number(formData.sencillo || 0) }
+        : item,
+  );
+  const totalIngresos = ingresosCalculados.reduce(
+    (sum, item) => sum + Number(item.importe || 0),
+    0,
+  );
   const efectivoCaja = isViewing
-    ? (activeCash?.efectivoEsperado ?? 0) -
-      (activeCash?.montoInicial ?? 0) +
-      Number(formData.sencillo || 0) +
-      ingresosManuales
+    ? efectivoParaIngreso
     : totalIngresos - totalGastos;
   const ventasBO_FA =
     (formData.ventaTotal.efectivo ?? 0) +
     (formData.ventaTotal.tarjeta ?? 0) +
     (formData.ventaTotal.deposito ?? 0);
-  const diferencial = totalEfectivo - efectivoCaja;
+  const diferencial = totalEfectivo - totalIngresos;
   const diferencialClass =
     diferencial > 0
       ? "text-blue-700"
       : diferencial < 0
         ? "text-red-600"
         : "text-slate-800";
-  const totalVenta = ventasBO_FA;
+  const totalVenta = isViewing ? Number(formData.sistemaObs || 0) : ventasBO_FA;
   const totalBilletes = formData.conteoMonedas
     .filter((item) => item.denominacion >= 10)
     .reduce((sum, item) => {
@@ -405,6 +410,52 @@ export default function CashFlowForm({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+
+  const imprimirCaja = async () => {
+    if (!activeCash || isPrinting) return;
+
+    const reportWindow = window.open("", "_blank");
+    setIsPrinting(true);
+    try {
+      const products = await fetchProducts(activeCash.id);
+      const blob = await pdf(
+        <CashFlowReportPdf
+          cajaId={activeCash.id}
+          encargado={activeCash.encargado}
+          usuario={activeCash.usuario}
+          fechaApertura={formData.fechaApertura}
+          fechaCierre={formData.fechaCierre}
+          sistemaObs={Number(formData.sistemaObs || 0)}
+          gastos={formData.gastos}
+          ingresos={ingresosCalculados}
+          conteoMonedas={formData.conteoMonedas}
+          totalEfectivo={totalEfectivo}
+          totalBilletes={totalBilletes}
+          totalSencillo={totalSencillo}
+          totalIngresos={totalIngresos}
+          diferencial={diferencial}
+          observaciones={formData.observaciones}
+          products={products}
+        />,
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+
+      if (reportWindow) {
+        reportWindow.location.href = url;
+      } else {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Cierre_ID_${activeCash.id}.pdf`;
+        link.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      reportWindow?.close();
+      toast.error("No se pudo generar el informe de caja.");
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   const abrirCaja = async () => {
     const usuarioId = selectedResponsableId;
@@ -505,6 +556,12 @@ export default function CashFlowForm({
       return;
     }
     setIsEditing(true);
+  };
+
+  const actualizarSistemaObs = async () => {
+    if (!isViewing || !canEdit || isClosed) return;
+    const sistemaObs = await fetchObsTotal(viewedCashId);
+    setFormData((prev) => ({ ...prev, sistemaObs }));
   };
 
   const guardarCaja = async () => {
@@ -635,9 +692,11 @@ export default function CashFlowForm({
           )}
           <button
             type="button"
-            disabled
-            className="p-1 rounded opacity-50"
-            title="Disponible al cerrar la caja"
+            onClick={() => void imprimirCaja()}
+            disabled={!activeCash || isPrinting}
+            className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
+            title="Generar informe PDF"
+            aria-label="Generar informe PDF"
           >
             <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
@@ -839,7 +898,7 @@ export default function CashFlowForm({
                       </div>
                       <div className="flex min-h-0 flex-1 flex-col">
                         {(tipoMovimiento === "ingresos"
-                          ? formData.ingresos
+                          ? ingresosCalculados
                           : formData.gastos
                         ).map((item, idx) => (
                           <div
@@ -951,9 +1010,15 @@ export default function CashFlowForm({
                 <div className="bg-white rounded border border-gray-200 p-2">
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between items-center gap-2">
-                      <span className="font-semibold text-gray-700 flex-shrink-0">
-                        Sistema (OBS):
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void actualizarSistemaObs()}
+                        disabled={!isViewing || !canEdit || isClosed || movementsLoading}
+                        title="Actualizar total desde OBS"
+                        className="inline-flex items-center gap-1 font-semibold text-gray-700 hover:text-slate-950 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-60"
+                      >
+                        Sistema (OBS): <RefreshCw className={`h-3.5 w-3.5 ${movementsLoading ? "animate-spin" : ""}`} />
+                      </button>
                       <div className="w-28 sm:w-32 px-2 py-1 border border-gray-300 rounded text-right font-semibold bg-white">
                         S/ {formatAmount(totalVenta)}
                       </div>

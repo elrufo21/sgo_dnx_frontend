@@ -13,6 +13,7 @@ export type CashFlowMovementWeb = {
 type CashFlowMovements = {
   ingresos: CashFlowMovementWeb[];
   gastos: CashFlowMovementWeb[];
+  sistemaObs: number;
 };
 
 const amount = (value: string) => Number(value.replace(/,/g, "")) || 0;
@@ -32,11 +33,13 @@ const parseRows = (raw: string): CashFlowMovementWeb[] =>
         }));
 
 const parseMovements = (raw: string): CashFlowMovements => {
-  const [gastosRaw = "~", ingresosRaw = "~", , iocRaw = "0|0"] = raw.split("[");
+  const [gastosRaw = "~", ingresosRaw = "~", obsRaw = "0", iocRaw = "0|0"] =
+    raw.split("[");
   const [iocImporte = "0", iocCantidad = "0"] = iocRaw.split("|");
 
   return {
     gastos: parseRows(gastosRaw),
+    sistemaObs: amount(obsRaw),
     ingresos: parseRows(ingresosRaw).map((item) =>
       item.descripcion === "IOC"
         ? {
@@ -52,6 +55,7 @@ const parseMovements = (raw: string): CashFlowMovements => {
 interface CashFlowMovementsWebState extends CashFlowMovements {
   loading: boolean;
   fetchMovements: (cajaId: number) => Promise<CashFlowMovements>;
+  fetchObsTotal: (cajaId: number) => Promise<number>;
   updateManualIngresos: (
     cajaId: number,
     movimientos: Array<Pick<CashFlowMovementWeb, "id" | "importe">>,
@@ -61,9 +65,10 @@ interface CashFlowMovementsWebState extends CashFlowMovements {
 export const useCashFlowMovementsWebStore = create<CashFlowMovementsWebState>((set) => ({
   ingresos: [],
   gastos: [],
+  sistemaObs: 0,
   loading: false,
   fetchMovements: async (cajaId) => {
-    if (cajaId <= 0) return { ingresos: [], gastos: [] };
+    if (cajaId <= 0) return { ingresos: [], gastos: [], sistemaObs: 0 };
 
     set({ loading: true });
     try {
@@ -77,6 +82,21 @@ export const useCashFlowMovementsWebStore = create<CashFlowMovementsWebState>((s
       );
       set(movements);
       return movements;
+    } finally {
+      set({ loading: false });
+    }
+  },
+  fetchObsTotal: async (cajaId) => {
+    if (cajaId <= 0) return 0;
+
+    set({ loading: true });
+    try {
+      const response = await apiRequest<{ total?: number }>({
+        url: `${API_BASE_URL}/CashFlow/${cajaId}/obs-total`,
+        method: "GET",
+        fallback: { total: 0 },
+      });
+      return Number(response?.total || 0);
     } finally {
       set({ loading: false });
     }

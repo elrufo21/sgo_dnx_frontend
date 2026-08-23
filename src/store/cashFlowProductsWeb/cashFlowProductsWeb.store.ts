@@ -39,7 +39,7 @@ const parseProducts = (rawValue: string): CashFlowProductWeb[] => {
 interface CashFlowProductsWebState {
   products: CashFlowProductWeb[];
   loading: boolean;
-  fetchProducts: (cajaId: number) => Promise<void>;
+  fetchProducts: (cajaId: number) => Promise<CashFlowProductWeb[]>;
 }
 
 export const useCashFlowProductsWebStore = create<CashFlowProductsWebState>((set) => ({
@@ -48,7 +48,7 @@ export const useCashFlowProductsWebStore = create<CashFlowProductsWebState>((set
   fetchProducts: async (cajaId) => {
     if (cajaId <= 0) {
       set({ products: [] });
-      return;
+      return [];
     }
 
     set({ loading: true });
@@ -58,7 +58,9 @@ export const useCashFlowProductsWebStore = create<CashFlowProductsWebState>((set
         method: "GET",
         fallback: "~",
       });
-      set({ products: parseProducts(typeof response === "string" ? response : "~") });
+      const products = parseProducts(typeof response === "string" ? response : "~");
+      set({ products });
+      return products;
     } finally {
       set({ loading: false });
     }

@@ -438,7 +438,10 @@ export default function PettyCashMovementPage() {
                 {viewing ? (
                   <button
                     type="button"
-                    onClick={clearForm}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      clearForm();
+                    }}
                     disabled={saving}
                     className="mr-2 inline-flex h-10 items-center bg-[#B23636] gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-white hover:bg-[#96312a] disabled:opacity-50"
                   >
