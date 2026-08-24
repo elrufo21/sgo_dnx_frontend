@@ -239,13 +239,12 @@ export default function BoletasSummaryPage() {
     () =>
       filteredSentRows.reduce(
         (acc, row) => {
-          acc.count += 1;
           acc.subTotal += parseAmount(row.subTotal);
           acc.igv += parseAmount(row.igv);
           acc.total += parseAmount(row.total);
           return acc;
         },
-        { count: 0, subTotal: 0, igv: 0, total: 0 },
+        { subTotal: 0, igv: 0, total: 0 },
       ),
     [filteredSentRows],
   );
@@ -1076,6 +1075,10 @@ export default function BoletasSummaryPage() {
       sentColumnHelper.accessor("rangoNumeros", {
         header: "Rango Números",
         cell: (info) => info.getValue(),
+        meta: {
+          thClassName: "min-w-[12rem] whitespace-nowrap",
+          tdClassName: "min-w-[12rem] whitespace-nowrap",
+        },
       }),
       sentColumnHelper.accessor("subTotal", {
         header: "Sub Total",
@@ -1322,6 +1325,7 @@ export default function BoletasSummaryPage() {
             "usuario",
           ]}
           searchPlaceholder="Buscar en resúmenes enviados..."
+          showSearchClear={false}
           onFilteredDataChange={setFilteredSentRows}
           renderFilters={
             <div className="w-full">
@@ -1373,13 +1377,7 @@ export default function BoletasSummaryPage() {
           }
           footerContent={
             <div className="flex w-full justify-end">
-              <div className="grid w-full grid-cols-2 gap-2 text-sm lg:w-auto lg:grid-cols-4">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 lg:min-w-[140px]">
-                  <p className="text-xs text-slate-500">Cant.</p>
-                  <p className="text-lg font-semibold text-slate-800">
-                    {sentTotals.count}
-                  </p>
-                </div>
+              <div className="grid w-full grid-cols-2 gap-2 text-sm lg:w-auto lg:grid-cols-3">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 lg:min-w-[140px]">
                   <p className="text-xs text-slate-500">SubTotal S/</p>
                   <p className="text-lg font-semibold text-slate-800">

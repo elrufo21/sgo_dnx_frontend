@@ -8,7 +8,6 @@ import OrderNotesList from "@/features/orderNotes/pages/orderNotesList";
 import PurchanseList from "@/features/purchanses/pages/purchanseList";
 import PurchanseCreate from "@/features/purchanses/pages/purchanseCreate";
 import PurchanseEdit from "@/features/purchanses/pages/purchanseEdit";
-import SmallCashPage from "./pages/SmallCashPage";
 import HtmlCaptureSalePage from "./pages/HtmlCaptureSalePage";
 import ObsCashierCapturePage from "./pages/ObsCashierCapturePage";
 import { Navigate } from "react-router";
@@ -192,7 +191,7 @@ export default [
   // Caja chica
   {
     path: "sales/small_cash",
-    element: <SmallCashPage />,
+    element: <Navigate to="/petty-cash-movements" replace />,
     handle: {
       breadcrumb: [{ label: "Ventas", to: "/sales" }, { label: "Caja chica" }],
     },

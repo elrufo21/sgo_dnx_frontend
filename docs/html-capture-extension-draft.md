@@ -1,0 +1,17 @@
+# Borrador temporal de captura de extensión
+
+## Objetivo
+
+Conservar una captura de venta recibida desde la extensión DXN cuando el usuario navega a otro módulo, por ejemplo a Caja para realizar una apertura, y luego regresa a Ventas.
+
+## Funcionamiento
+
+1. Al recibir el mensaje `SGO_DXN_CAPTURE`, la pantalla de captura guarda los datos en `sessionStorage` y continúa aplicándolos al formulario como antes.
+2. Al volver a `/sales/html_capture/new` en la misma pestaña, la captura se recupera y se aplica de nuevo.
+3. El borrador se elimina cuando el usuario pulsa **Limpiar**, inicia un **Nuevo registro**, confirma una venta correctamente, cierra la pestaña o pasan dos horas.
+
+## Alcance y seguridad
+
+- El borrador no se envía al servidor ni crea una venta por sí solo.
+- Está limitado a la pestaña actual y se valida contra la empresa y el usuario que lo generaron.
+- Solo hay un borrador de captura activo; una nueva captura reemplaza a la anterior.

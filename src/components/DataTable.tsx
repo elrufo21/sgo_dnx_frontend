@@ -51,6 +51,7 @@ interface DataTableProps<T extends RowData> {
   emptyMessage?: string;
   searchPlaceholder?: string;
   showSearch?: boolean;
+  showSearchClear?: boolean;
   initialPageSize?: number;
   persistPageSize?: boolean;
   pageSizeOptions?: number[];
@@ -66,6 +67,7 @@ interface DataTableProps<T extends RowData> {
   onFilteredDataChange?: (rows: T[]) => void;
   renderHeaderFilterCell?: (columnId: string) => ReactNode;
   rowClassName?: string | ((row: T) => string | undefined);
+  fillAvailableHeight?: boolean;
 }
 
 const alignmentClass: Record<"left" | "center" | "right", string> = {
@@ -146,6 +148,7 @@ export default function DataTable<T extends RowData>({
   emptyMessage = "No hay datos para mostrar.",
   searchPlaceholder = "Buscar en la tabla...",
   showSearch = true,
+  showSearchClear = true,
   initialPageSize = 10,
   persistPageSize = true,
   pageSizeOptions = [10, 20, 50, 100],
@@ -161,6 +164,7 @@ export default function DataTable<T extends RowData>({
   onFilteredDataChange,
   renderHeaderFilterCell,
   rowClassName,
+  fillAvailableHeight = false,
 }: DataTableProps<T>) {
   const location = useLocation();
   const searchScope = useMemo(
@@ -472,7 +476,9 @@ export default function DataTable<T extends RowData>({
 
   const canPreviousPage = currentPage > 1;
   const canNextPage = currentPage < totalPages;
-  const effectiveTableMaxHeight = footerContent
+  const effectiveTableMaxHeight = fillAvailableHeight
+    ? undefined
+    : footerContent
     ? `min(${tableMaxHeight}, 58vh)`
     : tableMaxHeight;
 
@@ -487,8 +493,8 @@ export default function DataTable<T extends RowData>({
   }, [pageSize, pageSizeStorageKey, persistPageSize]);
 
   return (
-    <section className="w-full rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.45)]">
-      <div className="border-b border-slate-200 px-4 py-4 sm:px-5">
+    <section className={`w-full rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.45)] ${fillAvailableHeight ? "flex h-full min-h-0 flex-col" : ""}`}>
+      <div className="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
             {toolbarLeading ? (
@@ -507,7 +513,7 @@ export default function DataTable<T extends RowData>({
                   onChange={(e) => handleGlobalFilterChange(e.target.value)}
                   onInput={handleSearchInput}
                 />
-                {globalFilter ? (
+                {showSearchClear && globalFilter ? (
                   <button
                     type="button"
                     onClick={() => handleGlobalFilterChange("")}
@@ -610,7 +616,7 @@ export default function DataTable<T extends RowData>({
       </div>
 
       <div
-        className="hidden overflow-auto md:block"
+        className={`hidden overflow-auto md:block ${fillAvailableHeight ? "min-h-0 flex-1" : ""}`}
         style={{ maxHeight: effectiveTableMaxHeight }}
       >
         <table className="w-full min-w-[38rem] border-collapse lg:min-w-[44rem]">
@@ -741,7 +747,7 @@ export default function DataTable<T extends RowData>({
         </table>
       </div>
 
-      <footer className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:px-5">
+      <footer className="shrink-0 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:px-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <span>Filas por página:</span>

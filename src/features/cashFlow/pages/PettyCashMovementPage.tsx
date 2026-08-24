@@ -11,6 +11,7 @@ import { FormProvider, useForm } from "react-hook-form";
 
 type Movement = {
   id: number;
+  notaId: number;
   fecha: string;
   movimiento: "INGRESO" | "SALIDA";
   detalle: string;
@@ -485,7 +486,7 @@ export default function PettyCashMovementPage() {
               <table className="w-full min-w-[54rem] text-left text-sm">
                 <thead className="sticky top-0 bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
                   <tr>
-                    {["Fecha", "Detalle", "Importe", "Acciones"].map(
+                    {["Fecha", "Detalle", "Pago", "Importe", "Acciones"].map(
                       (header) => (
                         <th key={header} className="px-3 py-3 font-semibold">
                           {header}
@@ -515,24 +516,36 @@ export default function PettyCashMovementPage() {
 
                         <td className="px-3 py-2 text-xs">{item.detalle}</td>
 
+                        <td className="px-3 py-2 text-xs text-slate-600">
+                          {[item.formaPago, item.entidad, item.nroOperacion]
+                            .filter(Boolean)
+                            .join(" · ") || "-"}
+                        </td>
+
                         <td className="px-3 py-2 text-right font-semibold">
                           {money(item.importe)}
                         </td>
 
                         <td className="px-3 py-2 text-right">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              confirmDelete(item);
-                            }}
-                            disabled={saving || deletingId === item.id}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
-                            title="Eliminar movimiento"
-                            aria-label="Eliminar movimiento"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {item.notaId > 0 ? (
+                            <span className="text-xs font-semibold text-slate-500">
+                              Venta #{item.notaId}
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                confirmDelete(item);
+                              }}
+                              disabled={saving || deletingId === item.id}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+                              title="Eliminar movimiento"
+                              aria-label="Eliminar movimiento"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

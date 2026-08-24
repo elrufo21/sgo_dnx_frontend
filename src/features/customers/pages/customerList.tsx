@@ -107,6 +107,7 @@ const CustomerList = () => {
   );
 
   return (
+    <div className="h-[calc(100dvh-var(--app-shell-header-h)-var(--app-shell-main-py)-var(--app-shell-main-py))]">
     <DataTable
       data={filteredClients}
       columns={columns}
@@ -122,6 +123,8 @@ const CustomerList = () => {
       searchPlaceholder="Buscar por codigo, razon social, RUC o DNI"
       emptyMessage="No se encontraron clientes."
       initialPageSize={50}
+      persistPageSize={false}
+      fillAvailableHeight
       renderFilters={
         <select
           value={estado}
@@ -145,6 +148,7 @@ const CustomerList = () => {
         </button>
       }
     />
+    </div>
   );
 };
 

@@ -25,12 +25,20 @@ import CustomerDialogContent from "@/components/CustomerDialogContent";
 import TicketDocument from "@/components/Ticket";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { HookForm } from "@/components/forms/HookForm";
+import { HookFormInput } from "@/components/forms/HookFormInput";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { buildApiUrl, buildRootApiUrl } from "@/config";
+import {
+  clearExternalCaptureDraft,
+  getExternalCaptureDraft,
+  saveExternalCaptureDraft,
+  type ExternalCaptureDraftData,
+} from "@/features/sales/persistence/externalCaptureDraft";
 import { ServiceInvoicePdfDocument } from "@/features/serviceInvoices/components/ServiceInvoicePdf";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
+import { getLocalDateISO } from "@/shared/helpers/localDate";
 import {
   focusNextInput,
   focusPreviousInput,
@@ -46,17 +54,7 @@ import type { Product } from "@/types/product";
 import type { PosCartItem } from "@/types/pos";
 import type { ServiceInvoiceListItem } from "@/types/serviceInvoice";
 
-type CaptureLine = { code: string; quantity: number };
-type CaptureData = {
-  transactionNumber: string;
-  memberCode: string;
-  customerName: string;
-  customerEmail: string;
-  ruc: string;
-  date: string;
-  discount: number;
-  lines: CaptureLine[];
-};
+type CaptureData = ExternalCaptureDraftData;
 type SaleRow = {
   product: Product;
   code: string;
@@ -131,6 +129,25 @@ type PagoVariosResponse = {
   mensaje?: string;
   resultado?: string;
 };
+type PagoVariosHistoryItem = {
+  pagoId: number;
+  cajaId: number;
+  fechaEmision: string;
+  descripcion: string;
+  formaPago: string;
+  entidad: string;
+  efectivo: number;
+  deposito: number;
+  nroOperacion: string;
+  usuario: string;
+  total: number;
+};
+type PagoVariosHistoryResponse = {
+  ok?: boolean;
+  items?: PagoVariosHistoryItem[];
+};
+type PagoVariosTab = "PENDIENTES" | "REALIZADOS";
+type PagoVariosDeleteKeyForm = { clave: string };
 type ManualSaleType = "VENTA LIBRE" | "POR PASAR AL OBS";
 type SaleValidationError = { message: string; field?: keyof SaleForm };
 
@@ -303,6 +320,33 @@ const localDate = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 };
+
+function PagoVariosDeleteDialogContent() {
+  const setDialogData = useDialogStore((state) => state.setData);
+  const formMethods = useForm<PagoVariosDeleteKeyForm>({
+    defaultValues: { clave: "" },
+  });
+
+  return (
+    <HookForm
+      methods={formMethods}
+      onSubmit={({ clave }) => setDialogData({ clave })}
+      className="space-y-4"
+    >
+      <p className="text-sm text-slate-600">
+        Se revertirá el pago, sus documentos y su movimiento de caja.
+      </p>
+      <HookFormInput
+        name="clave"
+        label="Clave de administrador"
+        type="password"
+        autoFocus
+        rules={{ required: "Ingrese la clave de administrador." }}
+        onChange={(event) => setDialogData({ clave: event.target.value })}
+      />
+    </HookForm>
+  );
+}
 const localDateTime = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
@@ -565,7 +609,20 @@ export default function HtmlCaptureSalePage() {
     [],
   );
   const [pagoVariosModalOpen, setPagoVariosModalOpen] = useState(false);
+  const [pagoVariosTab, setPagoVariosTab] =
+    useState<PagoVariosTab>("PENDIENTES");
   const [isPagoVariosLoading, setIsPagoVariosLoading] = useState(false);
+  const [isPagoVariosHistoryLoading, setIsPagoVariosHistoryLoading] =
+    useState(false);
+  const [pagoVariosHistory, setPagoVariosHistory] = useState<
+    PagoVariosHistoryItem[]
+  >([]);
+  const [pagoVariosHistoryStart, setPagoVariosHistoryStart] = useState(() =>
+    getLocalDateISO(),
+  );
+  const [pagoVariosHistoryEnd, setPagoVariosHistoryEnd] = useState(() =>
+    getLocalDateISO(),
+  );
   const [isPagoVariosSaving, setIsPagoVariosSaving] = useState(false);
   const [pagoVariosFormaPago, setPagoVariosFormaPago] =
     useState("(SELECCIONE)");
@@ -575,6 +632,13 @@ export default function HtmlCaptureSalePage() {
   const [pagoVariosDescripcion, setPagoVariosDescripcion] = useState("");
   const pagoVariosDescripcionRef = useRef<HTMLTextAreaElement | null>(null);
   const session = useMemo(readSession, []);
+  const externalCaptureContext = useMemo(
+    () => ({
+      companyId: session.companyId,
+      userId: String(session.userId || session.username).trim(),
+    }),
+    [session.companyId, session.userId, session.username],
+  );
   const openDialog = useDialogStore((state) => state.openDialog);
   const closeDialog = useDialogStore((state) => state.closeDialog);
   const dialogOpen = useDialogStore((state) => state.open);
@@ -647,6 +711,7 @@ export default function HtmlCaptureSalePage() {
   }, [formMethods]);
 
   const openNewRecord = useCallback(() => {
+    clearExternalCaptureDraft();
     resetDraft();
     setViewedOrderNoteId(null);
     navigate("/sales/html_capture/new", { replace: true });
@@ -730,12 +795,8 @@ export default function HtmlCaptureSalePage() {
           const quantity = Number(
             detail?.detalleCantidad ?? detail?.DetalleCantidad ?? 0,
           );
-          const detailPv = Number(
-            detail?.detallePV ?? detail?.DetallePV ?? 0,
-          );
-          const detailSv = Number(
-            detail?.detalleSV ?? detail?.DetalleSV ?? 0,
-          );
+          const detailPv = Number(detail?.detallePV ?? detail?.DetallePV ?? 0);
+          const detailSv = Number(detail?.detalleSV ?? detail?.DetalleSV ?? 0);
           return {
             product,
             code: product.codigo,
@@ -976,9 +1037,97 @@ export default function HtmlCaptureSalePage() {
   }, [session.userId, session.username]);
 
   const openPagoVariosModal = useCallback(() => {
+    setPagoVariosTab("PENDIENTES");
     setPagoVariosModalOpen(true);
     void fetchPagoVarios();
   }, [fetchPagoVarios]);
+
+  const fetchPagoVariosHistory = useCallback(async () => {
+    if (!pagoVariosHistoryStart || !pagoVariosHistoryEnd) return;
+    if (pagoVariosHistoryStart > pagoVariosHistoryEnd) {
+      toast.error("Selecciona un rango de fechas válido.");
+      return;
+    }
+
+    setIsPagoVariosHistoryLoading(true);
+    try {
+      const query = new URLSearchParams({
+        fechaInicio: pagoVariosHistoryStart,
+        fechaFin: pagoVariosHistoryEnd,
+      });
+      const response = (await apiRequest<PagoVariosHistoryResponse>({
+        url: buildApiUrl(`/Nota/pago-varios/historial?${query.toString()}`),
+        method: "GET",
+        fallback: { ok: false, items: [] },
+      })) as PagoVariosHistoryResponse;
+      setPagoVariosHistory(
+        Array.isArray(response?.items) ? response.items : [],
+      );
+    } catch (error) {
+      console.error("No se pudo cargar el historial de Pago Varios", error);
+      toast.error("No se pudo cargar el historial de Pago Varios.");
+    } finally {
+      setIsPagoVariosHistoryLoading(false);
+    }
+  }, [pagoVariosHistoryEnd, pagoVariosHistoryStart]);
+
+  const selectPagoVariosTab = useCallback(
+    (tab: PagoVariosTab) => {
+      setPagoVariosTab(tab);
+      if (tab === "REALIZADOS") void fetchPagoVariosHistory();
+    },
+    [fetchPagoVariosHistory],
+  );
+
+  const deletePagoVarios = useCallback(
+    async (item: PagoVariosHistoryItem, clave: string) => {
+      if (!safeTrim(clave)) {
+        toast.error("Ingrese la clave de administrador.");
+        return false;
+      }
+
+      const response = (await apiRequest<{
+        ok?: boolean;
+        mensaje?: string;
+      }>({
+        url: buildApiUrl(`/Nota/pago-varios/${item.pagoId}`),
+        method: "DELETE",
+        data: { clave },
+        fallback: {
+          ok: false,
+          mensaje: "No se pudo eliminar el pago realizado.",
+        },
+      })) as { ok?: boolean; mensaje?: string };
+
+      if (!response?.ok) {
+        toast.error(
+          response?.mensaje || "No se pudo eliminar el pago realizado.",
+        );
+        return false;
+      }
+
+      toast.success(response.mensaje || "Pago realizado eliminado.");
+      await fetchPagoVariosHistory();
+      await fetchPagoVarios();
+      return true;
+    },
+    [fetchPagoVarios, fetchPagoVariosHistory],
+  );
+
+  const confirmDeletePagoVarios = useCallback(
+    (item: PagoVariosHistoryItem) =>
+      openDialog({
+        title: "Eliminar pago realizado",
+        content: <PagoVariosDeleteDialogContent />,
+        confirmText: "Eliminar",
+        onConfirm: (data) =>
+          deletePagoVarios(
+            item,
+            safeTrim((data as { clave?: string } | null)?.clave),
+          ),
+      }),
+    [deletePagoVarios, openDialog],
+  );
 
   useEffect(() => {
     void fetchPagoVarios();
@@ -1166,7 +1315,8 @@ export default function HtmlCaptureSalePage() {
       const errorData = asRecord(asRecord(response)?.response)?.data;
       const errorRecord = asRecord(errorData);
       if (!response?.ok) {
-        const codigo = safeTrim(response?.codigo) || safeTrim(errorRecord?.codigo);
+        const codigo =
+          safeTrim(response?.codigo) || safeTrim(errorRecord?.codigo);
         if (codigo === "CAJA_CHICA_CERRADA") {
           openDialog({
             title: "Caja chica",
@@ -2183,12 +2333,23 @@ export default function HtmlCaptureSalePage() {
       const key = JSON.stringify(message.payload);
       if (externalCaptureKeyRef.current === key) return;
       externalCaptureKeyRef.current = key;
+      saveExternalCaptureDraft(message.payload, externalCaptureContext);
       setPendingExternalCapture(message.payload);
     };
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [externalCaptureContext]);
+
+  useEffect(() => {
+    if (isExistingRoute) return;
+    const draft = getExternalCaptureDraft(externalCaptureContext);
+    if (!draft) return;
+    const key = JSON.stringify(draft);
+    if (externalCaptureKeyRef.current === key) return;
+    externalCaptureKeyRef.current = key;
+    setPendingExternalCapture(draft);
+  }, [externalCaptureContext, isExistingRoute]);
 
   useEffect(() => {
     let attempts = 0;
@@ -2216,6 +2377,7 @@ export default function HtmlCaptureSalePage() {
       toast.error("Este registro solo se puede visualizar.");
       return;
     }
+    clearExternalCaptureDraft();
     resetDraft();
   };
 
@@ -3033,6 +3195,8 @@ export default function HtmlCaptureSalePage() {
         return;
       }
 
+      clearExternalCaptureDraft();
+
       if (
         saleClient?.id &&
         safeTrim(saleClient.documentoPredeterminado).toUpperCase() !== doc.docu
@@ -3130,7 +3294,7 @@ export default function HtmlCaptureSalePage() {
 
   const PagoVariosModal = pagoVariosModalOpen ? (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/45 px-4 py-6">
-      <section className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+      <section className="flex h-[min(90vh,736px)] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex justify-end border-b border-slate-100 px-5 py-4">
           <button
             type="button"
@@ -3140,256 +3304,423 @@ export default function HtmlCaptureSalePage() {
             <X className="h-4 w-4" />
           </button>
         </div>
+        <div className="flex gap-1 border-b border-slate-200 px-5">
+          {(
+            [
+              ["PENDIENTES", "Pendientes"],
+              ["REALIZADOS", "Pagos realizados"],
+            ] as const
+          ).map(([tab, label]) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => selectPagoVariosTab(tab)}
+              className={`border-b-2 px-4 py-2 text-sm font-semibold ${pagoVariosTab === tab ? "border-[#B23636] text-[#96312a]" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {pagoVariosConceptos.length > 1 ? (
           <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
             Para pagar varios, seleccione documentos con el mismo Concepto OBS.
           </div>
         ) : null}
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_350px]">
+        <div
+          className={`grid min-h-0 flex-1 ${pagoVariosTab === "PENDIENTES" ? "lg:grid-cols-[minmax(0,1fr)_350px]" : ""}`}
+        >
           <div className="min-h-0 overflow-auto">
-            <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3">
-              <label className="inline-flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
-                <input
-                  type="checkbox"
-                  checked={
-                    pagoVariosItems.length > 0 &&
-                    pagoVariosItems.every((item) =>
-                      pagoVariosSelectedIds.includes(item.notaId),
-                    )
-                  }
-                  onChange={(event) =>
-                    setPagoVariosSelectedIds(
-                      event.target.checked
-                        ? pagoVariosItems.map((item) => item.notaId)
-                        : [],
-                    )
-                  }
-                />
-                Seleccionar todo
-              </label>
-              <span className="ml-auto text-xs font-medium text-slate-400">
-                {integer(pagoVariosItems.length)} pendientes
-              </span>
-            </div>
+            {pagoVariosTab === "PENDIENTES" ? (
+              <>
+                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3">
+                  <label className="inline-flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={
+                        pagoVariosItems.length > 0 &&
+                        pagoVariosItems.every((item) =>
+                          pagoVariosSelectedIds.includes(item.notaId),
+                        )
+                      }
+                      onChange={(event) =>
+                        setPagoVariosSelectedIds(
+                          event.target.checked
+                            ? pagoVariosItems.map((item) => item.notaId)
+                            : [],
+                        )
+                      }
+                    />
+                    Seleccionar todo
+                  </label>
+                  <span className="ml-auto text-xs font-medium text-slate-400">
+                    {integer(pagoVariosItems.length)} pendientes
+                  </span>
+                </div>
 
-            <table className="w-full min-w-[780px] border-collapse text-sm">
-              <thead className="bg-white text-xs uppercase text-slate-400">
-                <tr>
-                  <th className="w-12 border-b border-slate-100 px-5 py-3 text-left">
-                    Sel
-                  </th>
-                  <th className="border-b border-slate-100 px-3 py-3 text-left">
-                    Documento
-                  </th>
-                  <th className="border-b border-slate-100 px-3 py-3 text-left">
-                    Codigo
-                  </th>
-                  <th className="border-b border-slate-100 px-3 py-3 text-left">
-                    Cliente
-                  </th>
-                  <th className="border-b border-slate-100 px-3 py-3 text-left">
-                    Concepto OBS
-                  </th>
-                  <th className="border-b border-slate-100 px-5 py-3 text-right">
-                    Monto
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {isPagoVariosLoading ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-5 py-12 text-center text-slate-400"
-                    >
-                      Cargando Pago Varios...
-                    </td>
-                  </tr>
-                ) : pagoVariosItems.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-5 py-12 text-center text-slate-400"
-                    >
-                      No hay documentos pendientes para Pago Varios.
-                    </td>
-                  </tr>
-                ) : (
-                  pagoVariosItems.map((item) => (
-                    <tr
-                      key={`${item.docuId}-${item.notaId}`}
-                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-                    >
-                      <td className="px-5 py-3">
-                        <input
-                          type="checkbox"
-                          checked={pagoVariosSelectedIds.includes(item.notaId)}
-                          onChange={(event) =>
-                            setPagoVariosSelectedIds((current) =>
-                              event.target.checked
-                                ? [...current, item.notaId]
-                                : current.filter(
-                                    (rowId) => rowId !== item.notaId,
-                                  ),
-                            )
-                          }
-                        />
-                      </td>
-                      <td className="px-3 py-3 font-semibold text-slate-700">
-                        {item.documento}
-                      </td>
-                      <td className="px-3 py-3 text-slate-500">
-                        {item.codigo}
-                      </td>
-                      <td className="px-3 py-3 text-slate-600">
-                        {item.razonSocial}
-                      </td>
-                      <td className="px-3 py-3 text-slate-500">
-                        {item.conceptoOBS}
-                      </td>
-                      <td className="px-5 py-3 text-right font-black text-slate-800">
-                        S/ {money(item.monto)}
-                      </td>
+                <table className="w-full min-w-[780px] border-collapse text-sm">
+                  <thead className="bg-white text-xs uppercase text-slate-400">
+                    <tr>
+                      <th className="w-12 border-b border-slate-100 px-5 py-3 text-left">
+                        Sel
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Documento
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Codigo
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Cliente
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Concepto OBS
+                      </th>
+                      <th className="border-b border-slate-100 px-5 py-3 text-right">
+                        Monto
+                      </th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {isPagoVariosLoading ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-5 py-12 text-center text-slate-400"
+                        >
+                          Cargando Pago Varios...
+                        </td>
+                      </tr>
+                    ) : pagoVariosItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-5 py-12 text-center text-slate-400"
+                        >
+                          No hay documentos pendientes para Pago Varios.
+                        </td>
+                      </tr>
+                    ) : (
+                      pagoVariosItems.map((item) => (
+                        <tr
+                          key={`${item.docuId}-${item.notaId}`}
+                          className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                        >
+                          <td className="px-5 py-3">
+                            <input
+                              type="checkbox"
+                              checked={pagoVariosSelectedIds.includes(
+                                item.notaId,
+                              )}
+                              onChange={(event) =>
+                                setPagoVariosSelectedIds((current) =>
+                                  event.target.checked
+                                    ? [...current, item.notaId]
+                                    : current.filter(
+                                        (rowId) => rowId !== item.notaId,
+                                      ),
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-3 font-semibold text-slate-700">
+                            {item.documento}
+                          </td>
+                          <td className="px-3 py-3 text-slate-500">
+                            {item.codigo}
+                          </td>
+                          <td className="px-3 py-3 text-slate-600">
+                            {item.razonSocial}
+                          </td>
+                          <td className="px-3 py-3 text-slate-500">
+                            {item.conceptoOBS}
+                          </td>
+                          <td className="px-5 py-3 text-right font-black text-slate-800">
+                            S/ {money(item.monto)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-end gap-2 border-b border-slate-100 px-5 py-3">
+                  <label className="flex flex-col gap-1 text-xs text-slate-600">
+                    Fecha inicio
+                    <input
+                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                      type="date"
+                      value={pagoVariosHistoryStart}
+                      onChange={(event) =>
+                        setPagoVariosHistoryStart(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-slate-600">
+                    Fecha fin
+                    <input
+                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                      type="date"
+                      value={pagoVariosHistoryEnd}
+                      onChange={(event) =>
+                        setPagoVariosHistoryEnd(event.target.value)
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void fetchPagoVariosHistory()}
+                    disabled={isPagoVariosHistoryLoading}
+                    className="h-10 rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    Buscar
+                  </button>
+                  <span className="ml-auto text-xs font-medium text-slate-400">
+                    {integer(pagoVariosHistory.length)} pagos realizados
+                  </span>
+                </div>
+                <table className="w-full min-w-[1120px] border-collapse text-sm">
+                  <thead className="bg-white text-xs uppercase text-slate-400">
+                    <tr>
+                      <th className="border-b border-slate-100 px-5 py-3 text-left">
+                        Fecha
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Descripción
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Pago
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Operación
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                        Usuario
+                      </th>
+                      <th className="border-b border-slate-100 px-5 py-3 text-right">
+                        Efectivo
+                      </th>
+                      <th className="border-b border-slate-100 px-5 py-3 text-right">
+                        Depósito
+                      </th>
+                      <th className="border-b border-slate-100 px-5 py-3 text-right">
+                        Total
+                      </th>
+                      <th className="border-b border-slate-100 px-3 py-3 text-right">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isPagoVariosHistoryLoading ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-5 py-12 text-center text-slate-400"
+                        >
+                          Cargando historial...
+                        </td>
+                      </tr>
+                    ) : pagoVariosHistory.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-5 py-12 text-center text-slate-400"
+                        >
+                          No hay pagos realizados en el periodo.
+                        </td>
+                      </tr>
+                    ) : (
+                      pagoVariosHistory.map((item) => (
+                        <tr
+                          key={item.pagoId}
+                          className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                        >
+                          <td className="px-5 py-3 text-slate-600">
+                            {item.fechaEmision}
+                          </td>
+                          <td className="px-3 py-3 font-semibold text-slate-700">
+                            {item.descripcion}
+                          </td>
+                          <td className="px-3 py-3 text-slate-500">
+                            {item.formaPago} · {item.entidad}
+                          </td>
+                          <td className="px-3 py-3 text-slate-500">
+                            {item.nroOperacion || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-slate-500">
+                            {item.usuario}
+                          </td>
+                          <td className="px-5 py-3 text-right text-slate-700">
+                            {money(item.efectivo)}
+                          </td>
+                          <td className="px-5 py-3 text-right text-slate-700">
+                            {money(item.deposito)}
+                          </td>
+                          <td className="px-5 py-3 text-right font-black text-slate-800">
+                            {money(item.total)}
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => confirmDeletePagoVarios(item)}
+                              disabled={isPagoVariosHistoryLoading}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+                              title="Eliminar pago"
+                              aria-label="Eliminar pago"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
 
-          <aside className="flex min-h-0 flex-col gap-4 border-t border-slate-100 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
-            <div className="rounded-md border border-red-100 bg-white p-4">
-              <p className="text-[11px] font-black uppercase text-red-600">
-                Total a pagar
-              </p>
-              <p className="mt-1 text-3xl font-black text-slate-900">
-                S/ {money(pagoVariosTotal)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                {integer(selectedPagoVariosItems.length)} documentos
-                seleccionados
-              </p>
-            </div>
+          {pagoVariosTab === "PENDIENTES" ? (
+            <aside className="flex min-h-0 flex-col gap-4 border-t border-slate-100 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
+              <div className="rounded-md border border-red-100 bg-white p-4">
+                <p className="text-[11px] font-black uppercase text-red-600">
+                  Total a pagar
+                </p>
+                <p className="mt-1 text-3xl font-black text-slate-900">
+                  S/ {money(pagoVariosTotal)}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {integer(selectedPagoVariosItems.length)} documentos
+                  seleccionados
+                </p>
+              </div>
 
-            <label className="grid gap-1 text-xs font-bold text-slate-500">
-              Forma pago
-              <select
-                data-pago-varios-forma="true"
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
-                value={pagoVariosFormaPago}
-                onChange={(event) => setPagoVariosFormaPago(event.target.value)}
-              >
-                {PAYMENT_METHOD_OPTIONS.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
-                Depósito
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  data-pago-varios-deposito="true"
-                  min="0"
-                  step="0.01"
-                  className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                  value={
-                    isPagoVariosMixed
-                      ? pagoVariosDeposito
-                      : pagoVariosDepositoFinal > 0
-                        ? String(Number(pagoVariosDepositoFinal.toFixed(2)))
-                        : ""
-                  }
+              <label className="grid gap-1 text-xs font-bold text-slate-500">
+                Forma pago
+                <select
+                  data-pago-varios-forma="true"
+                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                  value={pagoVariosFormaPago}
                   onChange={(event) =>
-                    setPagoVariosDeposito(event.target.value)
+                    setPagoVariosFormaPago(event.target.value)
                   }
-                  disabled={!isPagoVariosMixed}
-                />
+                >
+                  {PAYMENT_METHOD_OPTIONS.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
               </label>
-              <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
-                Efectivo
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
+                  Depósito
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    data-pago-varios-deposito="true"
+                    min="0"
+                    step="0.01"
+                    className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                    value={
+                      isPagoVariosMixed
+                        ? pagoVariosDeposito
+                        : pagoVariosDepositoFinal > 0
+                          ? String(Number(pagoVariosDepositoFinal.toFixed(2)))
+                          : ""
+                    }
+                    onChange={(event) =>
+                      setPagoVariosDeposito(event.target.value)
+                    }
+                    disabled={!isPagoVariosMixed}
+                  />
+                </label>
+                <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
+                  Efectivo
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none disabled:bg-slate-100"
+                    value={
+                      pagoVariosEfectivoFinal > 0
+                        ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
+                        : ""
+                    }
+                    disabled
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-1 text-xs font-bold text-slate-500">
+                Entidad
+                <select
+                  data-pago-varios-entidad="true"
+                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                  value={pagoVariosEntidadFinal}
+                  onChange={(event) => {
+                    setPagoVariosEntidad(event.target.value);
+                    focusPagoVariosField("operacion");
+                  }}
+                  disabled={!pagoVariosEntidadEditable}
+                >
+                  {BANK_OPTIONS.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-xs font-bold text-slate-500">
+                Nro operacion
                 <input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none disabled:bg-slate-100"
-                  value={
-                    pagoVariosEfectivoFinal > 0
-                      ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
-                      : ""
+                  data-pago-varios-operacion="true"
+                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                  value={pagoVariosRequiereOperacion ? pagoVariosOperacion : ""}
+                  onChange={(event) =>
+                    setPagoVariosOperacion(event.target.value)
                   }
-                  disabled
+                  onFocus={(event) => event.currentTarget.select()}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    focusPagoVariosField("descripcion");
+                  }}
+                  disabled={!pagoVariosRequiereOperacion}
                 />
               </label>
-            </div>
 
-            <label className="grid gap-1 text-xs font-bold text-slate-500">
-              Entidad
-              <select
-                data-pago-varios-entidad="true"
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                value={pagoVariosEntidadFinal}
-                onChange={(event) => {
-                  setPagoVariosEntidad(event.target.value);
-                  focusPagoVariosField("operacion");
-                }}
-                disabled={!pagoVariosEntidadEditable}
-              >
-                {BANK_OPTIONS.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
+              <label className="grid gap-1 text-xs font-bold text-slate-500">
+                Descripcion
+                <textarea
+                  data-pago-varios-descripcion="true"
+                  ref={pagoVariosDescripcionRef}
+                  className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                  value={pagoVariosDescripcion}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) =>
+                    setPagoVariosDescripcion(event.target.value)
+                  }
+                />
+              </label>
 
-            <label className="grid gap-1 text-xs font-bold text-slate-500">
-              Nro operacion
-              <input
-                data-pago-varios-operacion="true"
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                value={pagoVariosRequiereOperacion ? pagoVariosOperacion : ""}
-                onChange={(event) => setPagoVariosOperacion(event.target.value)}
-                onFocus={(event) => event.currentTarget.select()}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  focusPagoVariosField("descripcion");
-                }}
-                disabled={!pagoVariosRequiereOperacion}
-              />
-            </label>
-
-            <label className="grid gap-1 text-xs font-bold text-slate-500">
-              Descripcion
-              <textarea
-                data-pago-varios-descripcion="true"
-                ref={pagoVariosDescripcionRef}
-                className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
-                value={pagoVariosDescripcion}
-                onFocus={(event) => event.currentTarget.select()}
-                onChange={(event) =>
-                  setPagoVariosDescripcion(event.target.value)
+              <button
+                type="button"
+                className="mt-auto inline-flex h-11 items-center justify-center rounded-md bg-red-700 px-4 text-sm font-black uppercase text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={registerPagoVarios}
+                disabled={
+                  isPagoVariosSaving ||
+                  isPagoVariosLoading ||
+                  !selectedPagoVariosItems.length ||
+                  pagoVariosConceptos.length !== 1
                 }
-              />
-            </label>
-
-            <button
-              type="button"
-              className="mt-auto inline-flex h-11 items-center justify-center rounded-md bg-red-700 px-4 text-sm font-black uppercase text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
-              onClick={registerPagoVarios}
-              disabled={
-                isPagoVariosSaving ||
-                isPagoVariosLoading ||
-                !selectedPagoVariosItems.length ||
-                pagoVariosConceptos.length !== 1
-              }
-            >
-              {isPagoVariosSaving ? "Guardando..." : "Pagar seleccionados"}
-            </button>
-          </aside>
+              >
+                {isPagoVariosSaving ? "Guardando..." : "Pagar seleccionados"}
+              </button>
+            </aside>
+          ) : null}
         </div>
       </section>
     </div>

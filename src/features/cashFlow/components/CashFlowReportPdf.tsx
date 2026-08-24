@@ -75,10 +75,12 @@ const DataRow = ({
   cells,
   widths,
   header = false,
+  alignments = [],
 }: {
   cells: string[];
   widths: number[];
   header?: boolean;
+  alignments?: ("left" | "center" | "right")[];
 }) => (
   <View style={[styles.row, ...(header ? [styles.head] : [])]} wrap={false}>
     {cells.map((cell, index) => (
@@ -88,7 +90,11 @@ const DataRow = ({
           styles.cell,
           { width: `${widths[index]}%` },
           ...(index === cells.length - 1 ? [styles.lastCell] : []),
-          ...(index > 0 ? [styles.right] : []),
+          ...(alignments[index] === "center"
+            ? [styles.center]
+            : alignments[index] === "left" || index === 0
+              ? []
+              : [styles.right]),
         ]}
       >
         {cell}
@@ -127,16 +133,17 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Conteo de monedas</Text>
           <View style={styles.table}>
-            <DataRow cells={["EFECTIVO", "BILLETE", "MONTO"]} widths={[34, 33, 33]} header />
+            <DataRow cells={["EFECTIVO", "BILLETE", "MONTO"]} widths={[34, 33, 33]} alignments={["center"]} header />
             {props.conteoMonedas.map((item) => (
               <DataRow
                 key={item.denominacion}
                 cells={[
-                  item.cantidad === "" ? "" : String(item.cantidad),
+                  Number(item.cantidad || 0) === 0 ? "" : String(item.cantidad),
                   money(item.denominacion),
                   money(Number(item.cantidad || 0) * item.denominacion),
                 ]}
                 widths={[34, 33, 33]}
+                alignments={["center"]}
               />
             ))}
           </View>
@@ -186,8 +193,9 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
               key={`${product.codigo}-${product.descripcion}`}
               cells={[product.codigo, product.descripcion, money(product.cantidad), money(product.importe)]}
               widths={[18, 50, 14, 18]}
+              alignments={["left", "left"]}
             />
-          )) : <DataRow cells={["-", "Sin productos para esta caja", "0.00", "0.00"]} widths={[18, 50, 14, 18]} />}
+          )) : <DataRow cells={["-", "Sin productos para esta caja", "0.00", "0.00"]} widths={[18, 50, 14, 18]} alignments={["left", "left"]} />}
         </View>
         <View style={styles.productTotal}>
           <Text>items: {props.products.length}</Text>

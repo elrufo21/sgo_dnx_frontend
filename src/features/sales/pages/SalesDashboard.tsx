@@ -37,7 +37,7 @@ const cards = [
     title: "Caja chica",
     desc: "Gestiona los movimientos de caja chica.",
     icon: <DollarSign className="w-10 h-10 text-blue-600" />,
-    route: "/sales/small_cash",
+    route: "/petty-cash-movements",
   },
 ];
 
