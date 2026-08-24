@@ -3436,7 +3436,7 @@ export default function HtmlCaptureSalePage() {
                             {item.conceptoOBS}
                           </td>
                           <td className="px-5 py-3 text-right font-black text-slate-800">
-                            S/ {money(item.monto)}
+                            {money(item.monto)}
                           </td>
                         </tr>
                       ))
