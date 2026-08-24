@@ -9,6 +9,7 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 1. Al recibir el mensaje `SGO_DXN_CAPTURE`, la pantalla de captura guarda los datos en `sessionStorage` y continúa aplicándolos al formulario como antes.
 2. Al volver a `/sales/html_capture/new` en la misma pestaña, la captura se recupera y se aplica de nuevo.
 3. El borrador se elimina cuando el usuario pulsa **Limpiar**, inicia un **Nuevo registro**, confirma una venta correctamente, cierra la pestaña o pasan dos horas.
+4. Al confirmar una venta, la pantalla también indica a la extensión que descarte la captura pendiente. Así no se vuelve a cargar al regresar al formulario.
 
 ## Alcance y seguridad
 

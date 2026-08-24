@@ -12,6 +12,7 @@ import { FormProvider, useForm } from "react-hook-form";
 type Movement = {
   id: number;
   notaId: number;
+  estado?: string;
   fecha: string;
   movimiento: "INGRESO" | "SALIDA";
   detalle: string;
@@ -88,6 +89,10 @@ const formatDate = (value: string) => {
     ? value || "-"
     : date.toLocaleString("es-PE");
 };
+
+const isAutomaticMovement = (item: Movement) =>
+  String(item.estado ?? "").toUpperCase() === "D" ||
+  /^(VENTA DEL OBS|VENTA LIBRE) DOCUMENTO\b/i.test(item.detalle.trim());
 
 export default function PettyCashMovementPage() {
   const userId = Number(useAuthStore((state) => state.user?.id) || 0);
@@ -527,25 +532,27 @@ export default function PettyCashMovementPage() {
                         </td>
 
                         <td className="px-3 py-2 text-right">
-                          {item.notaId > 0 ? (
-                            <span className="text-xs font-semibold text-slate-500">
-                              Venta #{item.notaId}
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                confirmDelete(item);
-                              }}
-                              disabled={saving || deletingId === item.id}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
-                              title="Eliminar movimiento"
-                              aria-label="Eliminar movimiento"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              confirmDelete(item);
+                            }}
+                            disabled={
+                              isAutomaticMovement(item) ||
+                              saving ||
+                              deletingId === item.id
+                            }
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border ${
+                              isAutomaticMovement(item)
+                                ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                                : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                            } disabled:opacity-50`}
+                            title="Eliminar movimiento"
+                            aria-label="Eliminar movimiento"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </td>
                       </tr>
                     ))

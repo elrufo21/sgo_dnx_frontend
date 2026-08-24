@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
   head: { backgroundColor: "#ececec", fontWeight: "bold", minHeight: 20 },
   cell: { borderRightWidth: 0.5, borderBottomWidth: 0.5, borderColor: "#555", padding: 4 },
   lastCell: { borderRightWidth: 0 },
+  left: { textAlign: "left" },
   right: { textAlign: "right" },
   center: { textAlign: "center" },
   total: { backgroundColor: "#fff200", flexDirection: "row", justifyContent: "flex-end", padding: 6, fontSize: 11, fontWeight: "bold" },
@@ -93,7 +94,7 @@ const DataRow = ({
           ...(alignments[index] === "center"
             ? [styles.center]
             : alignments[index] === "left" || index === 0
-              ? []
+              ? [styles.left]
               : [styles.right]),
         ]}
       >
@@ -187,7 +188,12 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
           subtitle={`[ ${dateOnly(props.fechaApertura)} - ${dateOnly(props.fechaCierre || props.fechaApertura)} ]`}
         />
         <View style={styles.table}>
-          <DataRow cells={["Codigo", "Descripcion", "Cantidad", "IMPORTE"]} widths={[18, 50, 14, 18]} header />
+          <DataRow
+            cells={["Codigo", "Descripcion", "Cantidad", "IMPORTE"]}
+            widths={[18, 50, 14, 18]}
+            alignments={["left", "left", "center", "right"]}
+            header
+          />
           {props.products.length ? props.products.map((product) => (
             <DataRow
               key={`${product.codigo}-${product.descripcion}`}

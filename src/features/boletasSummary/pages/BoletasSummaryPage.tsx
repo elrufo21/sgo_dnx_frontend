@@ -1048,6 +1048,10 @@ export default function BoletasSummaryPage() {
       sentColumnHelper.accessor("fechaEnvio", {
         header: "Fecha Envío",
         cell: (info) => info.getValue(),
+        meta: {
+          thClassName: "min-w-[11rem] whitespace-nowrap",
+          tdClassName: "min-w-[11rem] whitespace-nowrap",
+        },
       }),
       sentColumnHelper.display({
         id: "tipoResumen",
@@ -1071,6 +1075,10 @@ export default function BoletasSummaryPage() {
       sentColumnHelper.accessor("serie", {
         header: "Serie",
         cell: (info) => info.getValue(),
+        meta: {
+          thClassName: "min-w-[10rem] whitespace-nowrap",
+          tdClassName: "min-w-[10rem] whitespace-nowrap",
+        },
       }),
       sentColumnHelper.accessor("rangoNumeros", {
         header: "Rango Números",
@@ -1136,6 +1144,10 @@ export default function BoletasSummaryPage() {
       sentColumnHelper.accessor("usuario", {
         header: "Usuario",
         cell: (info) => info.getValue() || "-",
+        meta: {
+          thClassName: "min-w-[10rem] whitespace-nowrap",
+          tdClassName: "min-w-[10rem] whitespace-nowrap",
+        },
       }),
 
       sentColumnHelper.accessor("cdr", {

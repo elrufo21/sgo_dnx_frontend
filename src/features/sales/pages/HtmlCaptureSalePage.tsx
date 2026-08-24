@@ -3196,6 +3196,10 @@ export default function HtmlCaptureSalePage() {
       }
 
       clearExternalCaptureDraft();
+      window.postMessage(
+        { type: "SGO_DXN_CAPTURE_COMPLETED" },
+        window.location.origin,
+      );
 
       if (
         saleClient?.id &&
