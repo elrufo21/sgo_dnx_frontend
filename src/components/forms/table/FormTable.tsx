@@ -211,11 +211,15 @@ const EditableDataTable = ({
                     <th
                       key={header.id}
                       style={getColumnStyle(header.column)}
-                      className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700 border-b border-gray-200"
+                      className={`px-2 sm:px-4 py-3 text-xs sm:text-sm font-semibold text-gray-700 border-b border-gray-200 ${
+                        header.column.id === "actions" ? "text-right" : "text-left"
+                      }`}
                     >
                       {header.isPlaceholder ? null : (
                         <div
                           className={`flex items-center gap-1 sm:gap-2 ${
+                            header.column.id === "actions" ? "justify-end" : ""
+                          } ${
                             header.column.getCanSort()
                               ? "cursor-pointer select-none"
                               : ""

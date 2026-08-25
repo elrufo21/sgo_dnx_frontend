@@ -3488,7 +3488,7 @@ export default function HtmlCaptureSalePage() {
                       <th className="w-12 border-b border-slate-100 px-5 py-3 text-left">
                         Sel
                       </th>
-                      <th className="border-b border-slate-100 px-3 py-3 text-left">
+                      <th className="border-b border-slate-100 px-3 py-3 text-right">
                         Documento
                       </th>
                       <th className="border-b border-slate-100 px-3 py-3 text-left">
@@ -3692,7 +3692,7 @@ export default function HtmlCaptureSalePage() {
                       <th className="border-b border-slate-100 px-5 py-3 text-right">
                         Total
                       </th>
-                      <th className="border-b border-slate-100 px-3 py-3 text-right">
+                      <th className="border-b border-slate-100 px-3 py-3 text-left">
                         Acciones
                       </th>
                     </tr>

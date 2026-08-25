@@ -23,8 +23,10 @@ const buildDefaults = (data?: Partial<Category>): Category => ({
     Number.isNaN(Number(data?.id ?? data?.idSubLinea))
       ? 0
       : Number(data?.id ?? data?.idSubLinea ?? 0),
+  idLinea: Number(data?.idLinea ?? 0),
   nombreSublinea: data?.nombreSublinea ?? "",
   codigoSunat: data?.codigoSunat ?? "",
+  vista: data?.vista ?? "V",
 });
 
 export default function CategoriaForm({
@@ -113,8 +115,10 @@ export default function CategoriaForm({
   const onSubmit = async (values: Category) => {
     const payload: Category = {
       ...values,
+      idLinea: Number(values.idLinea ?? 0),
       nombreSublinea: values.nombreSublinea?.toUpperCase() ?? "",
       codigoSunat: values.codigoSunat ?? "",
+      vista: values.vista?.toUpperCase() || "V",
     };
     await onSave(payload);
     if (mode === "create") {
@@ -191,6 +195,17 @@ export default function CategoriaForm({
             <div className="p-6 sm:p-8">
               <div className="space-y-4">
                 <HookFormInput<Category>
+                  name="idLinea"
+                  label="Id de línea"
+                  type="number"
+                  placeholder="Ingrese el Id de línea"
+                  rules={{
+                    required: "El Id de línea es obligatorio",
+                    min: { value: 1, message: "El Id de línea debe ser válido" },
+                  }}
+                />
+
+                <HookFormInput<Category>
                   data-focus-first
                   name="nombreSublinea"
                   label="Nombre de sublinea"
@@ -202,6 +217,12 @@ export default function CategoriaForm({
                   name="codigoSunat"
                   label="Codigo SUNAT"
                   placeholder="Ej: 1232"
+                />
+
+                <HookFormInput<Category>
+                  name="vista"
+                  label="Vista"
+                  placeholder="V"
                 />
               </div>
             </div>

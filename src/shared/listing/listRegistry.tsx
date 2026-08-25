@@ -47,9 +47,9 @@ const useEmployeeListDeps = () => {
 const useCategoryListDeps = () => {
   const openDialog = useDialogStore((s) => s.openDialog);
   const {
-    addCategory,
-    updateCategory,
-    deleteCategory,
+    addMaintenanceCategory,
+    updateMaintenanceCategory,
+    deleteMaintenanceCategory,
   } = useMaintenanceStore();
   const { data = [], refetch } = useCategoriesQuery();
 
@@ -64,13 +64,16 @@ const useCategoryListDeps = () => {
       onConfirm: async (rawData) => {
         const data = (rawData ?? {}) as Partial<Category>;
         const nombreSublinea = (data.nombreSublinea ?? "").trim().toUpperCase();
-        if (!nombreSublinea) {
-          toast.error("El nombre de la sublinea es obligatorio");
+        const idLinea = Number(data.idLinea ?? 0);
+        if (!idLinea || !nombreSublinea) {
+          toast.error("Id de línea y nombre de sublinea son obligatorios");
           return false;
         }
-        const created = await addCategory({
+        const created = await addMaintenanceCategory({
+          idLinea,
           nombreSublinea,
           codigoSunat: data.codigoSunat ?? "",
+          vista: data.vista ?? "V",
         } as Omit<Category, "id">);
         if (!created) {
           return false;
@@ -80,7 +83,7 @@ const useCategoryListDeps = () => {
         return true;
       },
     });
-  }, [openDialog, addCategory, refetch]);
+  }, [openDialog, addMaintenanceCategory, refetch]);
 
   const onEdit = useCallback(
     (row: Category, id: number) => {
@@ -101,13 +104,16 @@ const useCategoryListDeps = () => {
         onConfirm: async (rawData) => {
           const data = (rawData ?? {}) as Partial<Category>;
           const nombreSublinea = (data.nombreSublinea ?? "").trim().toUpperCase();
-          if (!nombreSublinea) {
-            toast.error("El nombre de la sublinea es obligatorio");
+          const idLinea = Number(data.idLinea ?? row.idLinea ?? 0);
+          if (!idLinea || !nombreSublinea) {
+            toast.error("Id de línea y nombre de sublinea son obligatorios");
             return false;
           }
-          const updated = await updateCategory(id, {
+          const updated = await updateMaintenanceCategory(id, {
             ...data,
+            idLinea,
             nombreSublinea,
+            vista: data.vista ?? row.vista ?? "V",
           });
           if (!updated) {
             return false;
@@ -118,13 +124,13 @@ const useCategoryListDeps = () => {
         },
       });
     },
-    [openDialog, refetch, updateCategory]
+    [openDialog, refetch, updateMaintenanceCategory]
   );
 
   return {
     data,
     fetchData: refetch,
-    deleteItem: deleteCategory,
+    deleteItem: deleteMaintenanceCategory,
     onCreate,
     onEdit,
   };
@@ -414,14 +420,17 @@ const useUserListDeps = () => {
   const openDialog = useDialogStore((s) => s.openDialog);
   const {
     users,
-    fetchUsers,
-    addUser,
-    updateUser,
-    deleteUser,
+    fetchMaintenanceUsers,
+    addMaintenanceUser,
+    updateMaintenanceUser,
+    deleteMaintenanceUser,
   } = useUsersStore();
   const [estado, setEstado] = useState<"ACTIVO" | "INACTIVO">("ACTIVO");
 
-  const fetchData = useCallback(() => fetchUsers(estado), [fetchUsers, estado]);
+  const fetchData = useCallback(
+    () => fetchMaintenanceUsers(estado),
+    [fetchMaintenanceUsers, estado],
+  );
 
   const onCreate = useCallback(() => {
     openDialog({
@@ -456,7 +465,7 @@ const useUserListDeps = () => {
           return false;
         }
 
-        const created = await addUser({
+        const created = await addMaintenanceUser({
           PersonalId: Number(data.PersonalId),
           UsuarioAlias: alias,
           UsuarioClave: clave,
@@ -468,6 +477,12 @@ const useUserListDeps = () => {
           EnviaNC: data.EnviaNC ?? 0,
           EnviaND: data.EnviaND ?? 0,
           Administrador: data.Administrador ?? 0,
+          UserRuta: data.UserRuta,
+          UserRutaOBS: data.UserRutaOBS,
+          RutaVentaOBS: data.RutaVentaOBS,
+          RutaIOC: data.RutaIOC,
+          RutaApertura: data.RutaApertura,
+          FechaVencimientoClave: data.FechaVencimientoClave,
           area: data.area,
         });
 
@@ -475,12 +490,12 @@ const useUserListDeps = () => {
           return false;
         }
 
-        await fetchUsers(estado);
+        await fetchMaintenanceUsers(estado);
         toast.success("Usuario creado correctamente");
         return true;
       },
     });
-  }, [openDialog, addUser, fetchUsers, estado]);
+  }, [openDialog, addMaintenanceUser, fetchMaintenanceUsers, estado]);
 
   const onEdit = useCallback(
     (row: User, id: number) => {
@@ -523,7 +538,7 @@ const useUserListDeps = () => {
             return false;
           }
 
-          const updated = await updateUser(id, {
+          const updated = await updateMaintenanceUser(id, {
             PersonalId: Number(data.PersonalId),
             UsuarioAlias: alias,
             UsuarioClave: clave,
@@ -535,6 +550,13 @@ const useUserListDeps = () => {
             EnviaNC: data.EnviaNC ?? row.EnviaNC ?? 0,
             EnviaND: data.EnviaND ?? row.EnviaND ?? 0,
             Administrador: data.Administrador ?? row.Administrador ?? 0,
+            UserRuta: data.UserRuta ?? row.UserRuta,
+            UserRutaOBS: data.UserRutaOBS ?? row.UserRutaOBS,
+            RutaVentaOBS: data.RutaVentaOBS ?? row.RutaVentaOBS,
+            RutaIOC: data.RutaIOC ?? row.RutaIOC,
+            RutaApertura: data.RutaApertura ?? row.RutaApertura,
+            FechaVencimientoClave:
+              data.FechaVencimientoClave ?? row.FechaVencimientoClave,
             area: row.area,
           });
 
@@ -542,19 +564,19 @@ const useUserListDeps = () => {
             return false;
           }
 
-          await fetchUsers(estado);
+          await fetchMaintenanceUsers(estado);
           toast.success("Usuario actualizado");
           return true;
         },
       });
     },
-    [openDialog, updateUser, fetchUsers, estado]
+    [openDialog, updateMaintenanceUser, fetchMaintenanceUsers, estado]
   );
 
   return {
     data: users,
     fetchData,
-    deleteItem: deleteUser,
+    deleteItem: deleteMaintenanceUser,
     onCreate,
     onEdit,
     renderFilters: (

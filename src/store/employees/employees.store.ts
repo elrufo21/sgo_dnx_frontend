@@ -6,12 +6,14 @@ import { queryClient } from "@/shared/queryClient";
 import type { Employee, Personal } from "@/types/employees";
 
 export const employeesQueryKey = ["employees"] as const;
+export const maintenanceEmployeesQueryKey = ["employees", "maintenance"] as const;
 
 interface EmployeesState {
   employees: Employee[];
   loading: boolean;
 
   fetchEmployees: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
+  fetchMaintenanceEmployees: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
   addEmployee: (
     employee: Omit<Employee, "personalId"> & {
       imageFile?: File | null;
@@ -26,6 +28,20 @@ interface EmployeesState {
     }
   ) => Promise<boolean>;
   deleteEmployee: (id: number) => Promise<boolean>;
+  addMaintenanceEmployee: (
+    employee: Omit<Employee, "personalId"> & {
+      imageFile?: File | null;
+      imageRemoved?: boolean;
+    }
+  ) => Promise<boolean>;
+  updateMaintenanceEmployee: (
+    id: number,
+    data: Partial<Employee> & {
+      imageFile?: File | null;
+      imageRemoved?: boolean;
+    }
+  ) => Promise<boolean>;
+  deleteMaintenanceEmployee: (id: number) => Promise<boolean>;
 }
 
 const mapApiToEmployee = (item: any): Personal => ({
@@ -50,13 +66,20 @@ const mapApiToEmployee = (item: any): Personal => ({
     item?.personalDireccion ?? item?.PersonalDireccion ?? item?.direccion ?? "",
   personalTelefono:
     item?.personalTelefono ?? item?.PersonalTelefono ?? item?.telefono ?? "",
+  personalTelefonoAsi:
+    item?.personalTelefonoAsi ?? item?.PersonalTelefonoAsi ?? item?.telefonoAsi ?? "",
   personalEmail:
     item?.personalEmail ?? item?.PersonalEmail ?? item?.correo ?? "",
+  personalSueldo: item?.personalSueldo ?? item?.PersonalSueldo ?? null,
   personalEstado:
     item?.personalEstado ?? item?.PersonalEstado ?? item?.estado ?? "ACTIVO",
+  personalBajaFecha: item?.personalBajaFecha ?? item?.PersonalBajaFecha ?? "",
+  personalRuc: item?.personalRuc ?? item?.PersonalRuc ?? "",
   personalImagen:
     item?.personalImagen ?? item?.PersonalImagen ?? item?.foto ?? null,
   companiaId: item?.companiaId ?? item?.CompaniaId ?? null,
+  huellaRegistrada:
+    item?.huellaRegistrada ?? item?.HuellaRegistrada ?? null,
 });
 
 const buildPersonalFormData = (
@@ -75,8 +98,13 @@ const buildPersonalFormData = (
     personalDNI: data.personalDni ?? "",
     personalDireccion: data.personalDireccion ?? "",
     personalTelefono: data.personalTelefono ?? "",
+    personalTelefonoAsi: data.personalTelefonoAsi ?? "",
     personalEmail: data.personalEmail ?? "",
+    personalSueldo: data.personalSueldo ?? "",
     personalEstado: data.personalEstado ?? "ACTIVO",
+    personalBajaFecha: data.personalBajaFecha ?? "",
+    personalRuc: data.personalRuc ?? "",
+    personalImagen: data.personalImagen ?? "",
     companiaId: data.companiaId ?? 1,
   };
 
@@ -96,6 +124,15 @@ const buildPersonalFormData = (
   }
 
   return { formData, payload };
+};
+
+const isMaintenanceSuccess = (response: unknown) =>
+  typeof response === "string" && response.trim().toUpperCase().startsWith("OK|");
+
+const getMaintenanceId = (response: unknown, fallback: number) => {
+  if (typeof response !== "string") return fallback;
+  const value = Number(response.split("|")[1]?.trim());
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
 export const useEmployeesStore = create<EmployeesState>((set) => ({
@@ -126,6 +163,29 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
       });
     } catch (error) {
       console.error("Error loading employees", error);
+      set({ loading: false });
+    }
+  },
+
+  fetchMaintenanceEmployees: async (estado = "ACTIVO") => {
+    set({ loading: true });
+    try {
+      const response = await queryClient.fetchQuery({
+        queryKey: [...maintenanceEmployeesQueryKey, estado],
+        queryFn: async () => {
+          const query = estado && estado.trim() !== ""
+            ? `?estado=${encodeURIComponent(estado)}`
+            : "";
+          return await apiRequest<Personal[]>({
+            url: `${buildApiUrl("/Personal/maintenance/list")}${query}`,
+            method: "GET",
+            fallback: [],
+          });
+        },
+      });
+      set({ employees: (response ?? []).map(mapApiToEmployee), loading: false });
+    } catch (error) {
+      console.error("Error loading maintenance employees", error);
       set({ loading: false });
     }
   },
@@ -207,6 +267,65 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
     await queryClient.invalidateQueries({ queryKey: employeesQueryKey });
     return true;
   },
+
+  addMaintenanceEmployee: async (employee) => {
+    const { formData, payload } = buildPersonalFormData(employee, 0);
+    const response = await apiRequest<string | null>({
+      url: buildApiUrl("/Personal/maintenance/registerpersonal"),
+      method: "POST",
+      data: formData,
+      fallback: null,
+    });
+    if (!isMaintenanceSuccess(response)) return false;
+
+    set((state) => ({
+      employees: [
+        ...state.employees,
+        mapApiToEmployee({ ...payload, personalId: getMaintenanceId(response, Date.now()) }),
+      ],
+    }));
+    await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    return true;
+  },
+
+  updateMaintenanceEmployee: async (id, data) => {
+    const { formData, payload } = buildPersonalFormData(data, id);
+    const response = await apiRequest<string | null>({
+      url: buildApiUrl("/Personal/maintenance/registerpersonal"),
+      method: "POST",
+      data: formData,
+      fallback: null,
+    });
+    if (!isMaintenanceSuccess(response)) return false;
+
+    set((state) => ({
+      employees: state.employees.map((employee) =>
+        String(employee.personalId) === String(id)
+          ? mapApiToEmployee({ ...payload, personalId: id })
+          : employee,
+      ),
+    }));
+    await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    return true;
+  },
+
+  deleteMaintenanceEmployee: async (id) => {
+    const response = await apiRequest<string | null>({
+      url: buildApiUrl(`/Personal/maintenance/${id}`),
+      method: "DELETE",
+      config: { headers: { Accept: "*/*" } },
+      fallback: null,
+    });
+    if (!isMaintenanceSuccess(response)) return false;
+
+    set((state) => ({
+      employees: state.employees.filter(
+        (employee) => String(employee.personalId) !== String(id),
+      ),
+    }));
+    await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    return true;
+  },
 }));
 
 export interface User {
@@ -224,4 +343,11 @@ export interface User {
   EnviaND: number;
   Administrador: number;
   area?: string;
+  UserRuta?: string;
+  UserRutaOBS?: string;
+  RutaVentaOBS?: string;
+  RutaIOC?: string;
+  RutaApertura?: string;
+  FechaVencimientoClave?: string;
+  ClaveConfigurada?: boolean;
 }

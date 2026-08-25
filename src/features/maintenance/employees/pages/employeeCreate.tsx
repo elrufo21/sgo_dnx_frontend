@@ -10,7 +10,7 @@ import type { Personal } from "@/types/employees";
 const today = () => getLocalDateISO();
 
 const EmployeeCreate = () => {
-  const { addEmployee } = useEmployeesStore();
+  const { addMaintenanceEmployee } = useEmployeesStore();
   const navigate = useNavigate();
 
   const [form, setForm] = useState<Partial<Personal>>({
@@ -21,8 +21,8 @@ const EmployeeCreate = () => {
   const handleSave = async (
     data: Personal & { imageFile?: File | null; imageRemoved?: boolean }
   ) => {
-    const { personalId, imageFile, imageRemoved, ...rest } = data;
-    const created = await addEmployee({ ...rest, imageFile, imageRemoved });
+    const { imageFile, imageRemoved, ...rest } = data;
+    const created = await addMaintenanceEmployee({ ...rest, imageFile, imageRemoved });
     if (!created) {
       toast.error("El DNI ya existe");
       return;

@@ -13,11 +13,17 @@ import { toast } from "@/shared/ui/toast";
 import { queryClient } from "@/shared/queryClient";
 import {
   categoriesQueryKey,
+  deleteCategoryApi,
   fetchCategoriesApi,
+  fetchLegacyCategoriesApi,
+  legacyCategoriesQueryKey,
+  saveCategoryApi,
 } from "@/features/maintenance/categories/categories.api";
 import {
+  deleteAreaApi,
   areasQueryKey,
   fetchAreasApi,
+  saveAreaApi,
 } from "@/features/maintenance/areas/areas.api";
 import {
   computersQueryKey,
@@ -68,44 +74,24 @@ const getHolidayError = (result: unknown) =>
     ? String((result as { error?: unknown }).error ?? "")
     : "";
 
-const isDuplicateCategoryResponse = (result: unknown) =>
-  typeof result === "string" && result.toLowerCase().includes("existe");
-
 const asCategories = (items: unknown): Category[] =>
   Array.isArray(items) ? items : [];
 
-const parseCategoryRegisterResponse = (
+const isDuplicateCategoryResponse = (result: unknown) =>
+  typeof result === "string" && result.toLowerCase().includes("existe");
+
+const parseLegacyCategoryResponse = (
   result: unknown,
-  fallback: { id: number; nombreSublinea: string; codigoSunat: string }
+  fallback: { id: number; nombreSublinea: string; codigoSunat: string },
 ): Category => {
-  if (result && typeof result === "object") {
-    const payload = result as Record<string, unknown>;
-    const parsedId =
-      Number(payload.id ?? payload.idSubLinea ?? fallback.id) || fallback.id;
-    const parsedName =
-      String(
-        payload.nombreSublinea ?? payload.nombre ?? fallback.nombreSublinea
-      ) || fallback.nombreSublinea;
-    const parsedCode =
-      String(payload.codigoSunat ?? fallback.codigoSunat) || fallback.codigoSunat;
-
-    return {
-      id: parsedId,
-      idSubLinea: parsedId,
-      nombreSublinea: parsedName,
-      codigoSunat: parsedCode,
-    };
-  }
-
   if (typeof result === "string") {
     const [idRaw = "", nameRaw = ""] = result.trim().split("|");
     const parsedId = Number(idRaw.trim());
     if (Number.isFinite(parsedId) && parsedId > 0) {
-      const parsedName = nameRaw.trim() || fallback.nombreSublinea;
       return {
         id: parsedId,
         idSubLinea: parsedId,
-        nombreSublinea: parsedName,
+        nombreSublinea: nameRaw.trim() || fallback.nombreSublinea,
         codigoSunat: fallback.codigoSunat,
       };
     }
@@ -151,6 +137,7 @@ interface MaintenanceState {
   setBankEntities: (items: BankEntity[]) => void;
 
   fetchCategories: () => Promise<void>;
+  fetchMaintenanceCategories: () => Promise<void>;
   fetchAreas: () => Promise<void>;
   fetchComputers: () => Promise<void>;
   fetchProviders: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
@@ -160,6 +147,9 @@ interface MaintenanceState {
   addCategory: (data: Omit<Category, "id">) => Promise<boolean>;
   updateCategory: (id: number, data: Partial<Category>) => Promise<boolean>;
   deleteCategory: (idSubLinea: number) => Promise<boolean>;
+  addMaintenanceCategory: (data: Omit<Category, "id">) => Promise<boolean>;
+  updateMaintenanceCategory: (id: number, data: Partial<Category>) => Promise<boolean>;
+  deleteMaintenanceCategory: (idSubLinea: number) => Promise<boolean>;
 
   addArea: (data: Omit<Area, "id">) => Promise<boolean>;
   updateArea: (id: number, data: Partial<Area>) => Promise<boolean>;
@@ -296,8 +286,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
       try {
         const response = await queryClient.fetchQuery({
-          queryKey: categoriesQueryKey,
-          queryFn: fetchCategoriesApi,
+          queryKey: legacyCategoriesQueryKey,
+          queryFn: fetchLegacyCategoriesApi,
         });
         set({
           categories: asCategories(response),
@@ -305,6 +295,20 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         });
       } catch (err) {
         console.error("❌ Error al obtener categorías", err);
+        set({ loading: false });
+      }
+    },
+
+    fetchMaintenanceCategories: async () => {
+      set({ loading: true });
+      try {
+        const response = await queryClient.fetchQuery({
+          queryKey: categoriesQueryKey,
+          queryFn: fetchCategoriesApi,
+        });
+        set({ categories: asCategories(response), loading: false });
+      } catch (err) {
+        console.error("❌ Error al obtener sublineas de mantenimiento", err);
         set({ loading: false });
       }
     },
@@ -381,22 +385,15 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         nombreSublinea: data.nombreSublinea,
         codigoSunat: data.codigoSunat,
       };
-      const payload = {
-        idSubLinea: 0,
-        nombreSublinea: data.nombreSublinea,
-        codigoSunat: data.codigoSunat,
-      };
-
       const created = await apiRequest<unknown>({
         url: `${API_BASE_URL}/Linea/registerlinea`,
         method: "POST",
-        data: payload,
-        config: {
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
+        data: {
+          idSubLinea: 0,
+          nombreSublinea: data.nombreSublinea,
+          codigoSunat: data.codigoSunat,
         },
+        config: { headers: { Accept: "*/*", "Content-Type": "application/json" } },
         fallback: fallbackCategory,
       });
 
@@ -405,46 +402,35 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         return false;
       }
 
-      const nextCategory = parseCategoryRegisterResponse(created, fallbackCategory);
-
       set((state) => ({
-        categories: [...asCategories(state.categories), nextCategory],
+        categories: [
+          ...asCategories(state.categories),
+          parseLegacyCategoryResponse(created, fallbackCategory),
+        ],
       }));
-
-      await queryClient.invalidateQueries({ queryKey: categoriesQueryKey });
+      await queryClient.invalidateQueries({ queryKey: legacyCategoriesQueryKey });
       return true;
     },
 
     updateCategory: async (id, data) => {
       const previousCategory = asCategories(get().categories).find(
-        (c) => String(c.id ?? c.idSubLinea) === String(id)
+        (category) => String(category.id ?? category.idSubLinea) === String(id),
       );
       const fallbackCategory = {
         id,
         nombreSublinea:
-          data.nombreSublinea ??
-          data.nombre ??
-          previousCategory?.nombreSublinea ??
-          "",
+          data.nombreSublinea ?? data.nombre ?? previousCategory?.nombreSublinea ?? "",
         codigoSunat: data.codigoSunat ?? previousCategory?.codigoSunat ?? "",
       };
-
-      const payload = {
-        idSubLinea: id,
-        nombreSublinea: fallbackCategory.nombreSublinea,
-        codigoSunat: fallbackCategory.codigoSunat,
-      };
-
       const updated = await apiRequest<unknown>({
         url: `${API_BASE_URL}/Linea/registerlinea`,
         method: "POST",
-        data: payload,
-        config: {
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
+        data: {
+          idSubLinea: id,
+          nombreSublinea: fallbackCategory.nombreSublinea,
+          codigoSunat: fallbackCategory.codigoSunat,
         },
+        config: { headers: { Accept: "*/*", "Content-Type": "application/json" } },
         fallback: fallbackCategory,
       });
 
@@ -453,7 +439,71 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         return false;
       }
 
-      const nextCategory = parseCategoryRegisterResponse(updated, fallbackCategory);
+      const nextCategory = parseLegacyCategoryResponse(updated, fallbackCategory);
+      set((state) => ({
+        categories: asCategories(state.categories).map((category) =>
+          String(category.id ?? category.idSubLinea) === String(id)
+            ? { ...category, ...data, ...nextCategory }
+            : category,
+        ),
+      }));
+      await queryClient.invalidateQueries({ queryKey: legacyCategoriesQueryKey });
+      return true;
+    },
+
+    deleteCategory: async (idSubLinea) => {
+      const result = await apiRequest<unknown>({
+        url: `${API_BASE_URL}/Linea/${idSubLinea}`,
+        method: "DELETE",
+        config: { headers: { Accept: "*/*" } },
+        fallback: null,
+      });
+      if (!result) return false;
+
+      set((state) => ({
+        categories: asCategories(state.categories).filter(
+          (category) => String(category.id ?? category.idSubLinea) !== String(idSubLinea),
+        ),
+      }));
+      await queryClient.invalidateQueries({ queryKey: legacyCategoriesQueryKey });
+      return true;
+    },
+
+    addMaintenanceCategory: async (data) => {
+      const created = await saveCategoryApi(data);
+      if ("error" in created) {
+        toast.error(created.error);
+        return false;
+      }
+
+      set((state) => ({
+        categories: [...asCategories(state.categories), created],
+      }));
+
+      await queryClient.invalidateQueries({ queryKey: categoriesQueryKey });
+      return true;
+    },
+
+    updateMaintenanceCategory: async (id, data) => {
+      const previousCategory = asCategories(get().categories).find(
+        (c) => String(c.id ?? c.idSubLinea) === String(id)
+      );
+      const updated = await saveCategoryApi({
+        ...previousCategory,
+        ...data,
+        id,
+        idSubLinea: id,
+        idLinea: data.idLinea ?? previousCategory?.idLinea,
+        nombreSublinea:
+          data.nombreSublinea ?? data.nombre ?? previousCategory?.nombreSublinea ?? "",
+        codigoSunat: data.codigoSunat ?? previousCategory?.codigoSunat ?? "",
+        vista: data.vista ?? previousCategory?.vista ?? "V",
+      });
+
+      if ("error" in updated) {
+        toast.error(updated.error);
+        return false;
+      }
 
       set((state) => ({
         categories: asCategories(state.categories).map((c) =>
@@ -461,7 +511,7 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
             ? {
                 ...c,
                 ...data,
-                ...nextCategory,
+                ...updated,
               }
             : c
         ),
@@ -471,17 +521,8 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       return true;
     },
 
-    deleteCategory: async (idSubLinea) => {
-      const result = await apiRequest({
-        url: `${API_BASE_URL}/Linea/${idSubLinea}`,
-        method: "DELETE",
-        config: {
-          headers: {
-            Accept: "*/*",
-          },
-        },
-        fallback: null,
-      });
+    deleteMaintenanceCategory: async (idSubLinea) => {
+      const result = await deleteCategoryApi(idSubLinea);
       if (!result) {
         return false;
       } else {
@@ -497,122 +538,36 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
 
     addArea: async (data) => {
-      const payload = {
-        areaId: 0,
-        areaNombre: data.area,
-      };
-
-      const created = await apiRequest<{
-        areaId?: number;
-        areaNombre?: string;
-      }>({
-        url: `${API_BASE_URL}/Area/registerarea`,
-        method: "POST",
-        data: payload,
-        config: {
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-        },
-        fallback: { ...data, id: Date.now() },
-      });
-
-      if (
-        typeof created === "string" &&
-        created.toLowerCase().includes("existe")
-      ) {
-        toast.error("Ya existe esta area");
+      const created = await saveAreaApi(data);
+      if ("error" in created) {
+        toast.error(created.error);
         return false;
       }
 
-      const hasCreatedId =
-        created &&
-        typeof created === "object" &&
-        ("areaId" in (created as any) || "id" in (created as any));
-
-      if (hasCreatedId) {
-        const idValue = (created as any).id ?? (created as any).areaId;
-        const areaValue =
-          (created as any).nombre ?? (created as any).areaNombre ?? data.area;
-        set((state) => ({
-          areas: [...state.areas, { id: idValue, area: areaValue }],
-        }));
-      } else {
-        set((state) => ({
-          areas: [...state.areas, { ...data, id: Date.now() }],
-        }));
-      }
+      set((state) => ({ areas: [...state.areas, created] }));
       await queryClient.invalidateQueries({ queryKey: areasQueryKey });
       return true;
     },
     updateArea: async (id, data) => {
-      const payload = {
-        areaId: id,
-        areaNombre: data.area ?? "",
-      };
-
-      const updated = await apiRequest<{
-        areaId?: number;
-        areaNombre?: string;
-      }>({
-        url: `${API_BASE_URL}/Area/registerarea`,
-        method: "POST",
-        data: payload,
-        config: {
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-        },
-        fallback: { ...data, id },
+      const current = get().areas.find((area) => area.id === id);
+      const updated = await saveAreaApi({
+        id,
+        area: data.area ?? current?.area ?? "",
       });
-
-      if (
-        typeof updated === "string" &&
-        updated.toLowerCase().includes("existe")
-      ) {
-        toast.error("Ya existe esta area");
+      if ("error" in updated) {
+        toast.error(updated.error);
         return false;
       }
 
       set((state) => ({
-        areas: state.areas.map((a) => {
-          if (a.id !== id) return a;
-          const hasUpdatedId =
-            updated &&
-            typeof updated === "object" &&
-            ("areaId" in (updated as any) || "id" in (updated as any));
-          if (hasUpdatedId) {
-            return {
-              id: (updated as any).id ?? (updated as any).areaId ?? id,
-              area:
-                (updated as any).nombre ??
-                (updated as any).areaNombre ??
-                data.area ??
-                a.area,
-            };
-          }
-          return { ...a, ...data };
-        }),
+        areas: state.areas.map((area) => (area.id === id ? updated : area)),
       }));
 
       await queryClient.invalidateQueries({ queryKey: areasQueryKey });
       return true;
     },
     deleteArea: async (id) => {
-      const result = await apiRequest({
-        url: `${API_BASE_URL}/Area/${id}`,
-        method: "DELETE",
-        config: {
-          headers: {
-            Accept: "*/*",
-          },
-        },
-        fallback: null,
-      });
-
-      if (!result) {
+      if (!await deleteAreaApi(id)) {
         return false;
       }
 

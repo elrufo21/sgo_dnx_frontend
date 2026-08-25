@@ -35,6 +35,12 @@ type UserFormValues = {
   EnviaND: number;
   Administrador: number;
   UsuarioFechaReg: string;
+  UserRuta: string;
+  UserRutaOBS: string;
+  RutaVentaOBS: string;
+  RutaIOC: string;
+  RutaApertura: string;
+  FechaVencimientoClave: string;
 };
 
 const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
@@ -57,6 +63,12 @@ const buildDefaults = (
   EnviaND: initialData?.EnviaND ?? 0,
   Administrador: initialData?.Administrador ?? 0,
   UsuarioFechaReg: initialData?.UsuarioFechaReg ?? new Date().toISOString(),
+  UserRuta: initialData?.UserRuta ?? "",
+  UserRutaOBS: initialData?.UserRutaOBS ?? "",
+  RutaVentaOBS: initialData?.RutaVentaOBS ?? "",
+  RutaIOC: initialData?.RutaIOC ?? "",
+  RutaApertura: initialData?.RutaApertura ?? "",
+  FechaVencimientoClave: initialData?.FechaVencimientoClave ?? "",
 });
 
 export default function UserFormBase({
@@ -165,6 +177,12 @@ export default function UserFormBase({
       EnviaNC: values.EnviaNC ?? 0,
       EnviaND: values.EnviaND ?? 0,
       Administrador: values.Administrador ?? 0,
+      UserRuta: values.UserRuta ?? "",
+      UserRutaOBS: values.UserRutaOBS ?? "",
+      RutaVentaOBS: values.RutaVentaOBS ?? "",
+      RutaIOC: values.RutaIOC ?? "",
+      RutaApertura: values.RutaApertura ?? "",
+      FechaVencimientoClave: values.FechaVencimientoClave ?? "",
     };
 
     const ok = await onSave(payload);
@@ -384,6 +402,37 @@ export default function UserFormBase({
                     ]}
                     disabled={mode === "create"}
                   />
+                )}
+
+                {fieldsMode === "full" && (
+                  <HookFormInput
+                    name="UsuarioSerie"
+                    label="Serie"
+                    placeholder="Ej: B001"
+                    maxLength={4}
+                  />
+                )}
+
+                {fieldsMode === "full" && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {[
+                      ["EnviaBoleta", "Envia boleta"],
+                      ["EnviarFactura", "Envia factura"],
+                      ["EnviaNC", "Envia nota de crédito"],
+                      ["EnviaND", "Envia nota de débito"],
+                      ["Administrador", "Administrador"],
+                    ].map(([name, label]) => (
+                      <HookFormSelect
+                        key={name}
+                        name={name}
+                        label={label}
+                        options={[
+                          { value: 0, label: "No" },
+                          { value: 1, label: "Sí" },
+                        ]}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

@@ -1,8 +1,10 @@
 export interface Category {
   id?: string | number;
   idSubLinea?: number;
+  idLinea?: number;
   nombreSublinea: string;
   codigoSunat: string;
+  vista?: string;
   nombre?: string | null;
 }
 

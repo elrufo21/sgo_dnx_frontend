@@ -7,7 +7,7 @@ import { useUsersStore } from "@/store/users/users.store";
 import type { User } from "@/store/users/users.store";
 
 const UserCreate = () => {
-  const { addUser } = useUsersStore();
+  const { addMaintenanceUser } = useUsersStore();
   const navigate = useNavigate();
 
   const [form, setForm] = useState<Omit<User, "UsuarioID">>({
@@ -25,7 +25,7 @@ const UserCreate = () => {
   });
 
   const handleSave = async (data: Omit<User, "UsuarioID">) => {
-    const created = await addUser(data);
+    const created = await addMaintenanceUser(data);
 
     if (!created) {
       //  toast.error("No se pudo crear el usuario.");

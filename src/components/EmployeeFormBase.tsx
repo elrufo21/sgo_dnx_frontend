@@ -61,8 +61,12 @@ const buildDefaults = (initialData?: Partial<Personal>): Personal => ({
   personalDni: initialData?.personalDni ?? "",
   personalDireccion: initialData?.personalDireccion ?? "",
   personalTelefono: initialData?.personalTelefono ?? "",
+  personalTelefonoAsi: initialData?.personalTelefonoAsi ?? "",
   personalEmail: initialData?.personalEmail ?? "",
+  personalSueldo: initialData?.personalSueldo ?? "",
   personalEstado: initialData?.personalEstado ?? "ACTIVO",
+  personalBajaFecha: initialData?.personalBajaFecha ?? "",
+  personalRuc: initialData?.personalRuc ?? "",
   personalImagen: initialData?.personalImagen ?? "",
   companiaId: initialData?.companiaId ?? 1,
 });
@@ -79,7 +83,6 @@ export default function EmployeeFormBase({
     [],
   );
   const formContainerRef = useRef<HTMLDivElement>(null);
-  console.log("initialData", initialData);
   const formMethods = useForm<Personal>({
     defaultValues: buildDefaults(initialData),
   });
@@ -263,6 +266,11 @@ export default function EmployeeFormBase({
       personalApellidos: values.personalApellidos?.toUpperCase() ?? "",
       personalNacimiento: normalizeDateForApi(values.personalNacimiento),
       personalIngreso: normalizeDateForApi(values.personalIngreso),
+      personalBajaFecha: normalizeDateForApi(values.personalBajaFecha),
+      personalSueldo:
+        values.personalSueldo === "" || values.personalSueldo == null
+          ? null
+          : Number(values.personalSueldo),
       imageFile,
       imageRemoved,
     });
@@ -466,6 +474,11 @@ export default function EmployeeFormBase({
                 />
 
                 <HookFormInput<Personal>
+                  name="personalTelefonoAsi"
+                  label="Telefono asistente"
+                />
+
+                <HookFormInput<Personal>
                   name="personalNacimiento"
                   label="Fecha nacimiento"
                   type="date"
@@ -484,6 +497,11 @@ export default function EmployeeFormBase({
                 <HookFormInput<Personal>
                   name="personalDireccion"
                   label="Direccion"
+                />
+
+                <HookFormInput<Personal>
+                  name="personalRuc"
+                  label="RUC"
                 />
 
                 <HookFormInput<Personal>
@@ -522,6 +540,19 @@ export default function EmployeeFormBase({
                   name="personalIngreso"
                   label="Fecha ingreso"
                   type="date"
+                />
+
+                <HookFormInput<Personal>
+                  name="personalBajaFecha"
+                  label="Fecha de baja"
+                  type="date"
+                />
+
+                <HookFormInput<Personal>
+                  name="personalSueldo"
+                  label="Sueldo"
+                  type="number"
+                  inputMode="decimal"
                 />
 
                 <HookFormSelect<Personal>

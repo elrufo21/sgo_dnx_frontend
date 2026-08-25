@@ -4,14 +4,18 @@ import { employeeListConfig } from "./employee.list.config";
 import { useEmployeesStore } from "@/store/employees/employees.store";
 
 export default function EmployeeListPage() {
-  const { employees, fetchEmployees, deleteEmployee } = useEmployeesStore();
+  const {
+    employees,
+    fetchMaintenanceEmployees,
+    deleteMaintenanceEmployee,
+  } = useEmployeesStore();
   const [estadoFilter, setEstadoFilter] = useState<"ACTIVO" | "INACTIVO">(
     "ACTIVO"
   );
 
   const fetchFiltered = useCallback(
-    () => fetchEmployees(estadoFilter),
-    [fetchEmployees, estadoFilter]
+    () => fetchMaintenanceEmployees(estadoFilter),
+    [fetchMaintenanceEmployees, estadoFilter]
   );
 
   useEffect(() => {
@@ -22,7 +26,7 @@ export default function EmployeeListPage() {
     <CrudList
       data={employees}
       fetchData={fetchFiltered}
-      deleteItem={deleteEmployee}
+      deleteItem={deleteMaintenanceEmployee}
       {...employeeListConfig}
       renderFilters={
         <div className="flex items-center gap-2">

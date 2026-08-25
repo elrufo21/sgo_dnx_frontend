@@ -126,6 +126,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
     columnHelper.display({
       id: "acciones",
       header: "Acciones",
+      meta: { align: "right" },
       cell: ({ row }) => {
         const rowData = row.original as Record<string, unknown>;
         const rawId = rowData[idKey];

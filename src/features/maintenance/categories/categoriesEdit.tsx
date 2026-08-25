@@ -11,14 +11,19 @@ export default function CategoryEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { categories, fetchCategories, updateCategory, deleteCategory } =
+  const {
+    categories,
+    fetchMaintenanceCategories,
+    updateMaintenanceCategory,
+    deleteMaintenanceCategory,
+  } =
     useMaintenanceStore();
 
   const [category, setCategory] = useState<Category | null>(null);
 
   useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+    fetchMaintenanceCategories();
+  }, [fetchMaintenanceCategories]);
 
   useEffect(() => {
     if (categories.length > 0 && id) {
@@ -29,7 +34,7 @@ export default function CategoryEdit() {
 
   const handleSave = async (data: Category) => {
     if (!id) return;
-    const res = await updateCategory(Number(id), data);
+    const res = await updateMaintenanceCategory(Number(id), data);
     if (!res) {
       return;
     }
@@ -48,7 +53,7 @@ export default function CategoryEdit() {
       content: <p>Seguro que deseas eliminar esta sublinea?</p>,
       onConfirm: async () => {
         try {
-          const result = await deleteCategory(Number(id));
+          const result = await deleteMaintenanceCategory(Number(id));
           if (result === false) {
             toast.error("No se pudo eliminar la sublinea.");
             return;

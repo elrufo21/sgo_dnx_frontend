@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { toast } from "@/shared/ui/toast";
 
 import type { Category } from "@/types/maintenance";
@@ -7,23 +6,26 @@ import CategoriaForm from "@/components/maintenance/CategoriaForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 
 export default function CategoryCreate() {
-  const navigate = useNavigate();
-  const { addCategory } = useMaintenanceStore();
+  const { addMaintenanceCategory } = useMaintenanceStore();
 
   const [form, setForm] = useState<Omit<Category, "id">>({
+    idLinea: 0,
     nombreSublinea: "",
     codigoSunat: "",
+    vista: "V",
   });
 
   const handleSave = async (data: Omit<Category, "id">) => {
-    const created = await addCategory(data);
+    const created = await addMaintenanceCategory(data);
     if (!created) {
       return;
     }
     toast.success("Sublinea creada correctamente");
     setForm({
+      idLinea: 0,
       nombreSublinea: "",
       codigoSunat: "",
+      vista: "V",
     });
   };
 

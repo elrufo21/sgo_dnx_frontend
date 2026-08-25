@@ -11,13 +11,18 @@ const UserEdit = () => {
   const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
 
-  const { users, updateUser, fetchUsers, deleteUser } = useUsersStore();
+  const {
+    users,
+    updateMaintenanceUser,
+    fetchMaintenanceUsers,
+    deleteMaintenanceUser,
+  } = useUsersStore();
 
   const [form, setForm] = useState<Omit<User, "id"> | null>(null);
 
   useEffect(() => {
-    if (users.length === 0) fetchUsers();
-  }, [users, fetchUsers]);
+    if (users.length === 0) fetchMaintenanceUsers();
+  }, [users, fetchMaintenanceUsers]);
 
   useEffect(() => {
     const user = users.find((e) => e.UsuarioID === Number(id));
@@ -30,8 +35,7 @@ const UserEdit = () => {
   if (!form) return <div>Cargando empleado...</div>;
 
   const handleSave = async (data: Omit<User, "id">) => {
-    const updated = await updateUser(Number(id), data);
-    console.log("updated", updated);
+    const updated = await updateMaintenanceUser(Number(id), data);
     if (!updated) {
       toast.error("No se pudo guardar el usuario.");
       return false;
@@ -49,7 +53,7 @@ const UserEdit = () => {
       content: <p>Seguro que deseas eliminar este usuario?</p>,
       onConfirm: async () => {
         try {
-          const result = await deleteUser(Number(id));
+          const result = await deleteMaintenanceUser(Number(id));
           if (result === false) {
             toast.error("No se pudo eliminar el usuario.");
             return;

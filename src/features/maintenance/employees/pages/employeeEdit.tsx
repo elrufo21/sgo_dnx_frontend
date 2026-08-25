@@ -12,14 +12,19 @@ const EmployeeEdit = () => {
   const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
 
-  const { employees, fetchEmployees, updateEmployee, deleteEmployee } =
+  const {
+    employees,
+    fetchMaintenanceEmployees,
+    updateMaintenanceEmployee,
+    deleteMaintenanceEmployee,
+  } =
     useEmployeesStore();
 
   const [form, setForm] = useState<Personal | null>(null);
 
   useEffect(() => {
-    if (employees.length === 0) fetchEmployees();
-  }, [employees, fetchEmployees]);
+    if (employees.length === 0) fetchMaintenanceEmployees();
+  }, [employees, fetchMaintenanceEmployees]);
 
   useEffect(() => {
     const employee = employees.find(
@@ -35,7 +40,7 @@ const EmployeeEdit = () => {
   const handleSave = async (
     data: Personal & { imageFile?: File | null; imageRemoved?: boolean }
   ) => {
-    const updated = await updateEmployee(Number(id), data);
+    const updated = await updateMaintenanceEmployee(Number(id), data);
     if (!updated) {
       toast.error("El DNI ya existe");
       return;
@@ -51,7 +56,7 @@ const EmployeeEdit = () => {
       content: <p>Seguro que deseas eliminar este empleado?</p>,
       onConfirm: async () => {
         try {
-          const result = await deleteEmployee(Number(id));
+          const result = await deleteMaintenanceEmployee(Number(id));
           if (result === false) {
             toast.error("No se pudo eliminar el empleado.");
             return;

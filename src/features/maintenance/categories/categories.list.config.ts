@@ -8,8 +8,10 @@ export const categoryListConfig: ModuleListConfig<Category> = {
   deleteMessage: "Seguro deseas eliminar esta sublinea?",
   columns: [
     { key: "id", header: "Id" },
+    { key: "idLinea", header: "Id linea" },
     { key: "nombreSublinea", header: "SubLinea" },
     { key: "codigoSunat", header: "CodigoSunat" },
+    { key: "vista", header: "Vista" },
   ],
-  filterKeys: ["id", "nombreSublinea", "codigoSunat"],
+  filterKeys: ["id", "idLinea", "nombreSublinea", "codigoSunat", "vista"],
 };

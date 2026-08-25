@@ -108,46 +108,46 @@ const CustomerList = () => {
 
   return (
     <div className="h-[calc(100dvh-var(--app-shell-header-h)-var(--app-shell-main-py)-var(--app-shell-main-py))]">
-    <DataTable
-      data={filteredClients}
-      columns={columns}
-      isLoading={loading}
-      filterKeys={[
-        "clienteCodigo",
-        "nombreRazon",
-        "ruc",
-        "dni",
-        "registradoPor",
-        "documentoPredeterminado",
-      ]}
-      searchPlaceholder="Buscar por codigo, razon social, RUC o DNI"
-      emptyMessage="No se encontraron clientes."
-      initialPageSize={50}
-      persistPageSize={false}
-      fillAvailableHeight
-      renderFilters={
-        <select
-          value={estado}
-          onChange={(event) =>
-            setEstado(event.target.value as "ACTIVO" | "INACTIVO")
-          }
-          className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"
-        >
-          <option value="ACTIVO">Activos</option>
-          <option value="INACTIVO">Inactivos</option>
-        </select>
-      }
-      toolbarAction={
-        <button
-          type="button"
-          onClick={() => navigate("/customers/create")}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#B23636] px-3 text-sm font-semibold text-white hover:bg-[#96312a]"
-        >
-          <PlusIcon className="h-5 w-5" />
-          Nuevo
-        </button>
-      }
-    />
+      <DataTable
+        data={filteredClients}
+        columns={columns}
+        isLoading={loading}
+        filterKeys={[
+          "clienteCodigo",
+          "nombreRazon",
+          "ruc",
+          "dni",
+          "registradoPor",
+          "documentoPredeterminado",
+        ]}
+        searchPlaceholder="Buscar por codigo, razon social, RUC o DNI"
+        emptyMessage="No se encontraron clientes."
+        initialPageSize={50}
+        persistPageSize={false}
+        fillAvailableHeight
+        renderFilters={
+          <select
+            value={estado}
+            onChange={(event) =>
+              setEstado(event.target.value as "ACTIVO" | "INACTIVO")
+            }
+            className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"
+          >
+            <option value="ACTIVO">Activos</option>
+            <option value="INACTIVO">Inactivos</option>
+          </select>
+        }
+        toolbarAction={
+          <button
+            type="button"
+            onClick={() => navigate("/customers/create")}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#B23636] px-3 text-sm font-semibold text-white hover:bg-[#96312a]"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Nuevo
+          </button>
+        }
+      />
     </div>
   );
 };
