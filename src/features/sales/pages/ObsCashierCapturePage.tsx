@@ -142,7 +142,11 @@ export default function ObsCashierCapturePage() {
 
   const receive = useCallback(async (payload: ObsCapturePayload) => {
     if (receivingCapture.current) return;
-    const capturedType: SaleType = payload.saleType === "IOC" ? "IOC" : "OBS";
+    const capturedType: SaleType = payload.lines.some((line) =>
+      line.transactionNumber.toUpperCase().includes("RS"),
+    )
+      ? "IOC"
+      : "OBS";
     const lines = payload.lines
       .filter(
         (line) =>

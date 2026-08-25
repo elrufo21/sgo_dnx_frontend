@@ -1,12 +1,13 @@
 import DataTable from "@/components/DataTable";
+import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Eye, RefreshCw, Search } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 type InvoiceDispatchRow = {
   docuId: number;
@@ -20,6 +21,10 @@ type InvoiceDispatchRow = {
   estadoSunat: string;
   codigoSunat: string;
   mensajeSunat: string;
+};
+
+type InvoiceDispatchLocationState = {
+  dispatchFilters?: { fechaInicio: string; fechaFin: string };
 };
 
 const columnHelper = createColumnHelper<InvoiceDispatchRow>();
@@ -93,15 +98,23 @@ const estadoBadgeClass = (value: string) => {
 };
 
 export default function InvoiceDispatchPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((state) => state.user);
   const todayIso = useMemo(() => toLocalIsoDate(new Date()), []);
   const firstDayOfMonthIso = useMemo(
     () => `${todayIso.slice(0, 8)}01`,
     [todayIso],
   );
-  const [fechaInicio, setFechaInicio] = useState(firstDayOfMonthIso);
-  const [fechaFin, setFechaFin] = useState(todayIso);
-  const [estadoSunat, setEstadoSunat] = useState("");
+  const dispatchFilters = (location.state as InvoiceDispatchLocationState | null)
+    ?.dispatchFilters;
+  const [fechaInicio, setFechaInicio] = useState(
+    dispatchFilters?.fechaInicio || firstDayOfMonthIso,
+  );
+  const [fechaFin, setFechaFin] = useState(
+    dispatchFilters?.fechaFin || todayIso,
+  );
+  const estadoSunat = "PENDIENTE";
   const [rows, setRows] = useState<InvoiceDispatchRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -127,13 +140,13 @@ export default function InvoiceDispatchPage() {
             fechaInicio: start,
             fechaFin: end,
             soloServicio: "false",
+            pendientesOse: "true",
             page: String(page),
             pageSize: String(PAGE_SIZE),
           });
           const companyId = safeNumber(user?.companyId);
-          const sunatState = safeText(estadoSunat);
           if (companyId > 0) query.set("companiaId", String(companyId));
-          if (sunatState) query.set("estadoSunat", sunatState);
+          query.set("estadoSunat", estadoSunat);
 
           const response = await apiRequest<unknown>({
             url: buildApiUrl(`/Nota/facturas-servicio?${query.toString()}`),
@@ -158,7 +171,7 @@ export default function InvoiceDispatchPage() {
         setLoading(false);
       }
     },
-    [estadoSunat, fechaFin, fechaInicio, user?.companyId],
+    [fechaFin, fechaInicio, user?.companyId],
   );
 
   useEffect(() => {
@@ -181,24 +194,35 @@ export default function InvoiceDispatchPage() {
   const columns = useMemo(
     () => [
       columnHelper.display({
-        id: "abrir",
-        header: "",
-        cell: ({ row }) =>
-          row.original.notaId ? (
-            <Link
-              to={`/sales/order_notes/${row.original.notaId}/view`}
-              title="Abrir venta"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              aria-label="Abrir venta"
+        id: "ver",
+        header: "Ver",
+        cell: ({ row }) => {
+          const noteId = row.original.notaId;
+          return noteId ? (
+            <button
+              type="button"
+              className="text-sm font-medium text-blue-600 hover:underline"
+              onClick={() => {
+                navigate(`/sales/html_capture/${noteId}`, {
+                  state: {
+                    invoiceDispatch: {
+                      docuId: row.original.docuId,
+                      estadoSunat: row.original.estadoSunat,
+                      filters: { fechaInicio, fechaFin },
+                    },
+                  },
+                });
+              }}
             >
-              <Eye className="h-4 w-4" />
-            </Link>
+              Ver
+            </button>
           ) : (
             <span className="text-slate-400">-</span>
-          ),
+          );
+        },
       }),
       columnHelper.accessor("comprobante", {
-        header: "Factura",
+        header: "Comprobante",
         cell: (info) => info.getValue(),
       }),
       columnHelper.accessor("fechaEmision", {
@@ -246,11 +270,15 @@ export default function InvoiceDispatchPage() {
         ),
       }),
     ],
-    [],
+    [fechaFin, fechaInicio, navigate],
   );
 
   return (
     <div className="space-y-4 p-3 sm:p-4">
+      <BlockingSpinner
+        show={loading}
+        text="Cargando documentos pendientes de envío..."
+      />
       <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 xl:w-auto">
@@ -272,6 +300,7 @@ export default function InvoiceDispatchPage() {
                 onChange={(event) => setFechaFin(event.target.value)}
               />
             </label>
+            {/*
             <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
               SUNAT
               <select
@@ -285,6 +314,7 @@ export default function InvoiceDispatchPage() {
                 <option value="ENVIADO">Enviado</option>
               </select>
             </label>
+            */}
             <button
               type="button"
               onClick={() => void loadInvoices(true)}
@@ -308,7 +338,7 @@ export default function InvoiceDispatchPage() {
           <div className="grid grid-cols-2 gap-2 sm:w-72">
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
               <p className="text-xs font-semibold uppercase text-slate-500">
-                Facturas
+                Pendientes OSE
               </p>
               <p className="text-lg font-bold text-slate-900">{totals.count}</p>
             </div>
@@ -337,8 +367,8 @@ export default function InvoiceDispatchPage() {
           "codigoSunat",
           "mensajeSunat",
         ]}
-        searchPlaceholder="Buscar factura, cliente o estado..."
-        emptyMessage="No hay facturas."
+        searchPlaceholder="Buscar factura o nota de crédito pendiente..."
+        emptyMessage="No hay facturas ni notas de crédito pendientes de envío a OSE."
         initialPageSize={50}
         tableMaxHeight="68vh"
       />

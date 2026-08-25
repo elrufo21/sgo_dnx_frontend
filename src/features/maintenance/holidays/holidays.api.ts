@@ -58,6 +58,8 @@ const parseDelimitedHolidays = (rawValue: string): Holiday[] => {
       const parts = chunk.split("|");
       const at = (index: number) => String(parts[index] ?? "").trim();
 
+      if (at(0).toUpperCase() === "ERROR") return null;
+
       const id = Number(at(0)) || 0;
       const fecha = formatDateOnly(at(1));
       const motivo = at(2);
@@ -133,6 +135,29 @@ type HolidayConflict =
   | { error: "EXISTE_FECHA" }
   | { error: string };
 
+const parseSaveResponse = (
+  response: HolidayApiResponse | string | null,
+  payload: Omit<Holiday, "id"> & { id?: number },
+): Holiday | HolidayConflict => {
+  const fallback = { ...payload, idFeriado: payload.id ?? 0 };
+  if (response === null) return { error: "No se pudo guardar el feriado." };
+  if (typeof response !== "string") return mapHoliday(response);
+
+  const [status = "", idOrMessage = ""] = response
+    .split("|")
+    .map((value) => value.trim());
+  if (status.toUpperCase() !== "OK") {
+    return { error: idOrMessage || "No se pudo guardar el feriado." };
+  }
+
+  return mapHoliday({
+    ...fallback,
+    idFeriado: Number(idOrMessage) || payload.id || 0,
+    motivo: payload.motivo,
+    fecha: payload.fecha,
+  });
+};
+
 export const saveHolidayApi = async (
   payload: Omit<Holiday, "id"> & { id?: number }
 ): Promise<Holiday | HolidayConflict> => {
@@ -142,7 +167,7 @@ export const saveHolidayApi = async (
     motivo: payload.motivo,
   };
 
-  const response = await apiRequest<HolidayApiResponse | string>({
+  const response = await apiRequest<HolidayApiResponse | string | null>({
     url: `${ENDPOINT}/register`,
     method: "POST",
     data: body,
@@ -152,18 +177,10 @@ export const saveHolidayApi = async (
         "Content-Type": "application/json",
       },
     },
-    fallback: body as HolidayApiResponse,
+    fallback: null,
   });
 
-  if (typeof response === "string") {
-    const upper = response.toUpperCase();
-    if (upper.includes("EXISTE_FECHA") || upper.includes("EXISTE FERIADO")) {
-      return { error: "EXISTE_FERIADO" };
-    }
-    return mapHoliday({ ...body, idFeriado: payload.id ?? 0 });
-  }
-
-  return mapHoliday(response ?? { ...body, idFeriado: payload.id ?? 0 });
+  return parseSaveResponse(response, payload);
 };
 
 export const deleteHolidayApi = async (id: number) => {

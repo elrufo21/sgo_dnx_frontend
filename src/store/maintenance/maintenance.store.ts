@@ -21,7 +21,9 @@ import {
 } from "@/features/maintenance/areas/areas.api";
 import {
   computersQueryKey,
+  deleteComputerApi,
   fetchComputersApi,
+  saveComputerApi,
 } from "@/features/maintenance/computers/computers.api";
 import {
   providersQueryKey,
@@ -60,6 +62,11 @@ const isDuplicateHoliday = (result: unknown) => {
     normalized.includes("existe_fecha")
   );
 };
+
+const getHolidayError = (result: unknown) =>
+  typeof result === "object" && result && "error" in result
+    ? String((result as { error?: unknown }).error ?? "")
+    : "";
 
 const isDuplicateCategoryResponse = (result: unknown) =>
   typeof result === "string" && result.toLowerCase().includes("existe");
@@ -158,8 +165,8 @@ interface MaintenanceState {
   updateArea: (id: number, data: Partial<Area>) => Promise<boolean>;
   deleteArea: (id: number) => Promise<boolean>;
 
-  addComputer: (data: Omit<Computer, "id">) => Promise<void>;
-  updateComputer: (id: number, data: Partial<Computer>) => Promise<void>;
+  addComputer: (data: Omit<Computer, "id">) => Promise<boolean>;
+  updateComputer: (id: number, data: Partial<Computer>) => Promise<boolean>;
   deleteComputer: (id: number) => Promise<boolean>;
 
   addProvider: (
@@ -615,162 +622,43 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
     },
 
     addComputer: async (data) => {
-      const payload = {
-        idMaquina: 0,
-        nombreMaquina: data.maquina,
-        registro: data.registro,
-        serieFactura: data.serieFactura,
-        serieNC: data.serieNc,
-        serieBoleta: data.serieBoleta,
-        tiketera: data.ticketera,
-      };
-
-      const created = await apiRequest<{
-        idMaquina?: number;
-        nombreMaquina?: string;
-        registro?: string;
-        serieFactura?: string;
-        serieNC?: string;
-        serieBoleta?: string;
-        tiketera?: string;
-      }>({
-        url: `${API_BASE_URL}/Maquina/registermaquina`,
-        method: "POST",
-        data: payload,
-        config: {
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-        },
-        fallback: { ...data, id: Date.now() },
-      });
-
-      if (
-        typeof created === "string" &&
-        created.toLowerCase().includes("existe")
-      ) {
-        toast.error("Ya existe esta maquina registrada");
+      const created = await saveComputerApi(data);
+      if ("error" in created) {
+        toast.error(created.error);
         return false;
       }
 
-      if (
-        created &&
-        typeof created === "object" &&
-        ("idMaquina" in created || "id" in created)
-      ) {
-        set((state) => ({
-          computers: [
-            ...state.computers,
-            {
-              id: (created as any).id ?? (created as any).idMaquina,
-              maquina: (created as any).nombreMaquina ?? data.maquina,
-              registro: (created as any).registro ?? data.registro,
-              serieFactura: (created as any).serieFactura ?? data.serieFactura,
-              serieNc: (created as any).serieNC ?? data.serieNc,
-              serieBoleta: (created as any).serieBoleta ?? data.serieBoleta,
-              ticketera: (created as any).tiketera ?? data.ticketera,
-              areaId: data.areaId ?? 0,
-            },
-          ],
-        }));
-      } else {
-        set((state) => ({
-          computers: [...state.computers, { ...data, id: Date.now() }],
-        }));
-      }
+      set((state) => ({ computers: [...state.computers, created] }));
 
       await queryClient.invalidateQueries({ queryKey: computersQueryKey });
       return true;
     },
     updateComputer: async (id, data) => {
-      const payload = {
-        idMaquina: id,
-        nombreMaquina: data.maquina ?? "",
-        registro: data.registro ?? "",
-        serieFactura: data.serieFactura ?? "",
-        serieNC: data.serieNc ?? "",
-        serieBoleta: data.serieBoleta ?? "",
-        tiketera: data.ticketera ?? "",
-      };
-
-      const updated = await apiRequest<{
-        idMaquina?: number;
-        nombreMaquina?: string;
-        registro?: string;
-        serieFactura?: string;
-        serieNC?: string;
-        serieBoleta?: string;
-        tiketera?: string;
-      }>({
-        url: `${API_BASE_URL}/Maquina/registermaquina`,
-        method: "POST",
-        data: payload,
-        config: {
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-        },
-        fallback: { ...data, id },
+      const current = get().computers.find((computer) => computer.id === id);
+      const updated = await saveComputerApi({
+        id,
+        maquina: data.maquina ?? current?.maquina ?? "",
+        registro: data.registro ?? current?.registro ?? "",
+        serieFactura: data.serieFactura ?? current?.serieFactura ?? "",
+        serieNc: data.serieNc ?? current?.serieNc ?? "",
+        serieBoleta: data.serieBoleta ?? current?.serieBoleta ?? "",
+        ticketera: data.ticketera ?? current?.ticketera ?? "",
+        areaId: data.areaId ?? current?.areaId ?? 0,
       });
-
-      if (
-        typeof updated === "string" &&
-        updated.toLowerCase().includes("existe")
-      ) {
-        toast.error("Ya existe un registro con ese nombre");
+      if ("error" in updated) {
+        toast.error(updated.error);
         return false;
       }
 
       set((state) => ({
-        computers: state.computers.map((c) => {
-          if (c.id !== id) return c;
-          if (
-            updated &&
-            typeof updated === "object" &&
-            ("idMaquina" in (updated as any) || "id" in (updated as any))
-          ) {
-            return {
-              id: (updated as any).id ?? (updated as any).idMaquina ?? id,
-              maquina:
-                (updated as any).nombreMaquina ?? data.maquina ?? c.maquina,
-              registro:
-                (updated as any).registro ?? data.registro ?? c.registro,
-              serieFactura:
-                (updated as any).serieFactura ??
-                data.serieFactura ??
-                c.serieFactura,
-              serieNc: (updated as any).serieNC ?? data.serieNc ?? c.serieNc,
-              serieBoleta:
-                (updated as any).serieBoleta ??
-                data.serieBoleta ??
-                c.serieBoleta,
-              ticketera:
-                (updated as any).tiketera ?? data.ticketera ?? c.ticketera,
-              areaId: c.areaId,
-            };
-          }
-          return { ...c, ...data };
-        }),
+        computers: state.computers.map((computer) => computer.id === id ? updated : computer),
       }));
 
       await queryClient.invalidateQueries({ queryKey: computersQueryKey });
       return true;
     },
     deleteComputer: async (id) => {
-      const result = await apiRequest({
-        url: `${API_BASE_URL}/Maquina/${id}`,
-        method: "DELETE",
-        config: {
-          headers: {
-            Accept: "*/*",
-          },
-        },
-        fallback: null,
-      });
-
-      if (!result) {
+      if (!await deleteComputerApi(id)) {
         return false;
       }
 
@@ -1052,6 +940,10 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         toast.error("Esa fecha ya está registrada");
         return false;
       }
+      if (getHolidayError(created)) {
+        toast.error(getHolidayError(created));
+        return false;
+      }
 
       set((state) => ({
         holidays: [
@@ -1073,6 +965,10 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
       if (isDuplicateHoliday(updated)) {
         toast.error("Esa fecha ya está registrada");
+        return false;
+      }
+      if (getHolidayError(updated)) {
+        toast.error(getHolidayError(updated));
         return false;
       }
 

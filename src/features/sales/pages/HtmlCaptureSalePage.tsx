@@ -2,6 +2,7 @@ import { pdf } from "@react-pdf/renderer";
 import {
   ArrowLeft,
   CheckCircle2,
+  Eye,
   FileDown,
   FileUp,
   Plus,
@@ -55,6 +56,13 @@ import type { PosCartItem } from "@/types/pos";
 import type { ServiceInvoiceListItem } from "@/types/serviceInvoice";
 
 type CaptureData = ExternalCaptureDraftData;
+type InvoiceDispatchNavigationState = {
+  invoiceDispatch?: {
+    docuId: number;
+    estadoSunat: string;
+    filters: { fechaInicio: string; fechaFin: string };
+  };
+};
 type SaleRow = {
   product: Product;
   code: string;
@@ -146,6 +154,16 @@ type PagoVariosHistoryResponse = {
   ok?: boolean;
   items?: PagoVariosHistoryItem[];
 };
+type PagoVariosDetailItem = PagoVariosItem & {
+  efectivo: number;
+  deposito: number;
+};
+type PagoVariosDetailResponse = {
+  ok?: boolean;
+  mensaje?: string;
+  pago?: PagoVariosHistoryItem;
+  items?: PagoVariosDetailItem[];
+};
 type PagoVariosTab = "PENDIENTES" | "REALIZADOS";
 type PagoVariosDeleteKeyForm = { clave: string };
 type ManualSaleType = "VENTA LIBRE" | "POR PASAR AL OBS";
@@ -198,6 +216,10 @@ const defaultForm: SaleForm = {
   transactionNumber: "",
 };
 const safeTrim = (value: unknown) => String(value ?? "").trim();
+const pagoVariosPaymentLabel = (formaPago: string, entidad: string) =>
+  safeTrim(entidad) && safeTrim(entidad) !== "-"
+    ? `${formaPago} · ${entidad}`
+    : formaPago;
 const normalizeCode = (value: unknown) => safeTrim(value).toUpperCase();
 const isValidEmail = (value: unknown) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeTrim(value));
@@ -560,6 +582,10 @@ export default function HtmlCaptureSalePage() {
   const routeNoteId = Number(id ?? 0);
   const isExistingRoute =
     !isNewRoute && Number.isFinite(routeNoteId) && routeNoteId > 0;
+  const invoiceDispatch = (
+    location.state as InvoiceDispatchNavigationState | null
+  )?.invoiceDispatch;
+  const isFromInvoiceDispatch = Boolean(invoiceDispatch && isExistingRoute);
   const { viewedOrderNoteId, setViewedOrderNoteId } = useOrderNoteStore();
   const isFromOrderNotesView =
     isExistingRoute && viewedOrderNoteId === routeNoteId;
@@ -597,6 +623,8 @@ export default function HtmlCaptureSalePage() {
   const [monthlyPvs, setMonthlyPvs] = useState(0);
   const [correlative, setCorrelative] = useState<Correlative>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResendingOse, setIsResendingOse] = useState(false);
+  const [hasReenviadoOse, setHasReenviadoOse] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
   const [viewSunatStatus, setViewSunatStatus] = useState<ViewSunatStatus>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -617,6 +645,13 @@ export default function HtmlCaptureSalePage() {
   const [pagoVariosHistory, setPagoVariosHistory] = useState<
     PagoVariosHistoryItem[]
   >([]);
+  const [pagoVariosDetail, setPagoVariosDetail] =
+    useState<PagoVariosHistoryItem | null>(null);
+  const [pagoVariosDetailItems, setPagoVariosDetailItems] = useState<
+    PagoVariosDetailItem[]
+  >([]);
+  const [isPagoVariosDetailLoading, setIsPagoVariosDetailLoading] =
+    useState(false);
   const [pagoVariosHistoryStart, setPagoVariosHistoryStart] = useState(() =>
     getLocalDateISO(),
   );
@@ -718,6 +753,7 @@ export default function HtmlCaptureSalePage() {
   }, [navigate, resetDraft, setViewedOrderNoteId]);
 
   useEffect(() => {
+    setHasReenviadoOse(false);
     if (!isExistingRoute) {
       setLoadedRecordId(null);
       setViewedOrderNoteId(null);
@@ -1074,10 +1110,41 @@ export default function HtmlCaptureSalePage() {
   const selectPagoVariosTab = useCallback(
     (tab: PagoVariosTab) => {
       setPagoVariosTab(tab);
+      setPagoVariosDetail(null);
+      setPagoVariosDetailItems([]);
       if (tab === "REALIZADOS") void fetchPagoVariosHistory();
     },
     [fetchPagoVariosHistory],
   );
+
+  const viewPagoVarios = useCallback(async (item: PagoVariosHistoryItem) => {
+    setPagoVariosTab("PENDIENTES");
+    setPagoVariosDetail(item);
+    setPagoVariosDetailItems([]);
+    setIsPagoVariosDetailLoading(true);
+    try {
+      const response = (await apiRequest<PagoVariosDetailResponse>({
+        url: buildApiUrl(`/Nota/pago-varios/${item.pagoId}`),
+        method: "GET",
+        fallback: { ok: false, items: [] },
+      })) as PagoVariosDetailResponse;
+      if (!response?.ok || !response.pago) {
+        setPagoVariosDetail(null);
+        toast.error(response?.mensaje || "No se pudo cargar el detalle del pago.");
+        return;
+      }
+      setPagoVariosDetail(response.pago);
+      setPagoVariosDetailItems(
+        Array.isArray(response.items) ? response.items : [],
+      );
+    } catch (error) {
+      console.error("No se pudo cargar el detalle de Pago Varios", error);
+      setPagoVariosDetail(null);
+      toast.error("No se pudo cargar el detalle del pago.");
+    } finally {
+      setIsPagoVariosDetailLoading(false);
+    }
+  }, []);
 
   const deletePagoVarios = useCallback(
     async (item: PagoVariosHistoryItem, clave: string) => {
@@ -1120,11 +1187,17 @@ export default function HtmlCaptureSalePage() {
         title: "Eliminar pago realizado",
         content: <PagoVariosDeleteDialogContent />,
         confirmText: "Eliminar",
-        onConfirm: (data) =>
-          deletePagoVarios(
+        onConfirm: async (data) => {
+          const deleted = await deletePagoVarios(
             item,
             safeTrim((data as { clave?: string } | null)?.clave),
-          ),
+          );
+          if (deleted) {
+            setPagoVariosDetail(null);
+            setPagoVariosDetailItems([]);
+          }
+          return deleted;
+        },
       }),
     [deletePagoVarios, openDialog],
   );
@@ -2710,6 +2783,53 @@ export default function HtmlCaptureSalePage() {
       ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
     );
 
+  const returnToInvoiceDispatch = () => {
+    navigate("/accounting/invoice-dispatch", {
+      replace: true,
+      state: {
+        dispatchFilters: invoiceDispatch?.filters,
+      },
+    });
+  };
+
+  const resendPendingDocument = async () => {
+    const docuId = Number(invoiceDispatch?.docuId ?? 0);
+    if (docuId <= 0 || isResendingOse) return;
+
+    setIsResendingOse(true);
+    try {
+      const response = await apiRequest<Record<string, unknown>, unknown, null>({
+        url: buildApiUrl(`/Nota/documentos/${docuId}/reenviar-ose`),
+        method: "POST",
+        fallback: null,
+      });
+      const result = asRecord(response);
+      if (!result || result.ok !== true || result.aceptado !== true) {
+        toast.error(
+          safeTrim(
+            result?.msj_sunat ?? result?.mensaje ?? result?.message,
+          ) ||
+            "No se pudo reenviar el documento a OSE.",
+        );
+        return;
+      }
+
+      setViewSunatStatus((current) =>
+        current ? { ...current, estadoSunat: "ENVIADO" } : current,
+      );
+      setHasReenviadoOse(true);
+      toast.success(
+        safeTrim(result.mensaje ?? result.message) ||
+          "Documento reenviado a OSE.",
+      );
+    } catch (error) {
+      console.error("No se pudo reenviar documento a OSE", error);
+      toast.error("No se pudo reenviar el documento a OSE.");
+    } finally {
+      setIsResendingOse(false);
+    }
+  };
+
   const downloadTicket = async (documentNumber: string, noteId: number) => {
     if (isTicketOutputBlocked()) {
       toast.error("No se puede descargar un comprobante anulado o rechazado.");
@@ -3325,7 +3445,7 @@ export default function HtmlCaptureSalePage() {
             </button>
           ))}
         </div>
-        {pagoVariosConceptos.length > 1 ? (
+        {!pagoVariosDetail && pagoVariosConceptos.length > 1 ? (
           <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
             Para pagar varios, seleccione documentos con el mismo Concepto OBS.
           </div>
@@ -3335,7 +3455,7 @@ export default function HtmlCaptureSalePage() {
           className={`grid min-h-0 flex-1 ${pagoVariosTab === "PENDIENTES" ? "lg:grid-cols-[minmax(0,1fr)_350px]" : ""}`}
         >
           <div className="min-h-0 overflow-auto">
-            {pagoVariosTab === "PENDIENTES" ? (
+            {pagoVariosTab === "PENDIENTES" && !pagoVariosDetail ? (
               <>
                 <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3">
                   <label className="inline-flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
@@ -3450,6 +3570,66 @@ export default function HtmlCaptureSalePage() {
               </>
             ) : (
               <>
+                {pagoVariosDetail ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPagoVariosDetail(null);
+                          setPagoVariosDetailItems([]);
+                          setPagoVariosTab("REALIZADOS");
+                        }}
+                        className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Volver a pagos realizados
+                      </button>
+                      <span className="text-sm font-bold text-slate-800">
+                        Detalle del pago
+                      </span>
+                    </div>
+                    <div className="border-b border-slate-100 px-5 py-3 text-sm">
+                      <p className="text-xs text-slate-400">Fecha</p>
+                      <p className="font-semibold text-slate-700">
+                        {pagoVariosDetail.fechaEmision}
+                      </p>
+                    </div>
+                    <table className="w-full min-w-[900px] border-collapse text-sm">
+                      <thead className="bg-white text-xs uppercase text-slate-400">
+                        <tr>
+                          <th className="border-b border-slate-100 px-5 py-3 text-left">Documento</th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">Código</th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">Cliente</th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">Concepto OBS</th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">Efectivo</th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">Depósito</th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {isPagoVariosDetailLoading ? (
+                          <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-400">Cargando detalle...</td></tr>
+                        ) : pagoVariosDetailItems.length === 0 ? (
+                          <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-400">No hay documentos en este pago.</td></tr>
+                        ) : (
+                          pagoVariosDetailItems.map((item) => (
+                            <tr key={`${item.docuId}-${item.notaId}`} className="border-b border-slate-50 last:border-0">
+                              <td className="px-5 py-3 font-semibold text-slate-700">{item.documento || "-"}</td>
+                              <td className="px-3 py-3 text-slate-500">{item.codigo || "-"}</td>
+                              <td className="px-3 py-3 text-slate-600">{item.razonSocial || "-"}</td>
+                              <td className="px-3 py-3 text-slate-500">{item.conceptoOBS || "-"}</td>
+                              <td className="px-5 py-3 text-right text-slate-700">{money(item.efectivo)}</td>
+                              <td className="px-5 py-3 text-right text-slate-700">{money(item.deposito)}</td>
+                              <td className="px-5 py-3 text-right font-black text-slate-800">{money(item.monto)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </>
+                ) : (
+                  <>
                 <div className="flex flex-wrap items-end gap-2 border-b border-slate-100 px-5 py-3">
                   <label className="flex flex-col gap-1 text-xs text-slate-600">
                     Fecha inicio
@@ -3549,7 +3729,7 @@ export default function HtmlCaptureSalePage() {
                             {item.descripcion}
                           </td>
                           <td className="px-3 py-3 text-slate-500">
-                            {item.formaPago} · {item.entidad}
+                            {pagoVariosPaymentLabel(item.formaPago, item.entidad)}
                           </td>
                           <td className="px-3 py-3 text-slate-500">
                             {item.nroOperacion || "-"}
@@ -3569,13 +3749,14 @@ export default function HtmlCaptureSalePage() {
                           <td className="px-3 py-3 text-right">
                             <button
                               type="button"
-                              onClick={() => confirmDeletePagoVarios(item)}
+                              onClick={() => void viewPagoVarios(item)}
                               disabled={isPagoVariosHistoryLoading}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
-                              title="Eliminar pago"
-                              aria-label="Eliminar pago"
+                              className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-blue-600 hover:underline disabled:opacity-50"
+                              title="Ver detalle del pago"
+                              aria-label="Ver detalle del pago"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
+                              Ver
                             </button>
                           </td>
                         </tr>
@@ -3583,6 +3764,8 @@ export default function HtmlCaptureSalePage() {
                     )}
                   </tbody>
                 </table>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -3591,14 +3774,17 @@ export default function HtmlCaptureSalePage() {
             <aside className="flex min-h-0 flex-col gap-4 border-t border-slate-100 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
               <div className="rounded-md border border-red-100 bg-white p-4">
                 <p className="text-[11px] font-black uppercase text-red-600">
-                  Total a pagar
+                  {pagoVariosDetail ? "Total del pago" : "Total a pagar"}
                 </p>
                 <p className="mt-1 text-3xl font-black text-slate-900">
-                  S/ {money(pagoVariosTotal)}
+                  S/ {money(pagoVariosDetail?.total ?? pagoVariosTotal)}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  {integer(selectedPagoVariosItems.length)} documentos
-                  seleccionados
+                  {integer(
+                    pagoVariosDetail
+                      ? pagoVariosDetailItems.length
+                      : selectedPagoVariosItems.length,
+                  )} documentos {pagoVariosDetail ? "del pago" : "seleccionados"}
                 </p>
               </div>
 
@@ -3607,10 +3793,11 @@ export default function HtmlCaptureSalePage() {
                 <select
                   data-pago-varios-forma="true"
                   className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
-                  value={pagoVariosFormaPago}
+                  value={pagoVariosDetail?.formaPago ?? pagoVariosFormaPago}
                   onChange={(event) =>
                     setPagoVariosFormaPago(event.target.value)
                   }
+                  disabled={Boolean(pagoVariosDetail)}
                 >
                   {PAYMENT_METHOD_OPTIONS.map((item) => (
                     <option key={item}>{item}</option>
@@ -3629,8 +3816,10 @@ export default function HtmlCaptureSalePage() {
                     step="0.01"
                     className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
                     value={
-                      isPagoVariosMixed
-                        ? pagoVariosDeposito
+                      pagoVariosDetail
+                        ? String(pagoVariosDetail.deposito)
+                        : isPagoVariosMixed
+                          ? pagoVariosDeposito
                         : pagoVariosDepositoFinal > 0
                           ? String(Number(pagoVariosDepositoFinal.toFixed(2)))
                           : ""
@@ -3638,7 +3827,7 @@ export default function HtmlCaptureSalePage() {
                     onChange={(event) =>
                       setPagoVariosDeposito(event.target.value)
                     }
-                    disabled={!isPagoVariosMixed}
+                    disabled={Boolean(pagoVariosDetail) || !isPagoVariosMixed}
                   />
                 </label>
                 <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
@@ -3650,7 +3839,9 @@ export default function HtmlCaptureSalePage() {
                     step="0.01"
                     className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none disabled:bg-slate-100"
                     value={
-                      pagoVariosEfectivoFinal > 0
+                      pagoVariosDetail
+                        ? String(pagoVariosDetail.efectivo)
+                        : pagoVariosEfectivoFinal > 0
                         ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
                         : ""
                     }
@@ -3664,12 +3855,12 @@ export default function HtmlCaptureSalePage() {
                 <select
                   data-pago-varios-entidad="true"
                   className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                  value={pagoVariosEntidadFinal}
+                  value={pagoVariosDetail?.entidad ?? pagoVariosEntidadFinal}
                   onChange={(event) => {
                     setPagoVariosEntidad(event.target.value);
                     focusPagoVariosField("operacion");
                   }}
-                  disabled={!pagoVariosEntidadEditable}
+                  disabled={Boolean(pagoVariosDetail) || !pagoVariosEntidadEditable}
                 >
                   {BANK_OPTIONS.map((item) => (
                     <option key={item}>{item}</option>
@@ -3682,7 +3873,13 @@ export default function HtmlCaptureSalePage() {
                 <input
                   data-pago-varios-operacion="true"
                   className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                  value={pagoVariosRequiereOperacion ? pagoVariosOperacion : ""}
+                  value={
+                    pagoVariosDetail
+                      ? pagoVariosDetail.nroOperacion || ""
+                      : pagoVariosRequiereOperacion
+                        ? pagoVariosOperacion
+                        : ""
+                  }
                   onChange={(event) =>
                     setPagoVariosOperacion(event.target.value)
                   }
@@ -3692,7 +3889,7 @@ export default function HtmlCaptureSalePage() {
                     event.preventDefault();
                     focusPagoVariosField("descripcion");
                   }}
-                  disabled={!pagoVariosRequiereOperacion}
+                  disabled={Boolean(pagoVariosDetail) || !pagoVariosRequiereOperacion}
                 />
               </label>
 
@@ -3702,27 +3899,60 @@ export default function HtmlCaptureSalePage() {
                   data-pago-varios-descripcion="true"
                   ref={pagoVariosDescripcionRef}
                   className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
-                  value={pagoVariosDescripcion}
+                  value={pagoVariosDetail?.descripcion ?? pagoVariosDescripcion}
                   onFocus={(event) => event.currentTarget.select()}
                   onChange={(event) =>
                     setPagoVariosDescripcion(event.target.value)
                   }
+                  disabled={Boolean(pagoVariosDetail)}
                 />
               </label>
 
               <button
                 type="button"
-                className="mt-auto inline-flex h-11 items-center justify-center rounded-md bg-red-700 px-4 text-sm font-black uppercase text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={registerPagoVarios}
+                className="mt-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-red-700 px-4 text-sm font-black uppercase text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => {
+                  if (pagoVariosDetail) {
+                    confirmDeletePagoVarios(pagoVariosDetail);
+                    return;
+                  }
+                  void registerPagoVarios();
+                }}
                 disabled={
-                  isPagoVariosSaving ||
-                  isPagoVariosLoading ||
-                  !selectedPagoVariosItems.length ||
-                  pagoVariosConceptos.length !== 1
+                  pagoVariosDetail
+                    ? isPagoVariosDetailLoading
+                    : isPagoVariosSaving ||
+                      isPagoVariosLoading ||
+                      !selectedPagoVariosItems.length ||
+                      pagoVariosConceptos.length !== 1
                 }
               >
-                {isPagoVariosSaving ? "Guardando..." : "Pagar seleccionados"}
+                {pagoVariosDetail ? (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar pago
+                  </>
+                ) : isPagoVariosSaving ? "Guardando..." : "Pagar seleccionados"}
               </button>
+              {pagoVariosDetail ? (
+                <button
+                  type="button"
+                  className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-black uppercase text-slate-700 transition-colors hover:bg-slate-100"
+                  onClick={() => {
+                    setPagoVariosDetail(null);
+                    setPagoVariosDetailItems([]);
+                    setPagoVariosSelectedIds([]);
+                    setPagoVariosFormaPago("(SELECCIONE)");
+                    setPagoVariosEntidad("-");
+                    setPagoVariosOperacion("");
+                    setPagoVariosDeposito("");
+                    setPagoVariosDescripcion("");
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Nuevo
+                </button>
+              ) : null}
             </aside>
           ) : null}
         </div>
@@ -3742,6 +3972,12 @@ export default function HtmlCaptureSalePage() {
       (value) => safeTrim(value).toUpperCase() === "ANULADO",
     );
   const isBlockedViewedNote = isRejectedInvoiceView || isAnnulledViewedNote;
+  const isPendingInvoiceDispatch =
+    isFromInvoiceDispatch &&
+    !hasReenviadoOse &&
+    [viewSunatStatus?.estadoSunat, invoiceDispatch?.estadoSunat].some(
+      (estado) => safeTrim(estado).toUpperCase() === "PENDIENTE",
+    );
   const canVoidViewedNote =
     isFromOrderNotesView &&
     ["01", "03"].includes(form.docTypeCode) &&
@@ -3754,16 +3990,40 @@ export default function HtmlCaptureSalePage() {
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
       <BlockingSpinner
-        show={isLoadingRecord || isApplyingCapture}
+        show={isLoadingRecord || isApplyingCapture || isResendingOse}
         text={
-          isLoadingRecord
+          isResendingOse
+            ? "Reenviando documento a OSE..."
+            : isLoadingRecord
             ? "Cargando registro..."
             : "Cargando datos de la extensión..."
         }
       />
       {PagoVariosModal}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        {isFromOrderNotesView ? (
+        {isFromInvoiceDispatch ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50"
+              onClick={returnToInvoiceDispatch}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Volver
+            </button>
+            {isPendingInvoiceDispatch ? (
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-700 px-3 text-sm font-medium text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => void resendPendingDocument()}
+                disabled={isLoadingRecord || isResendingOse}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reenviar
+              </button>
+            ) : null}
+          </div>
+        ) : isFromOrderNotesView ? (
           <button
             type="button"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50"

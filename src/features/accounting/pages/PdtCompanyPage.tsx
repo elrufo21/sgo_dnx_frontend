@@ -1478,15 +1478,6 @@ export default function PdtCompanyPage() {
               </div>
             </div>
           }
-          toolbarAction={
-            <button
-              type="button"
-              onClick={clearSalesFilters}
-              className="hidden h-9 shrink-0 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 md:inline-flex md:items-center"
-            >
-              Limpiar filtros
-            </button>
-          }
           footerContent={
             <div className="flex w-full flex-col gap-2 text-sm font-semibold lg:flex-row lg:items-center lg:justify-between">
               <div className="text-slate-700">Items: {salesTotals.count}</div>
@@ -1553,15 +1544,6 @@ export default function PdtCompanyPage() {
                 </button>
               </div>
             </div>
-          }
-          toolbarAction={
-            <button
-              type="button"
-              onClick={clearPurchaseFilters}
-              className="hidden h-9 shrink-0 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 md:inline-flex md:items-center"
-            >
-              Limpiar filtros
-            </button>
           }
           footerContent={
             <div className="flex w-full flex-col gap-2 text-sm font-semibold lg:flex-row lg:items-center lg:justify-between">

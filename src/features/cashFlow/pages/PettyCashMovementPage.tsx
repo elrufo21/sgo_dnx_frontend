@@ -523,7 +523,7 @@ export default function PettyCashMovementPage() {
 
                         <td className="px-3 py-2 text-xs text-slate-600">
                           {[item.formaPago, item.entidad, item.nroOperacion]
-                            .filter(Boolean)
+                            .filter((value) => value && value !== "-")
                             .join(" · ") || "-"}
                         </td>
 

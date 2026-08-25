@@ -379,7 +379,7 @@ export default function CashFlowForm({
     0,
   );
   const efectivoCaja = isViewing
-    ? efectivoParaIngreso
+    ? totalIngresos
     : totalIngresos - totalGastos;
   const ventasBO_FA =
     (formData.ventaTotal.efectivo ?? 0) +
