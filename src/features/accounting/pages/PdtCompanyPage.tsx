@@ -1031,7 +1031,7 @@ export default function PdtCompanyPage() {
         worksheet.columns = [
           { header: "Fecha", key: "fecha", width: 13 },
           { header: "Documento", key: "documento", width: 20 },
-          { header: "NroDoc", key: "nroDoc", width: 18 },
+          { header: "NroDoc", key: "nroDoc", width: 48 },
           { header: "Cliente", key: "cliente", width: 42 },
           { header: "RUC", key: "ruc", width: 14 },
           { header: "DNI", key: "dni", width: 14 },
@@ -1040,7 +1040,6 @@ export default function PdtCompanyPage() {
           { header: "Total", key: "total", width: 14 },
           { header: "Usuario", key: "usuario", width: 16 },
           { header: "Estado", key: "estado", width: 14 },
-          { header: "Referencia", key: "referencia", width: 18 },
           { header: "Codigo", key: "codigo", width: 10 },
           { header: "Mensaje", key: "mensaje", width: 35 },
           { header: "Condicion", key: "condicion", width: 14 },
@@ -1128,7 +1127,6 @@ export default function PdtCompanyPage() {
           { header: "Total", key: "total", width: 14 },
           { header: "Moneda", key: "moneda", width: 10 },
           { header: "Estado", key: "estado", width: 22 },
-          { header: "Referencia", key: "referencia", width: 28 },
         ];
         ["subTotal", "igv", "total"].forEach((columnKey) => {
           worksheet.getColumn(columnKey).numFmt = EXCEL_AMOUNT_NUMFMT;
@@ -1214,6 +1212,9 @@ export default function PdtCompanyPage() {
       }),
       salesColumnHelper.accessor("nroDoc", {
         header: "NroDoc",
+        meta: {
+          tdClassName: "w-[160px]",
+        },
         cell: (info) => info.getValue() || "-",
       }),
       salesColumnHelper.accessor("cliente", {
@@ -1245,6 +1246,9 @@ export default function PdtCompanyPage() {
       }),
       salesColumnHelper.accessor("usuario", {
         header: "Usuario",
+        meta: {
+          tdClassName: "w-[160px]",
+        },
         cell: (info) => info.getValue() || "-",
       }),
       salesColumnHelper.accessor("estado", {
@@ -1268,10 +1272,6 @@ export default function PdtCompanyPage() {
             </span>
           );
         },
-      }),
-      salesColumnHelper.accessor("referencia", {
-        header: "Referencia",
-        cell: (info) => info.getValue() || "-",
       }),
     ],
     [],
@@ -1451,6 +1451,7 @@ export default function PdtCompanyPage() {
           data={filteredSalesRows}
           isLoading={loading}
           showSearch={false}
+          tableMaxHeight="52vh"
           emptyMessage="No hay documentos de ventas para el rango seleccionado."
           renderHeaderFilterCell={renderSalesHeaderFilterCell}
           toolbarLeading={
@@ -1487,7 +1488,9 @@ export default function PdtCompanyPage() {
           }
           footerContent={
             <div className="flex w-full flex-col gap-2 text-sm font-semibold lg:flex-row lg:items-center lg:justify-between">
-              <div className="text-slate-700">Items: {salesTotals.count}</div>
+              <div className="text-slate-700">
+                Items: {formatInteger(salesTotals.count)}
+              </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-slate-700">BaseImp </span>
@@ -1514,6 +1517,7 @@ export default function PdtCompanyPage() {
           data={filteredPurchaseRows}
           isLoading={loading}
           showSearch={false}
+          tableMaxHeight="52vh"
           emptyMessage={
             purchaseUnavailable
               ? "No hay endpoint de compras disponible. Se dejo estructura lista."
@@ -1555,7 +1559,7 @@ export default function PdtCompanyPage() {
           footerContent={
             <div className="flex w-full flex-col gap-2 text-sm font-semibold lg:flex-row lg:items-center lg:justify-between">
               <div className="text-slate-700">
-                Items: {purchaseTotals.count}
+                Items: {formatInteger(purchaseTotals.count)}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">

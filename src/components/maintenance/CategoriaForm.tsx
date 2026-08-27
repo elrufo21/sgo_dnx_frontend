@@ -19,10 +19,9 @@ interface CategoriaFormProps {
 }
 
 const buildDefaults = (data?: Partial<Category>): Category => ({
-  id:
-    Number.isNaN(Number(data?.id ?? data?.idSubLinea))
-      ? 0
-      : Number(data?.id ?? data?.idSubLinea ?? 0),
+  id: Number.isNaN(Number(data?.id ?? data?.idSubLinea))
+    ? 0
+    : Number(data?.id ?? data?.idSubLinea ?? 0),
   idLinea: Number(data?.idLinea ?? 0),
   nombreSublinea: data?.nombreSublinea ?? "",
   codigoSunat: data?.codigoSunat ?? "",
@@ -43,10 +42,7 @@ export default function CategoriaForm({
 
   const isModal = variant === "modal";
 
-  const defaults = useMemo(
-    () => buildDefaults(initialData),
-    [initialData]
-  );
+  const defaults = useMemo(() => buildDefaults(initialData), [initialData]);
 
   const formMethods = useForm<Category>({
     defaultValues: defaults,
@@ -134,7 +130,7 @@ export default function CategoriaForm({
         <div className="flex items-center gap-3">
           <BackArrowButton />
           <h1 className="text-base font-semibold">
-            {mode === "create" ? "Crear SubLinea" : "Editar SubLinea"}
+            {mode === "create" ? "Crear Categoria" : "Editar Categoria"}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -176,11 +172,7 @@ export default function CategoriaForm({
   return (
     <div
       ref={containerRef}
-      className={
-        isModal
-          ? "h-auto"
-          : "h-auto py-8 px-4 sm:px-6 lg:px-8"
-      }
+      className={isModal ? "h-auto" : "h-auto py-8 px-4 sm:px-6 lg:px-8"}
     >
       <div className="max-w-4xl mx-auto">
         <div
@@ -195,20 +187,9 @@ export default function CategoriaForm({
             <div className="p-6 sm:p-8">
               <div className="space-y-4">
                 <HookFormInput<Category>
-                  name="idLinea"
-                  label="Id de línea"
-                  type="number"
-                  placeholder="Ingrese el Id de línea"
-                  rules={{
-                    required: "El Id de línea es obligatorio",
-                    min: { value: 1, message: "El Id de línea debe ser válido" },
-                  }}
-                />
-
-                <HookFormInput<Category>
                   data-focus-first
                   name="nombreSublinea"
-                  label="Nombre de sublinea"
+                  label="Categoria"
                   placeholder="Ingrese nombre"
                   rules={{ required: "El nombre es obligatorio" }}
                 />
@@ -218,12 +199,6 @@ export default function CategoriaForm({
                   label="Codigo SUNAT"
                   placeholder="Ej: 1232"
                 />
-
-                <HookFormInput<Category>
-                  name="vista"
-                  label="Vista"
-                  placeholder="V"
-                />
               </div>
             </div>
           </HookForm>
@@ -232,4 +207,3 @@ export default function CategoriaForm({
     </div>
   );
 }
-

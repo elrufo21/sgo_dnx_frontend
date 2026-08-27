@@ -10,4 +10,4 @@ La pantalla consulta únicamente documentos pendientes de OSE, los presenta en o
 
 ## PDT Empresa
 
-El botón de exportación se muestra como `Excel`; conserva la exportación de la pestaña activa.
+El botón de exportación se muestra como `Excel`; conserva la exportación de la pestaña activa. Los contadores `Items` de ventas y compras usan el separador de miles de la aplicación (por ejemplo, `1,470`). La tabla limita su alto a `52vh` para conservar visibles sus totales sin desplazamiento vertical de la página.

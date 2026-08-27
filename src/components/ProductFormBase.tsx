@@ -1685,7 +1685,7 @@ export default function ProductFormBase({
                         if (!selectedCategory) return;
 
                         openDialog({
-                          title: "Editar sublinea",
+                          title: "Editar categoria",
                           content: (
                             <CategoriaForm
                               variant="modal"
@@ -1749,7 +1749,7 @@ export default function ProductFormBase({
                       type="button"
                       onClick={() =>
                         openDialog({
-                          title: "Registrar sublinea",
+                          title: "Registrar categoria",
                           content: (
                             <CategoriaForm
                               variant="modal"
@@ -1815,7 +1815,7 @@ export default function ProductFormBase({
                         })
                       }
                       className="mt-3 h-10 w-9 shrink-0 inline-flex items-center justify-center rounded-md border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
-                      title="Registrar sublinea"
+                      title="Registrar categoria"
                     >
                       <PlusIcon className="w-4 h-4" />
                     </button>

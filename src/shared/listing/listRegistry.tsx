@@ -55,8 +55,10 @@ const useCategoryListDeps = () => {
 
   const onCreate = useCallback(() => {
     openDialog({
-      title: "Crear sublinea",
-      content: <CategoriaForm variant="modal" mode="create" onSave={() => {}} />,
+      title: "Crear categoria",
+      content: (
+        <CategoriaForm variant="modal" mode="create" onSave={() => {}} />
+      ),
       confirmText: "Crear",
       cancelText: "Cancelar",
       maxWidth: "md",
@@ -66,7 +68,7 @@ const useCategoryListDeps = () => {
         const nombreSublinea = (data.nombreSublinea ?? "").trim().toUpperCase();
         const idLinea = Number(data.idLinea ?? 0);
         if (!idLinea || !nombreSublinea) {
-          toast.error("Id de línea y nombre de sublinea son obligatorios");
+          toast.error("Id de línea y nombre de categoria son obligatorios");
           return false;
         }
         const created = await addMaintenanceCategory({
@@ -79,7 +81,7 @@ const useCategoryListDeps = () => {
           return false;
         }
         await refetch();
-        toast.success("Sublinea creada correctamente");
+        toast.success("Categoria creada correctamente");
         return true;
       },
     });
@@ -88,7 +90,7 @@ const useCategoryListDeps = () => {
   const onEdit = useCallback(
     (row: Category, id: number) => {
       openDialog({
-        title: "Editar sublinea",
+        title: "Editar Categoria",
         content: (
           <CategoriaForm
             variant="modal"
@@ -103,10 +105,12 @@ const useCategoryListDeps = () => {
         fullWidth: true,
         onConfirm: async (rawData) => {
           const data = (rawData ?? {}) as Partial<Category>;
-          const nombreSublinea = (data.nombreSublinea ?? "").trim().toUpperCase();
+          const nombreSublinea = (data.nombreSublinea ?? "")
+            .trim()
+            .toUpperCase();
           const idLinea = Number(data.idLinea ?? row.idLinea ?? 0);
           if (!idLinea || !nombreSublinea) {
-            toast.error("Id de línea y nombre de sublinea son obligatorios");
+            toast.error("Id de línea y nombre de categoria son obligatorios");
             return false;
           }
           const updated = await updateMaintenanceCategory(id, {
@@ -119,12 +123,12 @@ const useCategoryListDeps = () => {
             return false;
           }
           await refetch();
-          toast.success("Sublinea actualizada");
+          toast.success("Categoria actualizada");
           return true;
         },
       });
     },
-    [openDialog, refetch, updateMaintenanceCategory]
+    [openDialog, refetch, updateMaintenanceCategory],
   );
 
   return {
@@ -200,7 +204,7 @@ const useAreaListDeps = () => {
         },
       });
     },
-    [openDialog, refetch, updateArea]
+    [openDialog, refetch, updateArea],
   );
 
   return {
@@ -214,12 +218,8 @@ const useAreaListDeps = () => {
 
 const useProviderListDeps = () => {
   const openDialog = useDialogStore((s) => s.openDialog);
-  const {
-    addProvider,
-    updateProvider,
-    deleteProvider,
-    fetchProviderAccounts,
-  } = useMaintenanceStore();
+  const { addProvider, updateProvider, deleteProvider, fetchProviderAccounts } =
+    useMaintenanceStore();
   const [estado, setEstado] = useState<"ACTIVO" | "INACTIVO">("ACTIVO");
   const { data = [], refetch } = useProvidersQuery(estado);
   const fetchData = useCallback(() => refetch(), [refetch]);
@@ -301,7 +301,7 @@ const useProviderListDeps = () => {
         },
       });
     },
-    [fetchProviderAccounts, openDialog, refetch, updateProvider]
+    [fetchProviderAccounts, openDialog, refetch, updateProvider],
   );
 
   return {
@@ -395,7 +395,7 @@ const useHolidayListDeps = () => {
         },
       });
     },
-    [openDialog, refetch, updateHoliday]
+    [openDialog, refetch, updateHoliday],
   );
 
   return {
@@ -435,7 +435,9 @@ const useUserListDeps = () => {
   const onCreate = useCallback(() => {
     openDialog({
       title: "Crear usuario",
-      content: <UserFormBase variant="modal" mode="create" onSave={() => true} />,
+      content: (
+        <UserFormBase variant="modal" mode="create" onSave={() => true} />
+      ),
       confirmText: "Crear",
       cancelText: "Cancelar",
       maxWidth: "sm",
@@ -472,11 +474,11 @@ const useUserListDeps = () => {
           UsuarioFechaReg: data.UsuarioFechaReg ?? new Date().toISOString(),
           UsuarioEstado: data.UsuarioEstado ?? "ACTIVO",
           UsuarioSerie: data.UsuarioSerie ?? "B001",
-          EnviaBoleta: data.EnviaBoleta ?? 0,
-          EnviarFactura: data.EnviarFactura ?? 0,
-          EnviaNC: data.EnviaNC ?? 0,
-          EnviaND: data.EnviaND ?? 0,
-          Administrador: data.Administrador ?? 0,
+          EnviaBoleta: 1,
+          EnviarFactura: 1,
+          EnviaNC: 1,
+          EnviaND: 1,
+          Administrador: 1,
           UserRuta: data.UserRuta,
           UserRutaOBS: data.UserRutaOBS,
           RutaVentaOBS: data.RutaVentaOBS,
@@ -545,11 +547,11 @@ const useUserListDeps = () => {
             UsuarioFechaReg: data.UsuarioFechaReg ?? row.UsuarioFechaReg,
             UsuarioEstado: data.UsuarioEstado ?? row.UsuarioEstado ?? "ACTIVO",
             UsuarioSerie: data.UsuarioSerie ?? row.UsuarioSerie ?? "B001",
-            EnviaBoleta: data.EnviaBoleta ?? row.EnviaBoleta ?? 0,
-            EnviarFactura: data.EnviarFactura ?? row.EnviarFactura ?? 0,
-            EnviaNC: data.EnviaNC ?? row.EnviaNC ?? 0,
-            EnviaND: data.EnviaND ?? row.EnviaND ?? 0,
-            Administrador: data.Administrador ?? row.Administrador ?? 0,
+            EnviaBoleta: 1,
+            EnviarFactura: 1,
+            EnviaNC: 1,
+            EnviaND: 1,
+            Administrador: 1,
             UserRuta: data.UserRuta ?? row.UserRuta,
             UserRutaOBS: data.UserRutaOBS ?? row.UserRutaOBS,
             RutaVentaOBS: data.RutaVentaOBS ?? row.RutaVentaOBS,
@@ -570,7 +572,7 @@ const useUserListDeps = () => {
         },
       });
     },
-    [openDialog, updateMaintenanceUser, fetchMaintenanceUsers, estado]
+    [openDialog, updateMaintenanceUser, fetchMaintenanceUsers, estado],
   );
 
   return {

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { toast } from "@/shared/ui/toast";
 
 import UserFormBase from "@/components/UserFormBase";
@@ -8,7 +7,6 @@ import type { User } from "@/store/users/users.store";
 
 const UserCreate = () => {
   const { addMaintenanceUser } = useUsersStore();
-  const navigate = useNavigate();
 
   const [form, setForm] = useState<Omit<User, "UsuarioID">>({
     PersonalId: 0,
@@ -17,11 +15,11 @@ const UserCreate = () => {
     UsuarioFechaReg: new Date().toISOString(),
     UsuarioEstado: "ACTIVO",
     UsuarioSerie: "B001",
-    EnviaBoleta: 0,
-    EnviarFactura: 0,
-    EnviaNC: 0,
-    EnviaND: 0,
-    Administrador: 0,
+    EnviaBoleta: 1,
+    EnviarFactura: 1,
+    EnviaNC: 1,
+    EnviaND: 1,
+    Administrador: 1,
   });
 
   const handleSave = async (data: Omit<User, "UsuarioID">) => {
@@ -40,11 +38,11 @@ const UserCreate = () => {
       UsuarioFechaReg: new Date().toISOString(),
       UsuarioEstado: "ACTIVO",
       UsuarioSerie: "B001",
-      EnviaBoleta: 0,
-      EnviarFactura: 0,
-      EnviaNC: 0,
-      EnviaND: 0,
-      Administrador: 0,
+      EnviaBoleta: 1,
+      EnviarFactura: 1,
+      EnviaNC: 1,
+      EnviaND: 1,
+      Administrador: 1,
     });
     return true;
   };
@@ -57,11 +55,11 @@ const UserCreate = () => {
       UsuarioFechaReg: new Date().toISOString(),
       UsuarioEstado: "ACTIVO",
       UsuarioSerie: "B001",
-      EnviaBoleta: 0,
-      EnviarFactura: 0,
-      EnviaNC: 0,
-      EnviaND: 0,
-      Administrador: 0,
+      EnviaBoleta: 1,
+      EnviarFactura: 1,
+      EnviaNC: 1,
+      EnviaND: 1,
+      Administrador: 1,
     });
   };
 

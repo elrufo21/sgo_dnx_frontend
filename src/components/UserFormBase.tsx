@@ -57,11 +57,11 @@ const buildDefaults = (
   ConfirmClave: initialData?.UsuarioClave ?? "",
   UsuarioEstado: mode === "create" ? "ACTIVO" : initialData?.UsuarioEstado ?? "ACTIVO",
   UsuarioSerie: initialData?.UsuarioSerie ?? "B001",
-  EnviaBoleta: initialData?.EnviaBoleta ?? 0,
-  EnviarFactura: initialData?.EnviarFactura ?? 0,
-  EnviaNC: initialData?.EnviaNC ?? 0,
-  EnviaND: initialData?.EnviaND ?? 0,
-  Administrador: initialData?.Administrador ?? 0,
+  EnviaBoleta: 1,
+  EnviarFactura: 1,
+  EnviaNC: 1,
+  EnviaND: 1,
+  Administrador: 1,
   UsuarioFechaReg: initialData?.UsuarioFechaReg ?? new Date().toISOString(),
   UserRuta: initialData?.UserRuta ?? "",
   UserRutaOBS: initialData?.UserRutaOBS ?? "",
@@ -172,11 +172,11 @@ export default function UserFormBase({
         initialData?.UsuarioFechaReg ?? values.UsuarioFechaReg ?? new Date().toISOString(),
       UsuarioEstado: values.UsuarioEstado ?? "ACTIVO",
       UsuarioSerie: values.UsuarioSerie ?? "B001",
-      EnviaBoleta: values.EnviaBoleta ?? 0,
-      EnviarFactura: values.EnviarFactura ?? 0,
-      EnviaNC: values.EnviaNC ?? 0,
-      EnviaND: values.EnviaND ?? 0,
-      Administrador: values.Administrador ?? 0,
+      EnviaBoleta: 1,
+      EnviarFactura: 1,
+      EnviaNC: 1,
+      EnviaND: 1,
+      Administrador: 1,
       UserRuta: values.UserRuta ?? "",
       UserRutaOBS: values.UserRutaOBS ?? "",
       RutaVentaOBS: values.RutaVentaOBS ?? "",
@@ -413,27 +413,6 @@ export default function UserFormBase({
                   />
                 )}
 
-                {fieldsMode === "full" && (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {[
-                      ["EnviaBoleta", "Envia boleta"],
-                      ["EnviarFactura", "Envia factura"],
-                      ["EnviaNC", "Envia nota de crédito"],
-                      ["EnviaND", "Envia nota de débito"],
-                      ["Administrador", "Administrador"],
-                    ].map(([name, label]) => (
-                      <HookFormSelect
-                        key={name}
-                        name={name}
-                        label={label}
-                        options={[
-                          { value: 0, label: "No" },
-                          { value: 1, label: "Sí" },
-                        ]}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </HookForm>

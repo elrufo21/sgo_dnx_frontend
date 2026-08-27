@@ -67,7 +67,7 @@ export default [
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
-        { label: "SubLineas" },
+        { label: "Categorias" },
       ],
     },
   },
@@ -77,8 +77,8 @@ export default [
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
-        { label: "SubLineas", to: "/maintenance/categories" },
-        { label: "Crear sublinea" },
+        { label: "Categorias", to: "/maintenance/categories" },
+        { label: "Crear categoria" },
       ],
     },
   },
@@ -88,8 +88,8 @@ export default [
     handle: {
       breadcrumb: [
         { label: "Mantenimiento", to: "/maintenance" },
-        { label: "SubLineas", to: "/maintenance/categories" },
-        { label: "Editar sublinea" },
+        { label: "Categorias", to: "/maintenance/categories" },
+        { label: "Editar Categoria" },
       ],
     },
   },
