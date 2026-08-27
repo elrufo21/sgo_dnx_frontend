@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Pencil, PlusIcon, Trash2 } from "lucide-react";
 import DataTable from "@/components/DataTable";
-import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { toast } from "@/shared/ui/toast";
@@ -15,12 +14,18 @@ const fallback = (value: unknown) => String(value ?? "").trim() || "-";
 const CustomerList = () => {
   const navigate = useNavigate();
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { clients, loading, fetchClients, deleteClient } = useClientsStore();
+  const {
+    clients,
+    allClientsLoaded,
+    loading,
+    fetchClients,
+    deleteClient,
+  } = useClientsStore();
   const [estado, setEstado] = useState<"ACTIVO" | "INACTIVO">("ACTIVO");
 
   useEffect(() => {
-    void fetchClients("");
-  }, [fetchClients]);
+    if (!allClientsLoaded) void fetchClients("");
+  }, [allClientsLoaded, fetchClients]);
 
   const filteredClients = useMemo(() => {
     return [...clients]
@@ -40,10 +45,9 @@ const CustomerList = () => {
             return;
           }
           toast.success("Cliente eliminado.");
-          void fetchClients("");
         },
       }),
-    [deleteClient, fetchClients, openDialog],
+    [deleteClient, openDialog],
   );
 
   const columns = useMemo<ColumnDef<Client, unknown>[]>(

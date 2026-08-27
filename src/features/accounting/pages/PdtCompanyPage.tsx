@@ -1,4 +1,5 @@
 import DataTable from "@/components/DataTable";
+import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
@@ -1340,7 +1341,13 @@ export default function PdtCompanyPage() {
     <div className="space-y-4 p-3 sm:p-4">
       <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
         <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
-          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:w-auto 2xl:grid-cols-none 2xl:auto-cols-max 2xl:grid-flow-col 2xl:items-end">
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 2xl:w-auto 2xl:grid-cols-none 2xl:auto-cols-max 2xl:grid-flow-col 2xl:items-end">
+            <div className="shrink-0">
+              <BackArrowButton
+                fallbackTo="/accounting"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-black transition-colors hover:bg-slate-100"
+              />
+            </div>
             <label className="flex w-full flex-col gap-1 text-sm font-medium text-slate-700">
               F-Inicio:
               <input
@@ -1405,7 +1412,7 @@ export default function PdtCompanyPage() {
               className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
             >
               <FileSpreadsheet className="h-4 w-4" />
-              Exportar Excel
+              Excel
             </button>
           </div>
         </div>

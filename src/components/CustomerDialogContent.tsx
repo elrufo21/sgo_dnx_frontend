@@ -51,6 +51,7 @@ export default function CustomerDialogContent({
 }: CustomerDialogContentProps) {
   const clients = useClientsStore((state) => state.clients);
   const totalClients = useClientsStore((state) => state.totalClients);
+  const allClientsLoaded = useClientsStore((state) => state.allClientsLoaded);
   const fetchClients = useClientsStore((state) => state.fetchClients);
   const loadingClients = useClientsStore((state) => state.loading);
   const closeDialog = useDialogStore((state) => state.closeDialog);
@@ -64,9 +65,9 @@ export default function CustomerDialogContent({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (activeTab !== "list") return;
+    if (activeTab !== "list" || allClientsLoaded) return;
     void fetchClients("");
-  }, [activeTab, fetchClients]);
+  }, [activeTab, allClientsLoaded, fetchClients]);
 
   useEffect(() => {
     if (activeTab !== "list") return;

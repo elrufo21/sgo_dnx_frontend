@@ -1178,7 +1178,9 @@ export default function BoletasSummaryPage() {
         <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-1">
           {/* Flecha: solo ocupa lo necesario */}
           <div className="shrink-0">
-            <BackArrowButton />
+            <BackArrowButton
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-black transition-colors hover:bg-slate-100"
+            />
           </div>
 
           {/* Botón 1 */}

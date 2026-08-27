@@ -9,6 +9,7 @@ La pantalla `/sales/html_capture/new` envía el `UsuarioId` de la sesión. La sa
 
 Las filas con pago de venta son de solo consulta. La columna Pago muestra forma de pago, entidad y número de operación cuando corresponda.
 Cuando no hay entidad bancaria, muestra solo la forma de pago, sin separador adicional.
+Las ventas con condición **PAGO/VARIOS** se registran pendientes sin entidad bancaria ni número de operación; esos datos se completan recién al realizar el pago.
 
 El modal **Pago Varios** incluye las pestañas **Pendientes** y **Pagos realizados**. Conserva una altura fija adaptable a la pantalla al cambiar de pestaña. La segunda replica el historial del escritorio y permite filtrar los pagos registrados por rango de fechas.
 
