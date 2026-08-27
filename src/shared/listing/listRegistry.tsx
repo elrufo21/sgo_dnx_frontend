@@ -66,13 +66,11 @@ const useCategoryListDeps = () => {
       onConfirm: async (rawData) => {
         const data = (rawData ?? {}) as Partial<Category>;
         const nombreSublinea = (data.nombreSublinea ?? "").trim().toUpperCase();
-        const idLinea = Number(data.idLinea ?? 0);
-        if (!idLinea || !nombreSublinea) {
-          toast.error("Id de línea y nombre de categoria son obligatorios");
+        if (!nombreSublinea) {
+          toast.error("El nombre de categoria es obligatorio");
           return false;
         }
         const created = await addMaintenanceCategory({
-          idLinea,
           nombreSublinea,
           codigoSunat: data.codigoSunat ?? "",
           vista: data.vista ?? "V",
@@ -108,14 +106,12 @@ const useCategoryListDeps = () => {
           const nombreSublinea = (data.nombreSublinea ?? "")
             .trim()
             .toUpperCase();
-          const idLinea = Number(data.idLinea ?? row.idLinea ?? 0);
-          if (!idLinea || !nombreSublinea) {
-            toast.error("Id de línea y nombre de categoria son obligatorios");
+          if (!nombreSublinea) {
+            toast.error("El nombre de categoria es obligatorio");
             return false;
           }
           const updated = await updateMaintenanceCategory(id, {
             ...data,
-            idLinea,
             nombreSublinea,
             vista: data.vista ?? row.vista ?? "V",
           });

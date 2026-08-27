@@ -4,7 +4,7 @@ El módulo `/maintenance/users` usa rutas exclusivas de mantenimiento y el proce
 
 ## Rutas de mantenimiento
 
-- `GET /UsuariosCrud/maintenance/list?estado=ACTIVO`: envía `LISTAR` y aplica el filtro de estado y paginación.
+- `GET /UsuariosCrud/maintenance/list?estado=ACTIVO`: envía `LISTAR`, aplica el filtro de estado y pagina por `UsuarioID` descendente para mostrar primero los registros nuevos.
 - `POST /UsuariosCrud/maintenance/register`: envía `CREAR` o `ACTUALIZAR` según `UsuarioID`.
 - `DELETE /UsuariosCrud/maintenance/{id}`: envía `ELIMINAR|UsuarioID`.
 

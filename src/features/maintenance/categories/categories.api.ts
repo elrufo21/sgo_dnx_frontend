@@ -87,20 +87,16 @@ export const saveCategoryApi = async (
   payload: CategoryInput,
 ): Promise<CategorySaveResult> => {
   const id = Number(payload.id ?? payload.idSubLinea ?? 0);
-  const idLinea = Number(payload.idLinea ?? 0);
   const nombre = payload.nombreSublinea?.trim() ?? "";
   const codigo = payload.codigoSunat?.trim() ?? "";
-  const vista = payload.vista?.trim() || "V";
 
   const response = await apiRequest<string | CategoryApiResponse | null>({
-    url: buildApiUrl("/Linea/maintenance/register"),
+    url: buildApiUrl("/Linea/registerlinea"),
     method: "POST",
     data: {
       idSubLinea: id,
-      idLinea,
       nombreSublinea: nombre,
       codigoSunat: codigo,
-      vista,
     },
     config: { headers: { Accept: "*/*", "Content-Type": "application/json" } },
     fallback: null,
@@ -109,15 +105,22 @@ export const saveCategoryApi = async (
   if (response === null) return { error: "No se pudo guardar la sublinea." };
   if (typeof response !== "string") return mapCategory(response, payload);
 
-  const [status = "", value = ""] = response
-    .split("|")
-    .map((part) => part.trim());
-  if (status.toUpperCase() !== "OK") {
-    return { error: value || "No se pudo guardar la sublinea." };
+  const [value = ""] = response.split("|").map((part) => part.trim());
+  if (!Number(value)) {
+    return {
+      error:
+        value.toUpperCase() === "EXISTE"
+          ? "Ya existe esa categoria."
+          : "No se pudo guardar la categoria.",
+    };
   }
 
   return mapCategory(
-    { id: id > 0 ? id : Number(value), idLinea, nombreSublinea: nombre, codigoSunat: codigo, vista },
+    {
+      id: id > 0 ? id : Number(value),
+      nombreSublinea: nombre,
+      codigoSunat: codigo,
+    },
     payload,
   );
 };
@@ -130,5 +133,6 @@ export const deleteCategoryApi = async (id: number): Promise<boolean> => {
     config: { headers: { Accept: "*/*" } },
     fallback: null,
   });
-  return typeof response === "string" && response.toUpperCase().startsWith("OK|");
+  return response === true ||
+    (typeof response === "string" && response.toUpperCase().startsWith("OK|"));
 };

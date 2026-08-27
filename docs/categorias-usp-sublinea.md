@@ -1,16 +1,15 @@
-# Mantenimiento de categorías (Sublineas)
+# Mantenimiento de categorías
 
-El módulo `/maintenance/categories` usa el procedimiento `dbo.usp_Sublinea` a través de las rutas de mantenimiento de `/api/v1/Linea`.
+El módulo `/maintenance/categories` usa el mismo procedimiento de escritorio, `dbo.uspInsertarCategoria`, a través de `/api/v1/Linea`.
 
 ## Operaciones
 
-- El listado envía `LISTAR` y conserva `IdSublinea`, `IdLinea`, `NombreSublinea`, `CodigoSUNAT` y `Vista`.
-- El registro envía `CREAR|IdLinea|NombreSublinea|CodigoSUNAT|Vista`.
-- La edición envía `ACTUALIZAR|IdSublinea|IdLinea|NombreSublinea|CodigoSUNAT|Vista`.
-- La eliminación envía `ELIMINAR|IdSublinea`.
+- El listado consulta `Sublinea` y conserva `IdSublinea`, `NombreSublinea` y `CodigoSUNAT`.
+- El registro y la edición envían `IdSublinea|NombreSublinea|CodigoSUNAT` a `uspInsertarCategoria`.
+- La eliminación usa `uspEliminarCategoria`.
 
-Las rutas utilizadas son `/Linea/maintenance/list`, `/Linea/maintenance/register` y `/Linea/maintenance/{id}`.
+Las rutas utilizadas son `/Linea/maintenance/list`, `/Linea/registerlinea` y `/Linea/maintenance/{id}`.
 
-El formulario solicita el Id de línea porque el procedimiento valida que la línea exista. La Vista se conserva y, si no se indica, se usa `V`.
+El formulario solo solicita categoría y código SUNAT. No muestra ni envía líder de línea porque el procedimiento de categorías no lo requiere.
 
-Este cambio está limitado al mantenimiento de Sublineas. Las rutas antiguas `/Linea/list`, `/Linea/registerlinea` y `/Linea/{id}`, junto con sus consumidores, permanecen sin modificaciones.
+Este cambio conserva las rutas de mantenimiento para listar y eliminar, pero el guardado usa el procedimiento de categorías del escritorio.

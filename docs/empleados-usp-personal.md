@@ -2,7 +2,7 @@
 
 El módulo `/maintenance/employees` utiliza rutas exclusivas de mantenimiento:
 
-- `GET /Personal/maintenance/list` envía `LISTAR`.
+- `GET /Personal/maintenance/list` envía `LISTAR` y pagina por `PersonalId` descendente para mostrar primero los registros nuevos.
 - `POST /Personal/maintenance/registerpersonal` envía `CREAR` o `ACTUALIZAR` según `PersonalId`.
 - `DELETE /Personal/maintenance/{id}` envía `ELIMINAR|PersonalId`.
 
