@@ -44,6 +44,7 @@ const money = (value: number) =>
   });
 
 const noExiste = (value: string) => value.trim().toUpperCase() === "NO EXISTE";
+const isAnnulled = (value: string) => value.trim().toUpperCase() === "ANULADO";
 
 export default function ObsCashierCapturePage() {
   const today = useMemo(() => getLocalDateISO(), []);
@@ -51,6 +52,7 @@ export default function ObsCashierCapturePage() {
   const [fechaFin, setFechaFin] = useState(today);
   const [saleType, setSaleType] = useState<SaleType>("OBS");
   const [rows, setRows] = useState<ObsRow[]>([]);
+  const [filteredRows, setFilteredRows] = useState<ObsRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const rowsCacheRef = useRef(new Map<string, ObsRow[]>());
@@ -75,9 +77,9 @@ export default function ObsCashierCapturePage() {
         header: "Estado",
         cell: (info) => {
           const value = info.getValue();
-          const missing = noExiste(value);
+          const highlightRed = noExiste(value) || isAnnulled(value);
           return (
-            <span className={missing ? "font-semibold text-red-600" : "text-emerald-700"}>
+            <span className={highlightRed ? "font-semibold text-red-600" : "text-emerald-700"}>
               {value}
             </span>
           );
@@ -225,7 +227,13 @@ export default function ObsCashierCapturePage() {
     return () => window.removeEventListener("message", onMessage);
   }, [receive]);
 
-  const total = rows.reduce((sum, row) => sum + Number(row.importe || 0), 0);
+  const totals = useMemo(() => {
+    const subtotal = filteredRows.reduce((sum, row) => sum + Number(row.importe || 0), 0);
+    const annulled = filteredRows
+      .filter((row) => isAnnulled(row.estado))
+      .reduce((sum, row) => sum + Number(row.importe || 0), 0);
+    return { subtotal, annulled, total: subtotal - annulled };
+  }, [filteredRows]);
   return (
     <div className="space-y-4 p-3 sm:p-4">
       <div className="flex gap-1 border-b border-slate-200">
@@ -243,6 +251,7 @@ export default function ObsCashierCapturePage() {
       <DataTable
         columns={columns}
         data={rows}
+        onFilteredDataChange={setFilteredRows}
         initialPageSize={50}
         persistPageSize={false}
         tableMaxHeight="52vh"
@@ -299,15 +308,21 @@ export default function ObsCashierCapturePage() {
           </button>
         }
         footerContent={
-          <div className="flex justify-end">
-            <div className="w-full max-w-xs rounded-xl border border-slate-200 bg-white px-4 py-3 text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Total
-              </p>
-              <p className="text-xl font-semibold text-slate-900">
-                {money(total)}
-              </p>
-            </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            {[
+              ["Subtotal", totals.subtotal, "text-slate-900"],
+              ["Anulados", totals.annulled, "text-red-600"],
+              ["Total", totals.total, "text-slate-900"],
+            ].map(([label, amount, color]) => (
+              <div key={String(label)} className="w-full max-w-xs rounded-xl border border-slate-200 bg-white px-4 py-3 text-right sm:w-40">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  {label}
+                </p>
+                <p className={`text-xl font-semibold ${color}`}>
+                  {money(Number(amount))}
+                </p>
+              </div>
+            ))}
           </div>
         }
       />

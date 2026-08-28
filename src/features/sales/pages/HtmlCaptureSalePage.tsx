@@ -47,6 +47,7 @@ import {
   focusNextInput,
   focusPreviousInput,
 } from "@/shared/helpers/focusNextInput";
+import { formatDateTime } from "@/shared/helpers/formatDate";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -77,6 +78,7 @@ type SaleRow = {
   pv: number;
   sv: number;
   matched: boolean;
+  valueUm?: number;
 };
 type SaleForm = {
   concept: "MERCADERIA" | "SERVICIO";
@@ -597,6 +599,7 @@ export default function HtmlCaptureSalePage() {
   const externalCaptureKeyRef = useRef("");
   const appliedCaptureKeyRef = useRef("");
   const manualSaleDraftRestoredRef = useRef(false);
+  const draftPersistenceEnabledRef = useRef(true);
   const registerSaleRef = useRef(false);
   const focusedPagoVariosPaymentMethodRef = useRef("");
   const appliedClientRef = useRef<Client | null>(null);
@@ -616,6 +619,8 @@ export default function HtmlCaptureSalePage() {
   } = useClientsStore();
   const [capture, setCapture] = useState<CaptureData | null>(null);
   const [isCashbillSale, setIsCashbillSale] = useState(false);
+  const [isPaidPagoVarios, setIsPaidPagoVarios] = useState(false);
+  const [viewedEmissionDateTime, setViewedEmissionDateTime] = useState("");
   const [pendingExternalCapture, setPendingExternalCapture] =
     useState<CaptureData | null>(null);
   const [isApplyingCapture, setIsApplyingCapture] = useState(false);
@@ -751,6 +756,8 @@ export default function HtmlCaptureSalePage() {
     capturedInvoiceApiRucRef.current = "";
     setCapture(null);
     setIsCashbillSale(false);
+    setIsPaidPagoVarios(false);
+    setViewedEmissionDateTime("");
     setPendingExternalCapture(null);
     setRows([]);
     setManualProductSearch("");
@@ -763,6 +770,7 @@ export default function HtmlCaptureSalePage() {
   }, [formMethods]);
 
   const openNewRecord = useCallback(() => {
+    draftPersistenceEnabledRef.current = true;
     clearExternalCaptureDraft();
     clearManualSaleDraft();
     resetDraft();
@@ -773,6 +781,7 @@ export default function HtmlCaptureSalePage() {
   useEffect(() => {
     setHasReenviadoOse(false);
     if (!isExistingRoute) {
+      draftPersistenceEnabledRef.current = true;
       setLoadedRecordId(null);
       setViewedOrderNoteId(null);
       resetDraft();
@@ -782,6 +791,7 @@ export default function HtmlCaptureSalePage() {
     let active = true;
     const loadRecord = async () => {
       setLoadedRecordId(null);
+      setViewedEmissionDateTime("");
       try {
         const [notaResult, detailsResult] = await Promise.all([
           apiRequest<Record<string, unknown>, unknown, null>({
@@ -871,6 +881,7 @@ export default function HtmlCaptureSalePage() {
                 ? detailSv / quantity
                 : Number(product.sv ?? 0),
             matched: true,
+            valueUm: Number(detail?.valorUM ?? detail?.ValorUM ?? 1) || 1,
           } satisfies SaleRow;
         });
 
@@ -921,6 +932,14 @@ export default function HtmlCaptureSalePage() {
 
         appliedClientRef.current = client;
         formMethods.reset(formFromDatabase);
+        setViewedEmissionDateTime(
+          safeTrim(nota.notaFecha ?? nota.NotaFecha),
+        );
+        setIsPaidPagoVarios(
+          condition === "PAGO/VARIOS" &&
+            safeTrim(nota.notaEstado ?? nota.NotaEstado).toUpperCase() ===
+              "CANCELADO",
+        );
         const conceptoOBS = safeTrim(
           nota.conceptoOBS ?? nota.ConceptoOBS,
         ).toUpperCase();
@@ -1400,7 +1419,6 @@ export default function HtmlCaptureSalePage() {
             conceptoOBS: item.conceptoOBS,
           })),
         },
-        fallback: { ok: false, mensaje: "No se pudo registrar Pago Varios." },
       })) as PagoVariosResponse;
 
       const errorData = asRecord(asRecord(response)?.response)?.data;
@@ -2168,7 +2186,7 @@ export default function HtmlCaptureSalePage() {
             : docValue.length === 11
               ? "01"
               : "03";
-        const customerDocValue = docValue;
+        const customerDocValue = nextDocTypeCode === "01" ? docValue : "";
         const localClient =
           clientOptions.find(
             (opt) =>
@@ -2233,15 +2251,7 @@ export default function HtmlCaptureSalePage() {
             formMethods.setValue("customerDoc", "", { shouldDirty: true });
           } else {
             formMethods.setValue("customerRuc", "", { shouldDirty: true });
-            formMethods.setValue(
-              "customerDoc",
-              customerDocValue ||
-                (normalizeDocumentText(matchedClient.dni) === memberCode
-                  ? ""
-                  : matchedClient.dni) ||
-                "",
-              { shouldDirty: true },
-            );
+            formMethods.setValue("customerDoc", "", { shouldDirty: true });
           }
           if (data.customerEmail) {
             formMethods.setValue("customerEmail", data.customerEmail, {
@@ -2421,6 +2431,7 @@ export default function HtmlCaptureSalePage() {
         | { type?: string; payload?: CaptureData }
         | undefined;
       if (message?.type !== "SGO_DXN_CAPTURE") return;
+      if (!draftPersistenceEnabledRef.current || isExistingRoute) return;
       if (!message.payload?.lines?.length) return;
       const key = JSON.stringify(message.payload);
       if (externalCaptureKeyRef.current === key) return;
@@ -2432,7 +2443,7 @@ export default function HtmlCaptureSalePage() {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [externalCaptureContext]);
+  }, [externalCaptureContext, isExistingRoute]);
 
   useEffect(() => {
     if (isExistingRoute) return;
@@ -2486,6 +2497,7 @@ export default function HtmlCaptureSalePage() {
       isExistingRoute ||
       isCapturedSale ||
       pendingExternalCapture ||
+      !draftPersistenceEnabledRef.current ||
       !manualSaleDraftRestoredRef.current
     ) {
       return;
@@ -3101,7 +3113,28 @@ export default function HtmlCaptureSalePage() {
     if (!lastTicket || isVoidingTicket) return;
     const documentNumber = lastTicket.documentNumber;
     const isInvoice = form.docTypeCode === "01";
-    const documentLabel = isInvoice ? "factura" : "boleta";
+    const isProforma = form.docTypeCode === "101";
+    const documentLabel = isInvoice ? "factura" : isProforma ? "proforma" : "boleta";
+    const docuId = Number(viewSunatStatus?.docuId) || lastTicket.noteId;
+    const detalleCadena = isProforma
+      ? rows
+          .map((row) =>
+            [
+              row.product.id,
+              row.code,
+              Number(row.quantity || 0).toFixed(2),
+              Number(row.price || 0).toFixed(2),
+              Number(row.cost || 0).toFixed(2),
+              Number(row.valueUm || 1).toFixed(4),
+              safeTrim(row.product.aplicaINV).toUpperCase() === "N" ? "N" : "S",
+            ].join("|"),
+          )
+          .join(";")
+      : "";
+    if (isProforma && !detalleCadena) {
+      toast.error("No hay detalle para anular la proforma.");
+      return;
+    }
     openDialog({
       title: `Anular ${documentLabel}`,
       content: (
@@ -3121,17 +3154,23 @@ export default function HtmlCaptureSalePage() {
             null
           >({
             url: buildApiUrl(
-              isInvoice
+              isProforma
+                ? "/Nota/anular-documento"
+                : isInvoice
                 ? "/Nota/factura/anular-individual"
                 : "/Nota/boleta/anular-individual",
             ),
             method: "POST",
-            data: {
-              DOCU_ID: viewSunatStatus?.docuId || undefined,
-              NRO_DOCUMENTO_MODIFICA: documentNumber,
-              DESCRIPCION_MOTIVO: "ANULACION DE LA OPERACION",
-              FECHA_DOCUMENTO: localDate(),
-            },
+            data: isProforma
+              ? {
+                  listaOrden: `${docuId}|${lastTicket.noteId}|${session.username}|${documentNumber}[${detalleCadena}[`,
+                }
+              : {
+                  DOCU_ID: viewSunatStatus?.docuId || undefined,
+                  NRO_DOCUMENTO_MODIFICA: documentNumber,
+                  DESCRIPCION_MOTIVO: "ANULACION DE LA OPERACION",
+                  FECHA_DOCUMENTO: localDate(),
+                },
             config: {
               headers: {
                 Accept: "*/*",
@@ -3405,6 +3444,7 @@ export default function HtmlCaptureSalePage() {
         return;
       }
 
+      draftPersistenceEnabledRef.current = false;
       clearExternalCaptureDraft();
       clearManualSaleDraft();
       window.postMessage(
@@ -4077,12 +4117,15 @@ export default function HtmlCaptureSalePage() {
     );
   const canVoidViewedNote =
     isFromOrderNotesView &&
-    ["01", "03"].includes(form.docTypeCode) &&
+    ["01", "03", "101"].includes(form.docTypeCode) &&
     Boolean(lastTicket) &&
+    !isPaidPagoVarios &&
     !isVoidingTicket &&
     ![viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some((value) =>
       ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
     );
+  const viewedEmissionDateTimeLabel =
+    formatDateTime(viewedEmissionDateTime || form.emissionDate) || "-";
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
@@ -4108,6 +4151,9 @@ export default function HtmlCaptureSalePage() {
               <ArrowLeft className="h-4 w-4" />
               Volver
             </button>
+            <span className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
+              Fecha y hora de emisión: {viewedEmissionDateTimeLabel}
+            </span>
             {isPendingInvoiceDispatch ? (
               <button
                 type="button"
@@ -4121,13 +4167,18 @@ export default function HtmlCaptureSalePage() {
             ) : null}
           </div>
         ) : isFromOrderNotesView ? (
-          <button
-            type="button"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50"
-            onClick={() => navigate("/sales/order_notes")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-50"
+              onClick={() => navigate("/sales/order_notes")}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <span className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
+              Fecha y hora de emisión: {viewedEmissionDateTimeLabel}
+            </span>
+          </div>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           {canVoidViewedNote ? (

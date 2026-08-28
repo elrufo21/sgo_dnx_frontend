@@ -120,7 +120,7 @@ export function SaleCaptureFormFields({
   allowEmailEdit = false,
   onSearchClients,
 }: SaleCaptureFormFieldsProps) {
-  const { control, setValue } = useFormContext<SaleCaptureFormValues>();
+  const { control, setFocus, setValue } = useFormContext<SaleCaptureFormValues>();
   const values = useWatch({
     control,
   }) as SaleCaptureFormValues;
@@ -722,6 +722,11 @@ export function SaleCaptureFormFields({
             name="bankEntity"
             label="Entidad"
             disabled={disabled || isPagoVarios || !paymentNeedsOperation}
+            onChange={(event) => {
+              if (!["(SELECCIONE)", "-"].includes(event.target.value)) {
+                window.requestAnimationFrame(() => setFocus("operationNumber"));
+              }
+            }}
             options={[
               { value: "(SELECCIONE)", label: "(SELECCIONE)" },
               { value: "-", label: "-" },
