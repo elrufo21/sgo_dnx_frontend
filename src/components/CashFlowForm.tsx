@@ -413,6 +413,10 @@ export default function CashFlowForm({
 
   const imprimirCaja = async () => {
     if (!activeCash || isPrinting) return;
+    if (!isClosed) {
+      toast.error("El informe PDF solo se puede imprimir cuando la caja está cerrada.");
+      return;
+    }
 
     const reportWindow = window.open("", "_blank");
     setIsPrinting(true);
@@ -693,10 +697,10 @@ export default function CashFlowForm({
           <button
             type="button"
             onClick={() => void imprimirCaja()}
-            disabled={!activeCash || isPrinting}
+            disabled={!activeCash || !isClosed || isPrinting}
             className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
-            title="Generar informe PDF"
-            aria-label="Generar informe PDF"
+            title={isClosed ? "Generar informe PDF" : "Disponible al cerrar la caja"}
+            aria-label={isClosed ? "Generar informe PDF" : "Impresión disponible al cerrar la caja"}
           >
             <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>

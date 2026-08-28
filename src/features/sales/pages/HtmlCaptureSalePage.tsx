@@ -664,8 +664,18 @@ export default function HtmlCaptureSalePage() {
   const [pagoVariosEntidad, setPagoVariosEntidad] = useState("-");
   const [pagoVariosOperacion, setPagoVariosOperacion] = useState("");
   const [pagoVariosDeposito, setPagoVariosDeposito] = useState("");
-  const [pagoVariosDescripcion, setPagoVariosDescripcion] = useState("");
   const pagoVariosDescripcionRef = useRef<HTMLTextAreaElement | null>(null);
+  const pagoVariosDescripcionDraftRef = useRef("");
+  const resetPagoVariosForm = useCallback(() => {
+    setPagoVariosDetail(null);
+    setPagoVariosDetailItems([]);
+    setPagoVariosSelectedIds([]);
+    setPagoVariosFormaPago("(SELECCIONE)");
+    setPagoVariosEntidad("-");
+    setPagoVariosOperacion("");
+    setPagoVariosDeposito("");
+    pagoVariosDescripcionDraftRef.current = "";
+  }, []);
   const session = useMemo(readSession, []);
   const externalCaptureContext = useMemo(
     () => ({
@@ -1192,14 +1202,11 @@ export default function HtmlCaptureSalePage() {
             item,
             safeTrim((data as { clave?: string } | null)?.clave),
           );
-          if (deleted) {
-            setPagoVariosDetail(null);
-            setPagoVariosDetailItems([]);
-          }
+          if (deleted) resetPagoVariosForm();
           return deleted;
         },
       }),
-    [deletePagoVarios, openDialog],
+    [deletePagoVarios, openDialog, resetPagoVariosForm],
   );
 
   useEffect(() => {
@@ -1316,7 +1323,8 @@ export default function HtmlCaptureSalePage() {
       return;
     }
     const descripcionPagoVarios = safeTrim(
-      pagoVariosDescripcionRef.current?.value ?? pagoVariosDescripcion,
+      pagoVariosDescripcionRef.current?.value ??
+        pagoVariosDescripcionDraftRef.current,
     );
     if (!descripcionPagoVarios) {
       focusPagoVariosField("descripcion");
@@ -1412,10 +1420,8 @@ export default function HtmlCaptureSalePage() {
       }
 
       toast.success("Pago Varios registrado.");
+      resetPagoVariosForm();
       setPagoVariosModalOpen(false);
-      setPagoVariosOperacion("");
-      setPagoVariosDeposito("");
-      setPagoVariosDescripcion("");
       window.dispatchEvent(new Event("sgo:pago-varios-updated"));
       void fetchPagoVarios();
     } finally {
@@ -3418,7 +3424,12 @@ export default function HtmlCaptureSalePage() {
 
   const PagoVariosModal = pagoVariosModalOpen ? (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/45 px-4 py-6">
-      <section className="flex h-[min(90vh,736px)] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pago varios"
+        className="flex h-[min(90vh,736px)] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
+      >
         <div className="flex justify-end border-b border-slate-100 px-5 py-4">
           <button
             type="button"
@@ -3896,14 +3907,24 @@ export default function HtmlCaptureSalePage() {
               <label className="grid gap-1 text-xs font-bold text-slate-500">
                 Descripcion
                 <textarea
+                  key={
+                    pagoVariosDetail
+                      ? `detalle-${pagoVariosDetail.pagoId}-${pagoVariosDetail.descripcion}`
+                      : "borrador"
+                  }
                   data-pago-varios-descripcion="true"
+                  data-no-history-guard="true"
                   ref={pagoVariosDescripcionRef}
                   className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
-                  value={pagoVariosDetail?.descripcion ?? pagoVariosDescripcion}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) =>
-                    setPagoVariosDescripcion(event.target.value)
+                  defaultValue={
+                    pagoVariosDetail?.descripcion ??
+                    pagoVariosDescripcionDraftRef.current
                   }
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => {
+                    pagoVariosDescripcionDraftRef.current =
+                      event.target.value;
+                  }}
                   disabled={Boolean(pagoVariosDetail)}
                 />
               </label>
@@ -3938,16 +3959,7 @@ export default function HtmlCaptureSalePage() {
                 <button
                   type="button"
                   className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-black uppercase text-slate-700 transition-colors hover:bg-slate-100"
-                  onClick={() => {
-                    setPagoVariosDetail(null);
-                    setPagoVariosDetailItems([]);
-                    setPagoVariosSelectedIds([]);
-                    setPagoVariosFormaPago("(SELECCIONE)");
-                    setPagoVariosEntidad("-");
-                    setPagoVariosOperacion("");
-                    setPagoVariosDeposito("");
-                    setPagoVariosDescripcion("");
-                  }}
+                  onClick={resetPagoVariosForm}
                 >
                   <Plus className="h-4 w-4" />
                   Nuevo
