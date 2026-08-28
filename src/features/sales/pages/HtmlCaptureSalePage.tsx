@@ -32,8 +32,11 @@ import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { buildApiUrl, buildRootApiUrl } from "@/config";
 import {
   clearExternalCaptureDraft,
+  clearManualSaleDraft,
   getExternalCaptureDraft,
+  getManualSaleDraft,
   saveExternalCaptureDraft,
+  saveManualSaleDraft,
   type ExternalCaptureDraftData,
 } from "@/features/sales/persistence/externalCaptureDraft";
 import { ServiceInvoicePdfDocument } from "@/features/serviceInvoices/components/ServiceInvoicePdf";
@@ -593,6 +596,7 @@ export default function HtmlCaptureSalePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const externalCaptureKeyRef = useRef("");
   const appliedCaptureKeyRef = useRef("");
+  const manualSaleDraftRestoredRef = useRef(false);
   const registerSaleRef = useRef(false);
   const focusedPagoVariosPaymentMethodRef = useRef("");
   const appliedClientRef = useRef<Client | null>(null);
@@ -611,6 +615,7 @@ export default function HtmlCaptureSalePage() {
     fetchClientMonthlyPvs,
   } = useClientsStore();
   const [capture, setCapture] = useState<CaptureData | null>(null);
+  const [isCashbillSale, setIsCashbillSale] = useState(false);
   const [pendingExternalCapture, setPendingExternalCapture] =
     useState<CaptureData | null>(null);
   const [isApplyingCapture, setIsApplyingCapture] = useState(false);
@@ -692,7 +697,7 @@ export default function HtmlCaptureSalePage() {
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
   const manualProductSearchRef = useRef<HTMLInputElement | null>(null);
-  const isCapturedSale = Boolean(capture);
+  const isCapturedSale = Boolean(capture) || isCashbillSale;
   const isLoadingRecord = isExistingRoute && loadedRecordId !== routeNoteId;
   const saleType = isCapturedSale ? "CASHBILL" : manualSaleType;
   const saleTypeForDatabase = isCapturedSale
@@ -741,9 +746,11 @@ export default function HtmlCaptureSalePage() {
   const resetDraft = useCallback(() => {
     externalCaptureKeyRef.current = "";
     appliedCaptureKeyRef.current = "";
+    manualSaleDraftRestoredRef.current = false;
     capturedInvoiceApiClientRef.current = null;
     capturedInvoiceApiRucRef.current = "";
     setCapture(null);
+    setIsCashbillSale(false);
     setPendingExternalCapture(null);
     setRows([]);
     setManualProductSearch("");
@@ -757,6 +764,7 @@ export default function HtmlCaptureSalePage() {
 
   const openNewRecord = useCallback(() => {
     clearExternalCaptureDraft();
+    clearManualSaleDraft();
     resetDraft();
     setViewedOrderNoteId(null);
     navigate("/sales/html_capture/new", { replace: true });
@@ -913,13 +921,15 @@ export default function HtmlCaptureSalePage() {
 
         appliedClientRef.current = client;
         formMethods.reset(formFromDatabase);
+        const conceptoOBS = safeTrim(
+          nota.conceptoOBS ?? nota.ConceptoOBS,
+        ).toUpperCase();
         setCapture(null);
+        setIsCashbillSale(conceptoOBS === "VENTA");
         setRows(rowsFromDatabase);
         setMonthlyPvs(0);
         setManualSaleType(
-          safeTrim(nota.conceptoOBS ?? nota.ConceptoOBS)
-            .toUpperCase()
-            .includes("POR PASAR")
+          conceptoOBS.includes("POR PASAR")
             ? "POR PASAR AL OBS"
             : "VENTA LIBRE",
         );
@@ -1873,6 +1883,7 @@ export default function HtmlCaptureSalePage() {
 
   const handleRemoveRow = (code: string) => {
     if (isReadOnly || isCapturedSale) return;
+    if (rows.length === 1) clearManualSaleDraft();
     setRows((current) => current.filter((row) => row.code !== code));
     setLastTicket(null);
   };
@@ -2142,7 +2153,9 @@ export default function HtmlCaptureSalePage() {
             .match(/\d{8,11}/g) ?? [];
         const docValue = docMatches.at(-1) ?? "";
         const nextRows = buildRows(data);
+        clearManualSaleDraft();
         setCapture(data);
+        setIsCashbillSale(true);
         setRows(nextRows);
         appliedClientRef.current = null;
         capturedInvoiceApiClientRef.current = null;
@@ -2412,6 +2425,7 @@ export default function HtmlCaptureSalePage() {
       const key = JSON.stringify(message.payload);
       if (externalCaptureKeyRef.current === key) return;
       externalCaptureKeyRef.current = key;
+      clearManualSaleDraft();
       saveExternalCaptureDraft(message.payload, externalCaptureContext);
       setPendingExternalCapture(message.payload);
     };
@@ -2429,6 +2443,75 @@ export default function HtmlCaptureSalePage() {
     externalCaptureKeyRef.current = key;
     setPendingExternalCapture(draft);
   }, [externalCaptureContext, isExistingRoute]);
+
+  useEffect(() => {
+    if (
+      isExistingRoute ||
+      manualSaleDraftRestoredRef.current ||
+      !products.length
+    ) {
+      return;
+    }
+    manualSaleDraftRestoredRef.current = true;
+    if (getExternalCaptureDraft(externalCaptureContext)) return;
+
+    const draft = getManualSaleDraft(externalCaptureContext);
+    if (!draft) return;
+    formMethods.reset({ ...defaultForm, ...draft.form } as SaleForm);
+    setRows(
+      buildRows({
+        transactionNumber: "",
+        memberCode: "",
+        customerName: "",
+        customerEmail: "",
+        ruc: "",
+        date: "",
+        discount: 0,
+        lines: draft.lines,
+      }).map((row, index) => ({ ...row, price: draft.lines[index].price })),
+    );
+    setManualSaleType(draft.saleType);
+    setIsCashbillSale(false);
+    setFreeSaleReasonAsked(true);
+  }, [
+    buildRows,
+    externalCaptureContext,
+    formMethods,
+    isExistingRoute,
+    products.length,
+  ]);
+
+  useEffect(() => {
+    if (
+      isExistingRoute ||
+      isCapturedSale ||
+      pendingExternalCapture ||
+      !manualSaleDraftRestoredRef.current
+    ) {
+      return;
+    }
+    if (!rows.length) return;
+    saveManualSaleDraft(
+      {
+        form,
+        saleType: manualSaleType,
+        lines: rows.map((row) => ({
+          code: row.code,
+          quantity: safeRowNumber(row.quantity),
+          price: safeRowNumber(row.price),
+        })),
+      },
+      externalCaptureContext,
+    );
+  }, [
+    externalCaptureContext,
+    form,
+    isCapturedSale,
+    isExistingRoute,
+    manualSaleType,
+    pendingExternalCapture,
+    rows,
+  ]);
 
   useEffect(() => {
     let attempts = 0;
@@ -2457,6 +2540,7 @@ export default function HtmlCaptureSalePage() {
       return;
     }
     clearExternalCaptureDraft();
+    clearManualSaleDraft();
     resetDraft();
   };
 
@@ -3322,6 +3406,7 @@ export default function HtmlCaptureSalePage() {
       }
 
       clearExternalCaptureDraft();
+      clearManualSaleDraft();
       window.postMessage(
         { type: "SGO_DXN_CAPTURE_COMPLETED" },
         window.location.origin,

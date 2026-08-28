@@ -14,12 +14,25 @@ export type ExternalCaptureDraftContext = {
   userId: string;
 };
 
+export type ManualSaleDraftData = {
+  form: Record<string, string>;
+  saleType: "VENTA LIBRE" | "POR PASAR AL OBS";
+  lines: Array<{ code: string; quantity: number; price: number }>;
+};
+
 const STORAGE_KEY = "sgo:sales:external-capture-draft";
+const MANUAL_STORAGE_KEY = "sgo:sales:manual-sale-draft";
 const MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
 type StoredDraft = {
   context: ExternalCaptureDraftContext;
   data: ExternalCaptureDraftData;
+  savedAt: number;
+};
+
+type StoredManualDraft = {
+  context: ExternalCaptureDraftContext;
+  data: ManualSaleDraftData;
   savedAt: number;
 };
 
@@ -66,6 +79,51 @@ const normalizeContext = (
   return Number.isFinite(companyId) && companyId > 0 && userId
     ? { companyId, userId }
     : null;
+};
+
+const normalizeManualData = (value: unknown): ManualSaleDraftData | null => {
+  if (!value || typeof value !== "object") return null;
+  const data = value as Record<string, unknown>;
+  const form = Object.entries(
+    data.form && typeof data.form === "object"
+      ? (data.form as Record<string, unknown>)
+      : {},
+  ).reduce<Record<string, string>>((result, [key, item]) => {
+    if (typeof item === "string") result[key] = item;
+    return result;
+  }, {});
+  const lines = Array.isArray(data.lines)
+    ? data.lines
+        .map((line) => {
+          const item =
+            line && typeof line === "object"
+              ? (line as Record<string, unknown>)
+              : {};
+          return {
+            code: asText(item.code),
+            quantity: Number(item.quantity),
+            price: Number(item.price),
+          };
+        })
+        .filter(
+          (line) =>
+            line.code &&
+            Number.isFinite(line.quantity) &&
+            line.quantity > 0 &&
+            Number.isFinite(line.price) &&
+            line.price >= 0,
+        )
+    : [];
+
+  if (!lines.length) return null;
+  return {
+    form,
+    saleType:
+      data.saleType === "POR PASAR AL OBS"
+        ? "POR PASAR AL OBS"
+        : "VENTA LIBRE",
+    lines,
+  };
 };
 
 export const saveExternalCaptureDraft = (
@@ -125,6 +183,66 @@ export const clearExternalCaptureDraft = () => {
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // No hay borrador local que limpiar si el navegador bloquea el almacenamiento.
+  }
+};
+
+export const saveManualSaleDraft = (
+  data: ManualSaleDraftData,
+  context: ExternalCaptureDraftContext,
+) => {
+  if (typeof window === "undefined") return;
+  const safeContext = normalizeContext(context);
+  const safeData = normalizeManualData(data);
+  if (!safeContext || !safeData) return;
+
+  try {
+    window.sessionStorage.setItem(
+      MANUAL_STORAGE_KEY,
+      JSON.stringify({ context: safeContext, data: safeData, savedAt: Date.now() }),
+    );
+  } catch {
+    // El formulario continúa funcionando aunque el navegador bloquee el almacenamiento.
+  }
+};
+
+export const getManualSaleDraft = (
+  context: ExternalCaptureDraftContext,
+): ManualSaleDraftData | null => {
+  if (typeof window === "undefined") return null;
+  const safeContext = normalizeContext(context);
+  if (!safeContext) return null;
+
+  try {
+    const stored = JSON.parse(
+      window.sessionStorage.getItem(MANUAL_STORAGE_KEY) ?? "null",
+    ) as Partial<StoredManualDraft> | null;
+    const savedAt = Number(stored?.savedAt);
+    const data = normalizeManualData(stored?.data);
+    const sameContext =
+      Number(stored?.context?.companyId) === safeContext.companyId &&
+      asText(stored?.context?.userId) === safeContext.userId;
+    if (
+      !data ||
+      !sameContext ||
+      !Number.isFinite(savedAt) ||
+      Date.now() - savedAt > MAX_AGE_MS
+    ) {
+      window.sessionStorage.removeItem(MANUAL_STORAGE_KEY);
+      return null;
+    }
+    return data;
+  } catch {
+    window.sessionStorage.removeItem(MANUAL_STORAGE_KEY);
+    return null;
+  }
+};
+
+export const clearManualSaleDraft = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(MANUAL_STORAGE_KEY);
   } catch {
     // No hay borrador local que limpiar si el navegador bloquea el almacenamiento.
   }
