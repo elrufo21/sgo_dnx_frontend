@@ -600,6 +600,7 @@ export default function HtmlCaptureSalePage() {
   const appliedCaptureKeyRef = useRef("");
   const manualSaleDraftRestoredRef = useRef(false);
   const draftPersistenceEnabledRef = useRef(true);
+  const recordLoadVersionRef = useRef(0);
   const registerSaleRef = useRef(false);
   const focusedPagoVariosPaymentMethodRef = useRef("");
   const appliedClientRef = useRef<Client | null>(null);
@@ -779,8 +780,9 @@ export default function HtmlCaptureSalePage() {
   }, [navigate, resetDraft, setViewedOrderNoteId]);
 
   useEffect(() => {
+    const recordLoadVersion = ++recordLoadVersionRef.current;
     setHasReenviadoOse(false);
-    if (!isExistingRoute) {
+    if (isNewRoute) {
       draftPersistenceEnabledRef.current = true;
       setLoadedRecordId(null);
       setViewedOrderNoteId(null);
@@ -788,6 +790,9 @@ export default function HtmlCaptureSalePage() {
       return;
     }
 
+    draftPersistenceEnabledRef.current = false;
+    resetDraft();
+    if (!isExistingRoute) return;
     let active = true;
     const loadRecord = async () => {
       setLoadedRecordId(null);
@@ -810,7 +815,7 @@ export default function HtmlCaptureSalePage() {
 
         const clientId = Number(nota.clienteId ?? nota.ClienteId ?? 0);
         const client = clientId ? await fetchClientById(clientId) : null;
-        if (!active) return;
+        if (!active || recordLoadVersion !== recordLoadVersionRef.current) return;
 
         const docu = safeTrim(nota.notaDocu ?? nota.NotaDocu).toUpperCase();
         const docTypeCode: SaleForm["docTypeCode"] = docu.includes("FACTURA")
@@ -982,6 +987,7 @@ export default function HtmlCaptureSalePage() {
     fetchClientById,
     formMethods,
     isExistingRoute,
+    isNewRoute,
     resetDraft,
     routeNoteId,
     setViewedOrderNoteId,
@@ -2431,7 +2437,7 @@ export default function HtmlCaptureSalePage() {
         | { type?: string; payload?: CaptureData }
         | undefined;
       if (message?.type !== "SGO_DXN_CAPTURE") return;
-      if (!draftPersistenceEnabledRef.current || isExistingRoute) return;
+      if (!draftPersistenceEnabledRef.current || !isNewRoute) return;
       if (!message.payload?.lines?.length) return;
       const key = JSON.stringify(message.payload);
       if (externalCaptureKeyRef.current === key) return;
@@ -2443,21 +2449,21 @@ export default function HtmlCaptureSalePage() {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [externalCaptureContext, isExistingRoute]);
+  }, [externalCaptureContext, isNewRoute]);
 
   useEffect(() => {
-    if (isExistingRoute) return;
+    if (!isNewRoute) return;
     const draft = getExternalCaptureDraft(externalCaptureContext);
     if (!draft) return;
     const key = JSON.stringify(draft);
     if (externalCaptureKeyRef.current === key) return;
     externalCaptureKeyRef.current = key;
     setPendingExternalCapture(draft);
-  }, [externalCaptureContext, isExistingRoute]);
+  }, [externalCaptureContext, isNewRoute]);
 
   useEffect(() => {
     if (
-      isExistingRoute ||
+      !isNewRoute ||
       manualSaleDraftRestoredRef.current ||
       !products.length
     ) {
@@ -2488,13 +2494,13 @@ export default function HtmlCaptureSalePage() {
     buildRows,
     externalCaptureContext,
     formMethods,
-    isExistingRoute,
+    isNewRoute,
     products.length,
   ]);
 
   useEffect(() => {
     if (
-      isExistingRoute ||
+      !isNewRoute ||
       isCapturedSale ||
       pendingExternalCapture ||
       !draftPersistenceEnabledRef.current ||
@@ -2519,7 +2525,7 @@ export default function HtmlCaptureSalePage() {
     externalCaptureContext,
     form,
     isCapturedSale,
-    isExistingRoute,
+    isNewRoute,
     manualSaleType,
     pendingExternalCapture,
     rows,
@@ -3115,26 +3121,6 @@ export default function HtmlCaptureSalePage() {
     const isInvoice = form.docTypeCode === "01";
     const isProforma = form.docTypeCode === "101";
     const documentLabel = isInvoice ? "factura" : isProforma ? "proforma" : "boleta";
-    const docuId = Number(viewSunatStatus?.docuId) || lastTicket.noteId;
-    const detalleCadena = isProforma
-      ? rows
-          .map((row) =>
-            [
-              row.product.id,
-              row.code,
-              Number(row.quantity || 0).toFixed(2),
-              Number(row.price || 0).toFixed(2),
-              Number(row.cost || 0).toFixed(2),
-              Number(row.valueUm || 1).toFixed(4),
-              safeTrim(row.product.aplicaINV).toUpperCase() === "N" ? "N" : "S",
-            ].join("|"),
-          )
-          .join(";")
-      : "";
-    if (isProforma && !detalleCadena) {
-      toast.error("No hay detalle para anular la proforma.");
-      return;
-    }
     openDialog({
       title: `Anular ${documentLabel}`,
       content: (
@@ -3163,7 +3149,9 @@ export default function HtmlCaptureSalePage() {
             method: "POST",
             data: isProforma
               ? {
-                  listaOrden: `${docuId}|${lastTicket.noteId}|${session.username}|${documentNumber}[${detalleCadena}[`,
+                  listaOrden: `${viewSunatStatus?.docuId || 0}|${lastTicket.noteId}|${session.username}|${form.concept}|${documentNumber}|${form.customerName}|${form.memberCode}|${form.transactionNumber}|00[${rows
+                    .map((row) => `${row.product.id}|${row.quantity.toFixed(2)}|${row.cost.toFixed(2)}`)
+                    .join(";")}`,
                 }
               : {
                   DOCU_ID: viewSunatStatus?.docuId || undefined,

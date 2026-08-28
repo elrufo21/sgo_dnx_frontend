@@ -86,11 +86,10 @@ const isAnnulledStatus = (value: unknown) =>
     .toUpperCase()
     .includes("RECHAZADO");
 
-const isAnnulledDocument = (value: unknown) =>
+const isCancelledStatus = (value: unknown) =>
   String(value ?? "")
     .trim()
-    .toUpperCase()
-    .includes("ANULAD");
+    .toUpperCase() === "CANCELADO";
 
 const isCreditNoteDocument = (value: unknown) => {
   const normalized = String(value ?? "")
@@ -175,7 +174,6 @@ const OrderNotesList = () => {
   }, [initialDate, resetRangeFromMainLayout]);
   const [fechaInicio, setFechaInicio] = useState(initialRange.from);
   const [fechaFin, setFechaFin] = useState(initialRange.to);
-  const [filteredNotes, setFilteredNotes] = useState<OrderNote[]>([]);
   const fechaInicioRef = useRef(fechaInicio);
   const fechaFinRef = useRef(fechaFin);
   const endDateAcceptedRef = useRef(false);
@@ -450,16 +448,25 @@ const OrderNotesList = () => {
     }
   }, [fechaFin, fechaInicio, notes]);
 
-  const totals = useMemo(() => {
-    const subtotal = filteredNotes.reduce(
-      (sum, note) => sum + getSignedTotal(note, note.total),
-      0,
+  const solesTotals = useMemo(() => {
+    const totals = notes.reduce(
+      (acc, note) => {
+        if (!isCancelledStatus(note.estado)) {
+          return acc;
+        }
+        acc.efectivo += parseAmount(note.efectivo);
+        acc.depTarYape += parseAmount(note.deposito);
+        return acc;
+      },
+      { efectivo: 0, depTarYape: 0 },
     );
-    const annulled = filteredNotes
-      .filter((note) => isAnnulledDocument(note.estado))
-      .reduce((sum, note) => sum + getSignedTotal(note, note.total), 0);
-    return { subtotal, annulled, total: subtotal - annulled };
-  }, [filteredNotes]);
+
+    return {
+      efectivo: totals.efectivo,
+      depTarYape: totals.depTarYape,
+      total: totals.efectivo + totals.depTarYape,
+    };
+  }, [notes]);
 
   const columns = useMemo(
     () => [
@@ -621,7 +628,6 @@ const OrderNotesList = () => {
       <DataTable
         columns={columns as ColumnDef<OrderNote, unknown>[]}
         data={notes}
-        onFilteredDataChange={setFilteredNotes}
         initialPageSize={50}
         isLoading={loading}
         filterKeys={[
@@ -754,19 +760,19 @@ const OrderNotesList = () => {
             <div className="grid w-full max-w-3xl grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-3">
               <div className="border-b border-slate-200 px-4 py-3 text-right sm:border-b-0 sm:border-r">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  SUBTOTAL
+                  EFECTIVO
                 </p>
                 <p className="text-xl font-semibold text-slate-800">
-                  {formatAmount(totals.subtotal)}
+                  {formatAmount(solesTotals.efectivo)}
                 </p>
               </div>
 
               <div className="border-b border-slate-200 px-4 py-3 text-right sm:border-b-0 sm:border-r">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  ANULADOS
+                  DEPOSITO
                 </p>
-                <p className="text-xl font-semibold text-red-600">
-                  {formatAmount(totals.annulled)}
+                <p className="text-xl font-semibold text-slate-800">
+                  {formatAmount(solesTotals.depTarYape)}
                 </p>
               </div>
 
@@ -775,7 +781,7 @@ const OrderNotesList = () => {
                   TOTAL
                 </p>
                 <p className="text-xl font-semibold text-slate-900">
-                  {formatAmount(totals.total)}
+                  {formatAmount(solesTotals.total)}
                 </p>
               </div>
             </div>

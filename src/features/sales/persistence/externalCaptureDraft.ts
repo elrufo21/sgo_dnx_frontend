@@ -15,6 +15,8 @@ export type ExternalCaptureDraftContext = {
 };
 
 export type ManualSaleDraftData = {
+  /** Solo se restaura un borrador creado desde el formulario de nueva venta. */
+  source?: "new-form";
   form: Record<string, string>;
   saleType: "VENTA LIBRE" | "POR PASAR AL OBS";
   lines: Array<{ code: string; quantity: number; price: number }>;
@@ -92,6 +94,12 @@ const normalizeManualData = (value: unknown): ManualSaleDraftData | null => {
     if (typeof item === "string") result[key] = item;
     return result;
   }, {});
+  const isNewFormDraft = data.source === "new-form";
+  // Los borradores previos no tenían origen. Una correlativa real identifica
+  // una venta vista desde el listado y evita restaurarla como venta nueva.
+  const isLegacyNewFormDraft =
+    data.source === undefined && !asText(form.correlativeDisplay);
+  if (!isNewFormDraft && !isLegacyNewFormDraft) return null;
   const lines = Array.isArray(data.lines)
     ? data.lines
         .map((line) => {
@@ -117,6 +125,7 @@ const normalizeManualData = (value: unknown): ManualSaleDraftData | null => {
 
   if (!lines.length) return null;
   return {
+    source: "new-form",
     form,
     saleType:
       data.saleType === "POR PASAR AL OBS"
@@ -194,7 +203,9 @@ export const saveManualSaleDraft = (
 ) => {
   if (typeof window === "undefined") return;
   const safeContext = normalizeContext(context);
-  const safeData = normalizeManualData(data);
+  // Esta función solo se llama desde el formulario de nueva venta.
+  // El origen se escribe explícitamente, sin depender de la correlativa.
+  const safeData = normalizeManualData({ ...data, source: "new-form" });
   if (!safeContext || !safeData) return;
 
   try {

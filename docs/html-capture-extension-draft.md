@@ -11,6 +11,7 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 3. El borrador se elimina cuando el usuario pulsa **Limpiar**, inicia un **Nuevo registro**, quita el último producto, confirma una venta correctamente, cierra la pestaña o pasan dos horas.
 4. Al confirmar una venta, la pantalla también indica a la extensión que descarte la captura pendiente. Así no se vuelve a cargar al regresar al formulario.
 5. Desde la confirmación hasta abrir un nuevo registro, la pantalla bloquea cualquier guardado automático o mensaje tardío de la extensión para que una venta ya emitida no vuelva a convertirse en borrador.
+6. Al abrir una venta desde Lista de ventas, sus datos se mantienen solo en consulta; al volver a Ventas se descarta esa vista y nunca se guarda ni se restaura como borrador. Los borradores manuales se identifican como creados desde el formulario `/new`; los datos antiguos con una correlativa de una venta registrada también se descartan.
 
 ## Alcance y seguridad
 
