@@ -1354,7 +1354,7 @@ export default function HtmlCaptureSalePage() {
     const descripcionPagoVarios = safeTrim(
       pagoVariosDescripcionRef.current?.value ??
         pagoVariosDescripcionDraftRef.current,
-    );
+    ).toUpperCase();
     if (!descripcionPagoVarios) {
       focusPagoVariosField("descripcion");
       toast.error("Ingrese descripcion.");
@@ -4047,8 +4047,9 @@ export default function HtmlCaptureSalePage() {
                   }
                   onFocus={(event) => event.currentTarget.select()}
                   onChange={(event) => {
-                    pagoVariosDescripcionDraftRef.current =
-                      event.target.value;
+                    const value = event.target.value.toUpperCase();
+                    event.currentTarget.value = value;
+                    pagoVariosDescripcionDraftRef.current = value;
                   }}
                   disabled={Boolean(pagoVariosDetail)}
                 />
