@@ -141,6 +141,7 @@ const OrderNotesList = () => {
   const { state } = useLocation();
   const { notes, fetchNotes, loading, setViewedOrderNoteId } =
     useOrderNoteStore();
+  const [filteredNotes, setFilteredNotes] = useState<OrderNote[]>([]);
   const initialDate = useMemo(() => getLocalDateISO(), []);
   const resetRangeFromMainLayout = useMemo(() => {
     if (!state || typeof state !== "object") return false;
@@ -449,7 +450,7 @@ const OrderNotesList = () => {
   }, [fechaFin, fechaInicio, notes]);
 
   const solesTotals = useMemo(() => {
-    const totals = notes.reduce(
+    const totals = filteredNotes.reduce(
       (acc, note) => {
         if (!isCancelledStatus(note.estado)) {
           return acc;
@@ -466,7 +467,7 @@ const OrderNotesList = () => {
       depTarYape: totals.depTarYape,
       total: totals.efectivo + totals.depTarYape,
     };
-  }, [notes]);
+  }, [filteredNotes]);
 
   const columns = useMemo(
     () => [
@@ -628,6 +629,7 @@ const OrderNotesList = () => {
       <DataTable
         columns={columns as ColumnDef<OrderNote, unknown>[]}
         data={notes}
+        onFilteredDataChange={setFilteredNotes}
         initialPageSize={50}
         isLoading={loading}
         filterKeys={[

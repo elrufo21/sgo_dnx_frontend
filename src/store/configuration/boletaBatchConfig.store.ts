@@ -6,10 +6,13 @@ import { useAuthStore } from "@/store/auth/auth.store";
 interface BoletaBatchConfigState {
   boletaPorLote: boolean;
   flagCaptura: boolean;
+  flagCaja: boolean;
+  correosAdmin: string;
   loading: boolean;
   saving: boolean;
   fetchConfig: () => Promise<void>;
   saveConfig: (boletaPorLote: boolean, flagCaptura: boolean) => Promise<boolean>;
+  saveCajaConfig: (flagCaja: boolean, correosAdmin: string) => Promise<boolean>;
 }
 
 const AUTH_STORAGE_KEY = "sgo.auth.session";
@@ -240,6 +243,8 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
   (set) => ({
     boletaPorLote: false,
     flagCaptura: false,
+    flagCaja: false,
+    correosAdmin: "",
     loading: false,
     saving: false,
 
@@ -264,6 +269,8 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
               company?.FlagCaptura ??
               resolveFlagCapturaFromSession(),
           ),
+          flagCaja: normalizeBooleanFlag(company?.flagCaja ?? company?.FlagCaja),
+          correosAdmin: normalizeText(company?.correosAdmin ?? company?.CorreosAdmin),
           loading: false,
         });
       } catch (error) {
@@ -312,6 +319,36 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
         return true;
       } catch (error) {
         console.error("Error guardando configuración de compañía", error);
+        set({ saving: false });
+        return false;
+      }
+    },
+
+    saveCajaConfig: async (flagCaja, correosAdmin) => {
+      const companyId = resolveCompanyId();
+      set({ saving: true });
+      try {
+        const response = await apiRequest<unknown>({
+          url: buildApiUrl(`/Compania/${companyId}/caja-configuracion`),
+          method: "PATCH",
+          data: { flagCaja, correosAdmin: correosAdmin.trim() },
+          fallback: null,
+        });
+
+        if (!resolveResponseOk(response)) {
+          set({ saving: false });
+          return false;
+        }
+
+        const record = asRecord(response);
+        set({
+          flagCaja: normalizeBooleanFlag(record?.flagCaja ?? record?.FlagCaja ?? flagCaja),
+          correosAdmin: normalizeText(record?.correosAdmin ?? record?.CorreosAdmin ?? correosAdmin),
+          saving: false,
+        });
+        return true;
+      } catch (error) {
+        console.error("Error guardando configuración de caja", error);
         set({ saving: false });
         return false;
       }

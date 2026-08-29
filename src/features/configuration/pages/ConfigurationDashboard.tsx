@@ -1,4 +1,4 @@
-import { ArrowRight, FileBadge2, Layers3 } from "lucide-react";
+import { ArrowRight, FileBadge2, Layers3, Mail } from "lucide-react";
 import { useNavigate } from "react-router";
 
 export default function ConfigurationDashboard() {
@@ -16,6 +16,12 @@ export default function ConfigurationDashboard() {
       desc: "Define envío de boletas y captura de datos.",
       icon: <Layers3 className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/boleta-batch",
+    },
+    {
+      title: "Caja",
+      desc: "Configura el envío por correo del cierre de caja.",
+      icon: <Mail className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/caja",
     },
   ];
 

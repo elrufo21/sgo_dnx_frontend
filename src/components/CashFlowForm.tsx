@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Lock, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
+import { Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
+import { useBoletaBatchConfigStore } from "@/store/configuration/boletaBatchConfig.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useCashFlowProductsWebStore } from "@/store/cashFlowProductsWeb/cashFlowProductsWeb.store";
 import { useCashFlowMovementsWebStore } from "@/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store";
@@ -193,11 +194,13 @@ export default function CashFlowForm({
     openCashFlow,
     closeCashFlow,
     updateCashFlowState,
+    sendCashFlowReportEmail,
     getCashFlowDetail,
     deleteCashFlow,
     loading,
   } = useCashFlowStore();
   const { users, fetchUsers } = useUsersStore();
+  const { correosAdmin, fetchConfig: fetchCompanyConfig } = useBoletaBatchConfigStore();
   const fetchProducts = useCashFlowProductsWebStore((state) => state.fetchProducts);
   const { fetchMovements, fetchObsTotal, updateManualIngresos, loading: movementsLoading } =
     useCashFlowMovementsWebStore();
@@ -206,6 +209,7 @@ export default function CashFlowForm({
   const [activeTab, setActiveTab] = useState<"caja" | "productos">("caja");
   const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [responsableId, setResponsableId] = useState<number | null>(null);
   const viewedCashId = Number(cajaId);
   const [isEditing, setIsEditing] = useState(
@@ -247,6 +251,10 @@ export default function CashFlowForm({
   useEffect(() => {
     if (!users.length) void fetchUsers();
   }, [fetchUsers, users.length]);
+
+  useEffect(() => {
+    void fetchCompanyConfig();
+  }, [fetchCompanyConfig]);
 
   const isViewing = Number.isInteger(viewedCashId) && viewedCashId > 0;
   const reloadCashFlow = useCallback(async () => {
@@ -298,6 +306,7 @@ export default function CashFlowForm({
 
   const isClosed =
     activeCash?.estado.trim().toUpperCase().startsWith("CERR") ?? false;
+  const hasCashFlowEmailRecipients = Boolean(correosAdmin.trim());
   const isClosing = isViewing && !isClosed;
   const canEdit = !readOnly && (!isViewing || isEditing);
 
@@ -411,6 +420,32 @@ export default function CashFlowForm({
       maximumFractionDigits: 2,
     });
 
+  const generarPdfCaja = async () => {
+    if (!activeCash) throw new Error("No se pudo cargar la caja.");
+
+    const products = await fetchProducts(activeCash.id);
+    return pdf(
+      <CashFlowReportPdf
+        cajaId={activeCash.id}
+        encargado={activeCash.encargado}
+        usuario={activeCash.usuario}
+        fechaApertura={formData.fechaApertura}
+        fechaCierre={formData.fechaCierre}
+        sistemaObs={Number(formData.sistemaObs || 0)}
+        gastos={formData.gastos}
+        ingresos={ingresosCalculados}
+        conteoMonedas={formData.conteoMonedas}
+        totalEfectivo={totalEfectivo}
+        totalBilletes={totalBilletes}
+        totalSencillo={totalSencillo}
+        totalIngresos={totalIngresos}
+        diferencial={diferencial}
+        observaciones={formData.observaciones}
+        products={products}
+      />,
+    ).toBlob();
+  };
+
   const imprimirCaja = async () => {
     if (!activeCash || isPrinting) return;
     if (!isClosed) {
@@ -421,27 +456,7 @@ export default function CashFlowForm({
     const reportWindow = window.open("", "_blank");
     setIsPrinting(true);
     try {
-      const products = await fetchProducts(activeCash.id);
-      const blob = await pdf(
-        <CashFlowReportPdf
-          cajaId={activeCash.id}
-          encargado={activeCash.encargado}
-          usuario={activeCash.usuario}
-          fechaApertura={formData.fechaApertura}
-          fechaCierre={formData.fechaCierre}
-          sistemaObs={Number(formData.sistemaObs || 0)}
-          gastos={formData.gastos}
-          ingresos={ingresosCalculados}
-          conteoMonedas={formData.conteoMonedas}
-          totalEfectivo={totalEfectivo}
-          totalBilletes={totalBilletes}
-          totalSencillo={totalSencillo}
-          totalIngresos={totalIngresos}
-          diferencial={diferencial}
-          observaciones={formData.observaciones}
-          products={products}
-        />,
-      ).toBlob();
+      const blob = await generarPdfCaja();
       const url = URL.createObjectURL(blob);
 
       if (reportWindow) {
@@ -458,6 +473,45 @@ export default function CashFlowForm({
       toast.error("No se pudo generar el informe de caja.");
     } finally {
       setIsPrinting(false);
+    }
+  };
+
+  const enviarCorreoCaja = async () => {
+    if (!activeCash || isSendingEmail) return;
+    if (!isClosed) {
+      toast.error("El informe PDF solo se puede enviar cuando la caja está cerrada.");
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const blob = await generarPdfCaja();
+      const fecha = formData.fechaApertura || formData.fechaCierre;
+      const fechaArchivo = fecha
+        ? new Date(fecha).toLocaleDateString("en-GB").replaceAll("/", "-")
+        : "cierre";
+      const data = new FormData();
+      data.append("cajaId", String(activeCash.id));
+      data.append("fechaReporte", fecha);
+      data.append("diferencial", String(diferencial));
+      data.append(
+        "pdf",
+        new File([blob], `${fechaArchivo}_Cierre_ID_${activeCash.id}.pdf`, {
+          type: "application/pdf",
+        }),
+      );
+
+      const result = await sendCashFlowReportEmail(data);
+      if (!result.ok) throw new Error(result.mensaje);
+      toast.success(result.mensaje);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo enviar el correo de cierre de caja.",
+      );
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -704,6 +758,18 @@ export default function CashFlowForm({
           >
             <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
+          {hasCashFlowEmailRecipients && (
+            <button
+              type="button"
+              onClick={() => void enviarCorreoCaja()}
+              disabled={!activeCash || !isClosed || isSendingEmail}
+              className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
+              title={isClosed ? "Enviar informe PDF por correo" : "Disponible al cerrar la caja"}
+              aria-label={isClosed ? "Enviar informe PDF por correo" : "Envío disponible al cerrar la caja"}
+            >
+              <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          )}
         </div>
       </div>
 

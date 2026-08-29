@@ -81,6 +81,7 @@ interface CashFlowState {
   deleteCashFlow: (cajaId: number) => Promise<{ ok: boolean; mensaje: string }>;
   closeCashFlow: (cajaId: number, flow: CloseCashFlow) => Promise<{ ok: boolean; mensaje: string; diferencia: number }>;
   updateCashFlowState: (cajaId: number, flow: UpdateCashFlowState) => Promise<{ ok: boolean; mensaje: string }>;
+  sendCashFlowReportEmail: (data: FormData) => Promise<{ ok: boolean; mensaje: string }>;
 }
 
 export const useCashFlowStore = create<CashFlowState>((set, get) => ({
@@ -199,5 +200,25 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
 
     if (ok) await get().fetchFlows();
     return { ok, mensaje: mensaje || "No se pudo guardar el estado de la caja." };
+  },
+
+  sendCashFlowReportEmail: async (data) => {
+    const response = await apiRequest<unknown>({
+      url: `${API_BASE_URL}/Correo/enviar-cierre-caja`,
+      method: "POST",
+      data,
+      config: { headers: { Accept: "application/json" } },
+    });
+    const result = asRecord(response);
+    const error = asRecord(asRecord(result.response).data);
+    return {
+      ok: result.ok === true,
+      mensaje: asString(
+        result.mensaje,
+        error.mensaje,
+        error.message,
+        result.message,
+      ) || "No se pudo enviar el correo de cierre de caja.",
+    };
   },
 }));
