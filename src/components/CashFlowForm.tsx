@@ -5,7 +5,6 @@ import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
-import { useBoletaBatchConfigStore } from "@/store/configuration/boletaBatchConfig.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useCashFlowProductsWebStore } from "@/store/cashFlowProductsWeb/cashFlowProductsWeb.store";
 import { useCashFlowMovementsWebStore } from "@/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store";
@@ -200,7 +199,6 @@ export default function CashFlowForm({
     loading,
   } = useCashFlowStore();
   const { users, fetchUsers } = useUsersStore();
-  const { correosAdmin, fetchConfig: fetchCompanyConfig } = useBoletaBatchConfigStore();
   const fetchProducts = useCashFlowProductsWebStore((state) => state.fetchProducts);
   const { fetchMovements, fetchObsTotal, updateManualIngresos, loading: movementsLoading } =
     useCashFlowMovementsWebStore();
@@ -252,10 +250,6 @@ export default function CashFlowForm({
     if (!users.length) void fetchUsers();
   }, [fetchUsers, users.length]);
 
-  useEffect(() => {
-    void fetchCompanyConfig();
-  }, [fetchCompanyConfig]);
-
   const isViewing = Number.isInteger(viewedCashId) && viewedCashId > 0;
   const reloadCashFlow = useCallback(async () => {
     if (!isViewing) return;
@@ -306,7 +300,6 @@ export default function CashFlowForm({
 
   const isClosed =
     activeCash?.estado.trim().toUpperCase().startsWith("CERR") ?? false;
-  const hasCashFlowEmailRecipients = Boolean(correosAdmin.trim());
   const isClosing = isViewing && !isClosed;
   const canEdit = !readOnly && (!isViewing || isEditing);
 
@@ -758,18 +751,16 @@ export default function CashFlowForm({
           >
             <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
-          {hasCashFlowEmailRecipients && (
-            <button
-              type="button"
-              onClick={() => void enviarCorreoCaja()}
-              disabled={!activeCash || !isClosed || isSendingEmail}
-              className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
-              title={isClosed ? "Enviar informe PDF por correo" : "Disponible al cerrar la caja"}
-              aria-label={isClosed ? "Enviar informe PDF por correo" : "Envío disponible al cerrar la caja"}
-            >
-              <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void enviarCorreoCaja()}
+            disabled={!activeCash || !isClosed || isSendingEmail}
+            className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
+            title={isClosed ? "Enviar informe PDF por correo" : "Disponible al cerrar la caja"}
+            aria-label={isClosed ? "Enviar informe PDF por correo" : "Envío disponible al cerrar la caja"}
+          >
+            <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
         </div>
       </div>
 
