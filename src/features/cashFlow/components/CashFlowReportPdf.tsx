@@ -3,6 +3,7 @@ import type { CashFlowProductWeb } from "@/store/cashFlowProductsWeb/cashFlowPro
 import type { CashFlowMovementWeb } from "@/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store";
 
 type CashCount = { cantidad: number | ""; denominacion: number };
+type CashReportMovement = Pick<CashFlowMovementWeb, "descripcion" | "importe">;
 
 export type CashFlowReportPdfProps = {
   cajaId: number;
@@ -11,8 +12,8 @@ export type CashFlowReportPdfProps = {
   fechaApertura: string;
   fechaCierre: string;
   sistemaObs: number;
-  gastos: CashFlowMovementWeb[];
-  ingresos: CashFlowMovementWeb[];
+  gastos: CashReportMovement[];
+  ingresos: CashReportMovement[];
   conteoMonedas: CashCount[];
   totalEfectivo: number;
   totalBilletes: number;
@@ -20,7 +21,8 @@ export type CashFlowReportPdfProps = {
   totalIngresos: number;
   diferencial: number;
   observaciones: string;
-  products: CashFlowProductWeb[];
+  products?: CashFlowProductWeb[];
+  documentTitle?: string;
 };
 
 const money = (value: number) =>
@@ -231,7 +233,8 @@ const BillCoinTotals = ({
 );
 
 export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
-  const totalProductos = props.products.reduce(
+  const products = props.products ?? [];
+  const totalProductos = products.reduce(
     (sum, product) => sum + Number(product.importe || 0),
     0,
   );
@@ -242,7 +245,7 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
   );
 
   return (
-    <Document title={`Cierre de caja ${props.cajaId}`} author="DNX Ventas">
+    <Document title={props.documentTitle ?? `Cierre de caja ${props.cajaId}`} author="DNX Ventas">
       <Page size="A4" style={styles.page}>
         <Header title="Centro de Servicio- Reporte General Caja Diaria" />
         <View style={styles.dateBar}>
@@ -317,9 +320,9 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
               header
               headerColor="#00ff00"
             />
-            {props.ingresos.map((item) => (
+            {props.ingresos.map((item, index) => (
               <DataRow
-                key={`${item.id}-${item.descripcion}`}
+                key={`${item.descripcion}-${index}`}
                 cells={[item.descripcion, money(item.importe)]}
                 widths={[75, 25]}
               />
@@ -337,9 +340,9 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
               headerColor="#fff200"
             />
             {gastos.length ? (
-              gastos.map((item) => (
+              gastos.map((item, index) => (
                 <DataRow
-                  key={`${item.id}-${item.descripcion}`}
+                  key={`${item.descripcion}-${index}`}
                   cells={[item.descripcion, money(item.importe)]}
                   widths={[75, 25]}
                 />
@@ -359,7 +362,7 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
         </View>
       </Page>
 
-      <Page size="A4" style={styles.page}>
+      {props.products !== undefined && <Page size="A4" style={styles.page}>
         <Header
           title="Centro de Servicios - Resumen de Venta (Producto)"
           subtitle={`[ ${dateOnly(props.fechaApertura)} - ${dateOnly(props.fechaCierre || props.fechaApertura)} ]`}
@@ -371,8 +374,8 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
             alignments={["left", "left", "center", "right"]}
             header
           />
-          {props.products.length ? (
-            props.products.map((product) => (
+          {products.length ? (
+            products.map((product) => (
               <DataRow
                 key={`${product.codigo}-${product.descripcion}`}
                 cells={[
@@ -394,10 +397,10 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
           )}
         </View>
         <View style={styles.productTotal}>
-          <Text>items: {props.products.length}</Text>
+          <Text>items: {products.length}</Text>
           <Text>TOTAL S/ {money(totalProductos)}</Text>
         </View>
-      </Page>
+      </Page>}
     </Document>
   );
 }

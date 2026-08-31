@@ -14,6 +14,7 @@ import {
   Bell,
   TableProperties,
   WalletCards,
+  Printer,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "@/config";
@@ -481,6 +482,12 @@ export default function MainLayout() {
         label: "Control de flujo de caja",
         to: "/cash_flow_control",
         icon: <StoreIcon />,
+        state: { resetSearchFilter: true },
+      },
+      {
+        label: "Generar informe final",
+        to: "/cash-final-report",
+        icon: <Printer size={18} />,
         state: { resetSearchFilter: true },
       },
       {

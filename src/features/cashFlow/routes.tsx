@@ -1,6 +1,7 @@
 import CashFlowCreate from "./pages/cashFlowCreate";
 import CashFlowList from "./pages/cashFlowList";
 import PettyCashMovementPage from "./pages/PettyCashMovementPage";
+import CashFinalReportPage from "./pages/CashFinalReportPage";
 
 export default [
   {
@@ -18,6 +19,13 @@ export default [
         { label: "Control de Caja", to: "/cash_flow_control" },
         { label: "Apertura de caja" },
       ],
+    },
+  },
+  {
+    path: "cash-final-report",
+    element: <CashFinalReportPage />,
+    handle: {
+      breadcrumb: [{ label: "Generar informe de caja final" }],
     },
   },
   {

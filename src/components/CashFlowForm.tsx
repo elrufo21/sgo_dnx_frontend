@@ -16,6 +16,7 @@ import {
   focusPreviousInput,
 } from "@/shared/helpers/focusNextInput";
 import { useLocation, useNavigate, useParams } from "react-router";
+import { CASH_DENOMINATIONS } from "@/shared/constants/cashDenominations";
 
 // Mock components para demostración
 const HookFormInput = ({
@@ -87,19 +88,10 @@ const HookFormSelect = ({
   </div>
 );
 
-const DEFAULT_CONTEO = [
-  { cantidad: "", denominacion: 200.0 },
-  { cantidad: "", denominacion: 100.0 },
-  { cantidad: "", denominacion: 50.0 },
-  { cantidad: "", denominacion: 20.0 },
-  { cantidad: "", denominacion: 10.0 },
-  { cantidad: "", denominacion: 5.0 },
-  { cantidad: "", denominacion: 2.0 },
-  { cantidad: "", denominacion: 1.0 },
-  { cantidad: "", denominacion: 0.5 },
-  { cantidad: "", denominacion: 0.2 },
-  { cantidad: "", denominacion: 0.1 },
-];
+const DEFAULT_CONTEO = CASH_DENOMINATIONS.map((denominacion) => ({
+  cantidad: "",
+  denominacion,
+}));
 
 const DEFAULT_VENTA_TOTAL = {
   efectivo: 0,
