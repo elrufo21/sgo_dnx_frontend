@@ -39,8 +39,6 @@ const formatoMoneda = new Intl.NumberFormat("es-PE", {
   minimumFractionDigits: 2,
 });
 
-const codigoPdf = (codigo: string) => `251-${codigo}`;
-
 function VistaPreviaListaPrecios({ lista }: { lista: ListaPreciosPdf }) {
   return (
     <div className="space-y-3">
@@ -71,7 +69,7 @@ function VistaPreviaListaPrecios({ lista }: { lista: ListaPreciosPdf }) {
           <tbody className="divide-y divide-slate-100 bg-white">
             {lista.productos.map((producto) => (
               <tr key={producto.codigo}>
-                <td className="whitespace-nowrap px-3 py-2 font-medium">{codigoPdf(producto.codigo)}</td>
+                <td className="whitespace-nowrap px-3 py-2 font-medium">{producto.codigo}</td>
                 <td className="px-3 py-2">{producto.categoria}</td>
                 <td className="min-w-56 px-3 py-2">{producto.nombre}</td>
                 <td className="min-w-52 px-3 py-2">
