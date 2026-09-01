@@ -3,11 +3,11 @@ import { Link, useNavigate } from "react-router";
 import DataTable from "@/components/DataTable";
 import { Pencil, PlusIcon, Trash2 } from "lucide-react";
 import { toast } from "@/shared/ui/toast";
-import { createColumnHelper } from "@tanstack/react-table";
+import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 
-interface ColumnConfig<T> {
+export interface ColumnConfig<T> {
   key?: keyof T;
   header: string;
   id?: string;
@@ -25,6 +25,7 @@ export interface CrudListConfig<T> {
   renderFilters?: React.ReactNode;
   footerContent?: React.ReactNode;
   onFilteredDataChange?: (rows: T[]) => void;
+  toolbarActions?: ReactNode;
   onCreate?: () => void;
   onEdit?: (row: T, id: number) => void;
   showBackButton?: boolean;
@@ -43,6 +44,7 @@ interface CrudListProps<T> {
   renderFilters?: React.ReactNode;
   footerContent?: React.ReactNode;
   onFilteredDataChange?: (rows: T[]) => void;
+  toolbarActions?: ReactNode;
   onCreate?: () => void;
   onEdit?: (row: T, id: number) => void;
   showBackButton?: boolean;
@@ -62,6 +64,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
     renderFilters,
     footerContent,
     onFilteredDataChange,
+    toolbarActions,
     onCreate,
     onEdit,
     showBackButton = true,
@@ -107,7 +110,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
 
       if (col.key) {
         const accessorKey = col.key;
-        return columnHelper.accessor((row) => row[accessorKey], {
+        return columnHelper.accessor((row: T) => row[accessorKey], {
           id: col.id ?? String(accessorKey),
           header: col.header,
           cell: (info) => info.getValue() as ReactNode,
@@ -219,7 +222,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
 
       <DataTable
         data={data}
-        columns={tableColumns}
+        columns={tableColumns as ColumnDef<T, unknown>[]}
         filterKeys={filterKeys}
         toolbarLeading={
           !isMaintenanceList && showBackButton ? (
@@ -233,6 +236,8 @@ export function CrudList<T>(props: CrudListProps<T>) {
         footerContent={footerContent}
         onFilteredDataChange={onFilteredDataChange}
         toolbarAction={
+          <div className="flex items-center gap-2">
+            {toolbarActions}
           <button
             type="button"
             onClick={() =>
@@ -244,6 +249,7 @@ export function CrudList<T>(props: CrudListProps<T>) {
             <PlusIcon className="h-5 w-5" />
             <span className="text-sm font-semibold sm:hidden">Nuevo</span>
           </button>
+          </div>
         }
       />
     </div>
