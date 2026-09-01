@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { toast } from "@/shared/ui/toast";
+import { useAuthStore } from "@/store/auth/auth.store";
 
 type ProductoPdf = {
   pagina: number;
@@ -33,11 +34,21 @@ type GuardarListaPreciosPdfRespuesta = {
   errores: string[];
 };
 
+type GuardarListaPreciosPdfRequest = ListaPreciosPdf & { usuario: string };
+
 const formatoMoneda = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
   minimumFractionDigits: 2,
 });
+
+const usuarioRegistro = (value: string | null | undefined) =>
+  String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .join(" ")
+    .toUpperCase();
 
 function VistaPreviaListaPrecios({ lista }: { lista: ListaPreciosPdf }) {
   return (
@@ -92,6 +103,7 @@ function VistaPreviaListaPrecios({ lista }: { lista: ListaPreciosPdf }) {
 const ProductList = () => {
   const { products, fetchProducts, deleteProduct } = useProductsStore();
   const openDialog = useDialogStore((state) => state.openDialog);
+  const usuario = useAuthStore((state) => state.user);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [estadoFilter, setEstadoFilter] = useState<"ACTIVO" | "INACTIVO">(
     "ACTIVO",
@@ -138,12 +150,15 @@ const ProductList = () => {
         onConfirm: async () => {
           const resultado = await apiRequest<
             GuardarListaPreciosPdfRespuesta,
-            ListaPreciosPdf,
+            GuardarListaPreciosPdfRequest,
             null
           >({
             url: `${API_BASE_URL}/Productos/lista-precios-pdf/guardar`,
             method: "POST",
-            data: lista,
+            data: {
+              ...lista,
+              usuario: usuarioRegistro(usuario?.displayName ?? usuario?.username),
+            },
             fallback: null,
           });
 
@@ -169,7 +184,7 @@ const ProductList = () => {
         },
       });
     },
-    [fetchFiltered, openDialog],
+    [fetchFiltered, openDialog, usuario?.displayName, usuario?.username],
   );
 
   useEffect(() => {
