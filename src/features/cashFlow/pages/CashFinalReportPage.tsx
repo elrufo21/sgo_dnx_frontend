@@ -1,16 +1,21 @@
-import { BackArrowButton } from "@/components/common/BackArrowButton";
 import DataTable from "@/components/DataTable";
 import NavigableNumberInput from "@/components/inputs/NavigableNumberInput";
 import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { CASH_DENOMINATIONS } from "@/shared/constants/cashDenominations";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { esES } from "@mui/x-date-pickers/locales";
 import { pdf } from "@react-pdf/renderer";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
+import dayjs, { type Dayjs } from "dayjs";
+import "dayjs/locale/es";
 import {
-  Eye,
   FilePlus2,
   Lock,
   Mail,
@@ -18,10 +23,11 @@ import {
   Printer,
   RefreshCw,
   Save,
+  Search,
   Trash2,
   Unlock,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Movement = {
   descripcion: string;
@@ -55,7 +61,7 @@ type SavedReport = {
   observaciones: string;
 };
 type ReportDetail = Pick<Preparation, "monedas" | "ingresos" | "gastos">;
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => getLocalDateISO();
 const money = (value: number) => `${Number(value || 0).toFixed(2)}`;
 const BASE_INCOMES = new Set([
   "TOTAL EFECTIVO",
@@ -81,6 +87,14 @@ export default function CashFinalReportPage() {
   const user = useAuthStore((state) => state.user);
   const [view, setView] = useState<"new" | "list" | "detail">("new");
   const [fecha, setFecha] = useState(today);
+  const [fechaInicio, setFechaInicio] = useState(() =>
+    `${today().slice(0, 8)}01`,
+  );
+  const [fechaFin, setFechaFin] = useState(today);
+  const [listRange, setListRange] = useState(() => {
+    const date = today();
+    return { fechaInicio: `${date.slice(0, 8)}01`, fechaFin: date };
+  });
   const [preparation, setPreparation] = useState<Preparation | null>(null);
   const [coins, setCoins] = useState<Coin[]>(defaultCoins);
   const [incomeRows, setIncomeRows] = useState<Movement[]>([]);
@@ -134,13 +148,29 @@ export default function CashFinalReportPage() {
     }
   };
 
-  const loadList = async () => {
-    const start = `${fecha.slice(0, 8)}01`;
-    const response = await apiRequest<SavedReport[]>({
-      url: `${API_BASE_URL}/CierreCajaFinal?fechaInicio=${start}&fechaFin=${fecha}`,
-      fallback: [],
-    });
-    setReports(Array.isArray(response) ? response : []);
+  const loadList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiRequest<SavedReport[]>({
+        url: `${API_BASE_URL}/CierreCajaFinal?fechaInicio=${listRange.fechaInicio}&fechaFin=${listRange.fechaFin}`,
+        fallback: [],
+      });
+      setReports(Array.isArray(response) ? response : []);
+    } finally {
+      setLoading(false);
+    }
+  }, [listRange]);
+
+  const searchReports = () => {
+    if (!fechaInicio || !fechaFin) {
+      toast.error("Selecciona fecha inicio y fecha fin.");
+      return;
+    }
+    if (fechaInicio > fechaFin) {
+      toast.error("La fecha inicio no puede ser mayor que la fecha fin.");
+      return;
+    }
+    setListRange({ fechaInicio, fechaFin });
   };
 
   const refreshObs = async () => {
@@ -175,18 +205,23 @@ export default function CashFinalReportPage() {
   };
 
   useEffect(() => {
-    if (view === "new") {
-      setManualRows([]);
-      setObservaciones("");
-      void load(fecha);
-    }
-    if (view === "list") void loadList();
+    if (view !== "new") return;
+    setManualRows([]);
+    setObservaciones("");
+    void load(fecha);
   }, [fecha, view]);
 
-  const allExpenseRows = [
-    ...expenseRows,
-    ...manualRows.filter((row) => row.tipo === "expense"),
-  ];
+  useEffect(() => {
+    if (view === "list") void loadList();
+  }, [loadList, view]);
+
+  const allExpenseRows = useMemo(
+    () => [
+      ...expenseRows,
+      ...manualRows.filter((row) => row.tipo === "expense"),
+    ],
+    [expenseRows, manualRows],
+  );
 
   const totals = useMemo(() => {
     const expenses = allExpenseRows.reduce(
@@ -639,6 +674,74 @@ export default function CashFinalReportPage() {
               emptyMessage="No hay informes finales registrados."
               searchPlaceholder="Buscar informe..."
               filterKeys={["cajeros", "usuario"]}
+              renderFilters={
+                <LocalizationProvider
+                  dateAdapter={AdapterDayjs}
+                  adapterLocale="es"
+                  localeText={
+                    esES.components.MuiLocalizationProvider.defaultProps
+                      .localeText
+                  }
+                >
+                  <div className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 xl:w-auto">
+                    <label className="flex min-w-[160px] flex-col gap-1 text-xs text-slate-600">
+                      Fecha Inicio
+                      <DatePicker
+                        format="DD/MM/YY"
+                        value={fechaInicio ? dayjs(fechaInicio) : null}
+                        onChange={(value: Dayjs | null) =>
+                          setFechaInicio(value?.format("YYYY-MM-DD") ?? "")
+                        }
+                        slotProps={{
+                          textField: {
+                            size: "small",
+                            sx: {
+                              width: "100%",
+                              "& .MuiOutlinedInput-root": {
+                                height: 44,
+                                borderRadius: "0.5rem",
+                                backgroundColor: "#ffffff",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </label>
+                    <label className="flex min-w-[160px] flex-col gap-1 text-xs text-slate-600">
+                      Fecha Fin
+                      <DatePicker
+                        format="DD/MM/YY"
+                        value={fechaFin ? dayjs(fechaFin) : null}
+                        onChange={(value: Dayjs | null) =>
+                          setFechaFin(value?.format("YYYY-MM-DD") ?? "")
+                        }
+                        slotProps={{
+                          textField: {
+                            size: "small",
+                            sx: {
+                              width: "100%",
+                              "& .MuiOutlinedInput-root": {
+                                height: 44,
+                                borderRadius: "0.5rem",
+                                backgroundColor: "#ffffff",
+                              },
+                            },
+                          },
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={searchReports}
+                      disabled={loading}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+                      aria-label="Buscar por fecha"
+                    >
+                      <Search className="h-4 w-4" />
+                    </button>
+                  </div>
+                </LocalizationProvider>
+              }
             />
           ) : loading ? (
             <div className="rounded border border-gray-200 bg-white p-8 text-center text-sm text-gray-600">

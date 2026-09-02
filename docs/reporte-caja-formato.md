@@ -10,6 +10,8 @@ El módulo independiente **Generar informe de caja final** aparece en el sidebar
 
 Desde el listado, el botón **Ver** abre un informe guardado en modo lectura con el arqueo, ingresos, salidas y observaciones originales.
 
+El listado permite buscar informes por **Fecha Inicio** y **Fecha Fin**. Por defecto muestra el mes en curso hasta la fecha actual; ambos límites son obligatorios y la fecha inicial no puede ser posterior a la final.
+
 Al ver un informe, el candado habilita su edición y el mismo control vuelve a bloquearlo descartando cambios que aún no se guardaron. El botón **Nuevo** de la barra abre una preparación nueva sin alterar el informe consultado.
 
 Las filas manuales de ingresos y salidas conservan el foco y su descripción al escribir espacios o modificar el importe.
