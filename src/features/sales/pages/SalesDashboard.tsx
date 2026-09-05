@@ -5,6 +5,7 @@ import {
   TableProperties,
   LucideDollarSign,
   NotebookPen,
+  Truck,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -32,6 +33,12 @@ const cards = [
     desc: "Consulta el listado de pedidos.",
     icon: <NotebookPen className="w-10 h-10 text-amber-600" />,
     route: "/sales/order_notes",
+  },
+  {
+    title: "Guía de remisión",
+    desc: "Genera la representación impresa para el traslado de bienes.",
+    icon: <Truck className="w-10 h-10 text-rose-600" />,
+    route: "/sales/delivery-guide",
   },
   {
     title: "Caja chica",

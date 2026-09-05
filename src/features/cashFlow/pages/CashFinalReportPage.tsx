@@ -804,7 +804,7 @@ export default function CashFinalReportPage() {
                               <td className="px-2 py-0.5">
                                 <NavigableNumberInput
                                   navGroup="final-cash-count"
-                                  disabled={readOnly}
+                                  disabled
                                   value={coin.cantidad || ""}
                                   onChange={(value) => updateCoin(index, value)}
                                   className="w-full rounded border border-gray-200 px-1 py-0.5 text-center text-xs focus:border-slate-500 focus:outline-none disabled:border-transparent disabled:bg-transparent"

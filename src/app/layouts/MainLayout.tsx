@@ -15,6 +15,7 @@ import {
   TableProperties,
   WalletCards,
   Printer,
+  Truck,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "@/config";
@@ -24,6 +25,7 @@ import UserFormBase from "@/components/UserFormBase";
 import { PASSWORD_EXPIRATION_LOCK_ENABLED } from "@/config";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { useBoletaBatchConfigStore } from "@/store/configuration/boletaBatchConfig.store";
 import { useUsersStore } from "@/store/users/users.store";
 import type { User } from "@/store/users/users.store";
 
@@ -46,6 +48,8 @@ export default function MainLayout() {
   const passwordExpiresAt = useAuthStore((state) => state.passwordExpiresAt);
   const isPasswordExpired = useAuthStore((state) => state.isPasswordExpired);
   const logout = useAuthStore((state) => state.logout);
+  const flagCaja = useBoletaBatchConfigStore((state) => state.flagCaja);
+  const fetchCajaConfig = useBoletaBatchConfigStore((state) => state.fetchConfig);
 
   const users = useUsersStore((state) => state.users);
   const fetchUsers = useUsersStore((state) => state.fetchUsers);
@@ -54,6 +58,10 @@ export default function MainLayout() {
   const passwordDialogOpenedRef = useRef(false);
   const resolvingUserRef = useRef(false);
   const userLoadErrorNotifiedRef = useRef(false);
+  useEffect(() => {
+    void fetchCajaConfig();
+  }, [fetchCajaConfig]);
+
   const authSessionUserIdentity = useMemo(() => {
     const toPositiveNumber = (value: unknown) => {
       const n = Number(value);
@@ -484,12 +492,14 @@ export default function MainLayout() {
         icon: <StoreIcon />,
         state: { resetSearchFilter: true },
       },
-      {
-        label: "Generar informe final",
-        to: "/cash-final-report",
-        icon: <Printer size={18} />,
-        state: { resetSearchFilter: true },
-      },
+      ...(flagCaja
+        ? [{
+            label: "Generar informe final",
+            to: "/cash-final-report",
+            icon: <Printer size={18} />,
+            state: { resetSearchFilter: true },
+          }]
+        : []),
       {
         label: "Caja Chica",
         to: "/petty-cash-movements",
@@ -541,7 +551,7 @@ export default function MainLayout() {
     ];
 
     return items;
-  }, []);
+  }, [flagCaja]);
 
   const filteredItems = navItems.filter((item) =>
     item.label.toUpperCase().includes(search.toUpperCase()),
@@ -701,6 +711,16 @@ export default function MainLayout() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
+                onClick={() => navigate("/sales/delivery-guide")}
+                title="Guía de remisión"
+              >
+                <Truck size={17} />
+                <span className="hidden sm:inline">Guía</span>
+              </button>
+
               <button
                 type="button"
                 className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"

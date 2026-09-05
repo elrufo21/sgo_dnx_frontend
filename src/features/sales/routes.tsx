@@ -10,6 +10,7 @@ import PurchanseCreate from "@/features/purchanses/pages/purchanseCreate";
 import PurchanseEdit from "@/features/purchanses/pages/purchanseEdit";
 import HtmlCaptureSalePage from "./pages/HtmlCaptureSalePage";
 import ObsCashierCapturePage from "./pages/ObsCashierCapturePage";
+import DeliveryGuidePage from "./pages/DeliveryGuidePage";
 import { Navigate } from "react-router";
 
 export default [
@@ -94,6 +95,16 @@ export default [
       breadcrumb: [
         { label: "Ventas", to: "/sales" },
         { label: "Extraer Ventas OBS" },
+      ],
+    },
+  },
+  {
+    path: "sales/delivery-guide",
+    element: <DeliveryGuidePage />,
+    handle: {
+      breadcrumb: [
+        { label: "Ventas", to: "/sales" },
+        { label: "Guía de remisión" },
       ],
     },
   },
