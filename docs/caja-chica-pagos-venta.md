@@ -7,6 +7,8 @@ La pantalla **Movimiento de Caja Chica** muestra los movimientos automáticos or
 
 La pantalla `/sales/html_capture/new` envía el `UsuarioId` de la sesión. La salida de venta conserva la estructura del escritorio: `NotaId = 0`, `NotaIdB = NotaId` y estado `D`.
 
+Si la venta devuelve `NO ASISTIO`, la pantalla detiene la emisión y muestra el aviso de asistencia del escritorio con el botón **Aceptar**. No intenta generar documento ni enviar a OSE/SUNAT.
+
 Las filas con pago de venta son de solo consulta. La columna Pago muestra forma de pago, entidad y número de operación cuando corresponda.
 Cuando no hay entidad bancaria, muestra solo la forma de pago, sin separador adicional.
 Las ventas con condición **PAGO/VARIOS** se registran pendientes sin entidad bancaria ni número de operación; esos datos se completan recién al realizar el pago.

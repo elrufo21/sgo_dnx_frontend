@@ -3527,6 +3527,21 @@ export default function HtmlCaptureSalePage() {
       const documentNumber = `${notaSerie}-${parsed.number || notaNumero}`;
       if (!parsed.noteId) {
         const validationMessage = parsed.raw.trim().toUpperCase();
+        if (validationMessage === "NO ASISTIO") {
+          openDialog({
+            title: "AVISO",
+            content: (
+              <p className="text-sm font-semibold text-slate-700">
+                NO PODRÁ REALIZAR NI UNA VENTA PORQUE NO MARCÓ SU ASISTENCIA.
+              </p>
+            ),
+            confirmText: "Aceptar",
+            onConfirm: () => undefined,
+            hideCancelButton: true,
+            maxWidth: "xs",
+          });
+          return;
+        }
         toast.error(
           validationMessage === "FALSE"
             ? "Debe abrir una caja antes de registrar la venta."
