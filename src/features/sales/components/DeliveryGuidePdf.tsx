@@ -19,10 +19,14 @@ export type DeliveryGuideValues = {
   recipient: string;
   recipientDocument: string;
   departure: string;
+  departureUbigeo: string;
   arrival: string;
+  arrivalUbigeo: string;
   transportMode: string;
   transshipment: string;
   m1Vehicle: string;
+  vehiclePlate: string;
+  driverDocument: string;
   grossWeight: string;
   weightUnit: string;
   items: DeliveryGuideItem[];

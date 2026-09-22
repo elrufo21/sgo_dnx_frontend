@@ -206,15 +206,35 @@ export default function CashFlowForm({
     () => !(Number.isInteger(viewedCashId) && viewedCashId > 0),
   );
   const sessionUserId = Number(sessionUser?.id);
-  const selectedResponsableId = responsableId ?? sessionUserId;
+  const sessionPersonalId = Number(sessionUser?.personalId);
+  const normalizeIdentity = (value?: string) => value?.trim().toLowerCase() || "";
+  const sessionAlias = normalizeIdentity(sessionUser?.username);
+  const sessionName = normalizeIdentity(sessionUser?.displayName);
+  const sessionResponsable =
+    users.find(
+      (user) =>
+        sessionAlias && normalizeIdentity(user.UsuarioAlias) === sessionAlias,
+    ) ??
+    users.find(
+      (user) => sessionName && normalizeIdentity(user.Nombre) === sessionName,
+    ) ??
+    users.find(
+      (user) => sessionPersonalId > 0 && user.PersonalId === sessionPersonalId,
+    ) ??
+    users.find(
+      (user) =>
+        !sessionName && sessionUserId > 0 && user.UsuarioID === sessionUserId,
+    );
+  const sessionIdInUse = users.some((user) => user.UsuarioID === sessionUserId);
+  const defaultResponsableId =
+    sessionResponsable?.UsuarioID ??
+    (sessionUserId > 0 && !sessionIdInUse ? sessionUserId : null);
+  const selectedResponsableId = responsableId ?? defaultResponsableId;
   const responsableOptions = users.map((user) => ({
     value: String(user.UsuarioID),
     label: user.Nombre?.trim() || user.UsuarioAlias,
   }));
-  if (
-    sessionUserId > 0 &&
-    !responsableOptions.some((user) => user.value === String(sessionUserId))
-  ) {
+  if (defaultResponsableId === sessionUserId && !sessionResponsable) {
     responsableOptions.unshift({
       value: String(sessionUserId),
       label:
@@ -222,6 +242,9 @@ export default function CashFlowForm({
         sessionUser?.username ||
         "Usuario de sesión",
     });
+  }
+  if (defaultResponsableId === null) {
+    responsableOptions.unshift({ value: "", label: "Seleccione un encargado" });
   }
 
   const [formData, setFormData] = useState({
@@ -510,6 +533,10 @@ export default function CashFlowForm({
       sessionUser?.username ||
       "";
     const montoInicial = Number(formData.sencillo);
+    if (usuarioId === null) {
+      toast.error("Selecciona un encargado.");
+      return;
+    }
     if (!Number.isFinite(usuarioId) || usuarioId <= 0 || !encargado) {
       toast.error("No se pudo identificar al usuario de la sesión.");
       return;
@@ -778,9 +805,15 @@ export default function CashFlowForm({
                         <HookFormSelect
                           name="encargado"
                           label="Encargado"
-                          value={String(selectedResponsableId)}
+                          value={
+                            selectedResponsableId === null
+                              ? ""
+                              : String(selectedResponsableId)
+                          }
                           onChange={(e) =>
-                            setResponsableId(Number(e.target.value))
+                            setResponsableId(
+                              e.target.value ? Number(e.target.value) : null,
+                            )
                           }
                           options={responsableOptions}
                           disabled={loading || !canEdit}

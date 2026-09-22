@@ -9,6 +9,7 @@
     "build:vercel": "vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "verify:gre-xml": "node --experimental-strip-types scripts/verify-gre-xml.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,8 +25,9 @@
     "axios": "^1.13.2",
     "dayjs": "^1.11.20",
     "dexie": "^4.3.0",
-    "exceljs": "^4.4.0",
-    "lucide-react": "^0.555.0",
+        "exceljs": "^4.4.0",
+        "jszip": "^3.10.1",
+        "lucide-react": "^0.555.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -65,6 +65,7 @@ interface SaleCaptureFormFieldsProps {
   ) => void;
   onCreateClient?: () => void;
   onCreateAndEditCapturedClient?: () => void;
+  onOpenClientModal?: () => void;
   onSendEmail?: () => void;
   sendEmailDisabled?: boolean;
   sendingEmail?: boolean;
@@ -114,6 +115,7 @@ export function SaleCaptureFormFields({
   onClientSelected,
   onCreateClient,
   onCreateAndEditCapturedClient,
+  onOpenClientModal,
   onSendEmail,
   sendEmailDisabled = false,
   sendingEmail = false,
@@ -133,6 +135,7 @@ export function SaleCaptureFormFields({
   );
   const bankEntity = values.bankEntity ?? "-";
   const docTypeCode = values.docTypeCode ?? "03";
+  const isDniLocked = docTypeCode === "03" && totalAmount >= 700;
   const correlativeDisplay = values.correlativeDisplay ?? "";
   const emissionDate = values.emissionDate ?? "";
   const serie =
@@ -857,43 +860,59 @@ export function SaleCaptureFormFields({
               onInputBlur={handleCustomerInputBlur}
             />
           </div>
-          <HookFormAutocomplete
-            name="customerDoc"
-            label="DNI"
-            placeholder="Número de DNI"
-            options={customerDniOptions}
-            disabled={disabled}
-            allowCreate
-            showCreateOption={false}
-            createLabel={(value) => `Usar DNI: ${value}`}
-            syncInputToValue
-            transformInputValue={(value) => clampDocumentValue("dni", value)}
-            inputProps={{
-              inputMode: "numeric",
-              pattern: "[0-9]*",
-              maxLength: 9,
-            }}
-            onInputValueChange={(value) =>
-              selectExactClientInput(value, findClientByDocument("dni"), "03")
-            }
-            filterOptions={(options, state) =>
-              filterDocumentOptions(options, state.inputValue)
-            }
-            onOptionSelected={(option) => {
-              if (!option) {
-                clearCustomerSelection();
-                return;
-              }
-              applyClientSelection(
-                (option.client as Client | null) ?? null,
-                "03",
-              );
-            }}
-            onInputKeyDown={(event) =>
-              selectClientOnEnter(event, findClientByDocument("dni"), "03")
-            }
-            onInputBlur={handleDocumentBlur("dni")}
-          />
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <HookFormAutocomplete
+                name="customerDoc"
+                label="DNI"
+                placeholder="Número de DNI"
+                options={customerDniOptions}
+                disabled={disabled || isDniLocked}
+                allowCreate
+                showCreateOption={false}
+                createLabel={(value) => `Usar DNI: ${value}`}
+                syncInputToValue
+                transformInputValue={(value) => clampDocumentValue("dni", value)}
+                inputProps={{
+                  inputMode: "numeric",
+                  pattern: "[0-9]*",
+                  maxLength: 9,
+                }}
+                onInputValueChange={(value) =>
+                  selectExactClientInput(value, findClientByDocument("dni"), "03")
+                }
+                filterOptions={(options, state) =>
+                  filterDocumentOptions(options, state.inputValue)
+                }
+                onOptionSelected={(option) => {
+                  if (!option) {
+                    clearCustomerSelection();
+                    return;
+                  }
+                  applyClientSelection(
+                    (option.client as Client | null) ?? null,
+                    "03",
+                  );
+                }}
+                onInputKeyDown={(event) =>
+                  selectClientOnEnter(event, findClientByDocument("dni"), "03")
+                }
+                onInputBlur={handleDocumentBlur("dni")}
+              />
+            </div>
+            {isDniLocked && onOpenClientModal ? (
+              <button
+                type="button"
+                className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-50 text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={onOpenClientModal}
+                disabled={disabled}
+                title="Modificar cliente"
+                aria-label="Modificar cliente"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
           <HookFormAutocomplete
             name="customerRuc"
             label="RUC"

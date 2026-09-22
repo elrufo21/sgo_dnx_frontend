@@ -18,6 +18,10 @@ interface OrderNoteState {
   setViewedOrderNoteId: (noteId: number | null) => void;
   fetchNotes: (params?: FetchOrderNotesParams) => Promise<void>;
   fetchNoteDetail: (noteId: number | string) => Promise<SendNote | null>;
+  deleteNote: (
+    noteId: number | string,
+    clave?: string,
+  ) => Promise<{ ok: boolean; mensaje: string }>;
   updateNoteDetail: (
     noteId: number,
     formData: Omit<SendNote, "id">,
@@ -536,6 +540,26 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
       console.error("Error al cargar detalle de nota de pedido", error);
       return null;
     }
+  },
+  deleteNote: async (noteId, clave) => {
+    const safeNoteId = toPositiveInt(noteId, 0);
+    if (!safeNoteId) return { ok: false, mensaje: "Nota de pedido inválida." };
+
+    const response = await apiRequest<unknown>({
+      url: `${API_BASE_URL}/Nota/${safeNoteId}`,
+      method: "DELETE",
+      data: { clave: String(clave ?? "").trim() },
+    });
+
+    const result = response as {
+      ok?: unknown;
+      mensaje?: unknown;
+      response?: { data?: { mensaje?: unknown } };
+    } | null;
+    const mensaje = String(
+      result?.mensaje ?? result?.response?.data?.mensaje ?? "No se pudo eliminar la nota de pedido.",
+    );
+    return { ok: result?.ok === true, mensaje };
   },
   updateNoteDetail: async (noteId, formData, current) => {
     const safeNoteId = toPositiveInt(noteId, 0);

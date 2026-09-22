@@ -538,6 +538,13 @@ const productToRow = (
   sv: Number(product.sv ?? 0),
   matched,
 });
+const readPositiveId = (...values: unknown[]) => {
+  for (const value of values) {
+    const id = Number(value);
+    if (Number.isInteger(id) && id > 0) return id;
+  }
+  return 0;
+};
 const readSession = () => {
   if (typeof window === "undefined") {
     return {
@@ -565,7 +572,16 @@ const readSession = () => {
   return {
     companyId:
       Number(user?.companyId ?? localStorage.getItem("companiaId") ?? 1) || 1,
-    userId: Number(user?.id ?? parsed?.id ?? 0) || 0,
+    userId: readPositiveId(
+      user?.id,
+      user?.userId,
+      user?.usuarioId,
+      user?.usuarioID,
+      parsed?.id,
+      parsed?.userId,
+      parsed?.usuarioId,
+      parsed?.usuarioID,
+    ),
     username:
       safeTrim(user?.displayName) || safeTrim(user?.username) || "USUARIO",
     companyName:
@@ -2498,6 +2514,37 @@ export default function HtmlCaptureSalePage() {
     products.length,
   ]);
 
+  const handleOpenDniClientModal = useCallback(() => {
+    if (isReadOnly) {
+      toast.error("Este registro solo se puede visualizar.");
+      return;
+    }
+    openDialog({
+      title: "",
+      maxWidth: "lg",
+      fullWidth: true,
+      cancelText: "Cerrar",
+      hideCancelButton: true,
+      content: (
+        <CustomerDialogContent
+          initialEditingClient={selectedClient}
+          onSelectClient={handleSelectClientFromDialog}
+          onCreateClient={handleCreateClientFromDialog}
+          onUpdateClient={handleUpdateClientFromDialog}
+          onDeleteClient={handleDeleteClientFromDialog}
+        />
+      ),
+    });
+  }, [
+    handleCreateClientFromDialog,
+    handleDeleteClientFromDialog,
+    handleSelectClientFromDialog,
+    handleUpdateClientFromDialog,
+    isReadOnly,
+    openDialog,
+    selectedClient,
+  ]);
+
   useEffect(() => {
     if (
       !isNewRoute ||
@@ -3330,6 +3377,12 @@ export default function HtmlCaptureSalePage() {
       toast.error(
         "Para Factura debes registrar o seleccionar el cliente con + Cliente.",
       );
+      registerSaleRef.current = false;
+      return;
+    }
+
+    if (!session.userId) {
+      toast.error("Tu sesión no tiene un usuario válido. Cierra sesión e ingresa nuevamente.");
       registerSaleRef.current = false;
       return;
     }
@@ -4582,6 +4635,9 @@ export default function HtmlCaptureSalePage() {
                   canEditCapturedClient
                     ? () => void handleCreateAndEditCapturedClient()
                     : undefined
+                }
+                onOpenClientModal={
+                  isReadOnly ? undefined : handleOpenDniClientModal
                 }
               />
             </div>

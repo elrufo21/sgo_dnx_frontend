@@ -25,3 +25,5 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 - Las ventas libres guardan en la misma sesión sus datos de formulario, productos, cantidades, precios y tipo de venta. Se restauran al volver a la pantalla y se eliminan en las mismas acciones que una captura.
 - Solo hay un borrador de captura o de venta libre activo por tipo; una nueva captura descarta el borrador de venta libre.
 - Los documentos guardados con `conceptoOBS = VENTA` se muestran como **Cashbill** al volver a abrirlos.
+- Al registrar una venta, el `usuarioId` se obtiene desde cualquiera de los campos de identificador que pueda tener la sesión. Si la sesión no contiene un ID positivo, la venta se bloquea y se pide ingresar nuevamente; así no se envía `usuarioId = 0` al procedimiento de caja.
+- En una boleta desde **S/ 700.00**, el DNI queda bloqueado para impedir búsquedas o cambios directos. El botón de lápiz junto al campo abre el modal de Clientes para seleccionar, registrar o editar al cliente y aplicar sus datos a la venta.

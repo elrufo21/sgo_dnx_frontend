@@ -2,16 +2,18 @@ import DataTable from "@/components/DataTable";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
 import { useOrderNoteStore } from "@/store/orderNote/orderNote.store";
+import { useDialogStore } from "@/store/app/dialog.store";
 import type { OrderNote } from "@/types/orderNote";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { esES } from "@mui/x-date-pickers/locales";
+import { TextField } from "@mui/material";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
 import { Workbook } from "exceljs";
-import { FileSpreadsheet, Search } from "lucide-react";
+import { FileSpreadsheet, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
@@ -91,6 +93,37 @@ const isCancelledStatus = (value: unknown) =>
     .trim()
     .toUpperCase() === "CANCELADO";
 
+const canDeleteNote = (value: unknown) => {
+  const status = String(value ?? "")
+    .trim()
+    .toUpperCase();
+  return (
+    status !== "CANCELADO" && status !== "ACUENTA" && status !== "A CUENTA"
+  );
+};
+
+const isManagementArea = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase() === "GERENCIA Y ADMINISTRACION";
+
+const tokenHasManagementArea = () => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const token = JSON.parse(
+      window.localStorage.getItem("sgo.auth.session") ?? "{}",
+    )?.token;
+    const payload = String(token ?? "").split(".")[1];
+    if (!payload) return false;
+
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    return isManagementArea(JSON.parse(window.atob(base64)).area);
+  } catch {
+    return false;
+  }
+};
+
 const isCreditNoteDocument = (value: unknown) => {
   const normalized = String(value ?? "")
     .normalize("NFD")
@@ -139,8 +172,9 @@ const getSignedTotal = (
 const OrderNotesList = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { notes, fetchNotes, loading, setViewedOrderNoteId } =
+  const { notes, fetchNotes, loading, setViewedOrderNoteId, deleteNote } =
     useOrderNoteStore();
+  const openDialog = useDialogStore((state) => state.openDialog);
   const [filteredNotes, setFilteredNotes] = useState<OrderNote[]>([]);
   const initialDate = useMemo(() => getLocalDateISO(), []);
   const resetRangeFromMainLayout = useMemo(() => {
@@ -241,6 +275,52 @@ const OrderNotesList = () => {
   const handleSearch = useCallback(() => {
     requestNotesByRange(fechaInicio, fechaFin);
   }, [fechaFin, fechaInicio, requestNotesByRange]);
+
+  const handleDeleteNote = useCallback(
+    (note: OrderNote) => {
+      const needsAdminKey = !tokenHasManagementArea();
+      let clave = "";
+
+      openDialog({
+        title: "Eliminar nota pedido",
+        content: (
+          <div className="space-y-3">
+            <p>¿Está seguro que desea eliminar el documento seleccionado?</p>
+            {needsAdminKey ? (
+              <TextField
+                autoFocus
+                fullWidth
+                label="Clave de administrador"
+                size="small"
+                type="password"
+                onChange={(event) => {
+                  clave = event.target.value;
+                }}
+              />
+            ) : null}
+          </div>
+        ),
+        confirmText: "Eliminar",
+        onConfirm: async () => {
+          if (needsAdminKey && !clave.trim()) {
+            toast.error("Ingrese la clave de administrador.");
+            return false;
+          }
+
+          const result = await deleteNote(note.notaId, clave);
+          if (!result.ok) {
+            toast.error(result.mensaje);
+            return false;
+          }
+
+          toast.success(result.mensaje);
+          void fetchNotes({ fechaInicio, fechaFin });
+          return true;
+        },
+      });
+    },
+    [deleteNote, fechaFin, fechaInicio, fetchNotes, openDialog],
+  );
 
   const parsePickerDate = useCallback((value: Dayjs | null) => {
     const formatted = value?.format("YYYY-MM-DD") ?? "";
@@ -621,7 +701,7 @@ const OrderNotesList = () => {
         meta: { tdClassName: "text-right" },
       }),
     ],
-    [navigate, setViewedOrderNoteId],
+    [handleDeleteNote, navigate, setViewedOrderNoteId],
   );
 
   return (
