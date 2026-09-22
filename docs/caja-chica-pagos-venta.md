@@ -16,6 +16,6 @@ El modal **Pago Varios** incluye las pestañas **Pendientes** y **Pagos realizad
 
 La descripción del pago es un borrador del modal: se conserva al seleccionar documentos o modificar los demás campos y se limpia al registrar, eliminar o elegir **Nuevo**. Se muestra y se registra siempre en mayúsculas. Al eliminar un pago, el formulario vuelve a sus valores iniciales.
 
-Cada pago realizado tiene un botón **Ver**. Su detalle se muestra en la pestaña **Pendientes** con el mismo formulario cargado en modo consulta: documentos a la izquierda y forma de pago, importes, entidad, operación y descripción a la derecha. Desde ahí permite volver al historial, eliminarlo con clave de administrador o usar **Nuevo** para limpiar el formulario y regresar a los documentos pendientes.
+Cada pago realizado tiene un botón **Ver**. Su detalle se muestra en la pestaña **Pendientes** con la fecha y hora de registro en el encabezado, documentos a la izquierda y forma de pago, importes, entidad, operación y descripción a la derecha. Desde ahí permite volver al historial, eliminarlo con clave de administrador o usar **Nuevo** para limpiar el formulario y regresar a los documentos pendientes.
 
 El acceso Caja chica de Ventas y su ruta anterior redirigen a esta misma pantalla.

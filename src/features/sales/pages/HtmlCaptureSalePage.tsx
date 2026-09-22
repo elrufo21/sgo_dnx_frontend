@@ -837,7 +837,8 @@ export default function HtmlCaptureSalePage() {
 
         const clientId = Number(nota.clienteId ?? nota.ClienteId ?? 0);
         const client = clientId ? await fetchClientById(clientId) : null;
-        if (!active || recordLoadVersion !== recordLoadVersionRef.current) return;
+        if (!active || recordLoadVersion !== recordLoadVersionRef.current)
+          return;
 
         const docu = safeTrim(nota.notaDocu ?? nota.NotaDocu).toUpperCase();
         const docTypeCode: SaleForm["docTypeCode"] = docu.includes("FACTURA")
@@ -959,9 +960,7 @@ export default function HtmlCaptureSalePage() {
 
         appliedClientRef.current = client;
         formMethods.reset(formFromDatabase);
-        setViewedEmissionDateTime(
-          safeTrim(nota.notaFecha ?? nota.NotaFecha),
-        );
+        setViewedEmissionDateTime(safeTrim(nota.notaFecha ?? nota.NotaFecha));
         setIsPaidPagoVarios(
           condition === "PAGO/VARIOS" &&
             safeTrim(nota.notaEstado ?? nota.NotaEstado).toUpperCase() ===
@@ -1240,7 +1239,9 @@ export default function HtmlCaptureSalePage() {
       })) as PagoVariosDetailResponse;
       if (!response?.ok || !response.pago) {
         setPagoVariosDetail(null);
-        toast.error(response?.mensaje || "No se pudo cargar el detalle del pago.");
+        toast.error(
+          response?.mensaje || "No se pudo cargar el detalle del pago.",
+        );
         return;
       }
       setPagoVariosDetail(response.pago);
@@ -2527,11 +2528,7 @@ export default function HtmlCaptureSalePage() {
   }, [externalCaptureContext, isNewRoute]);
 
   useEffect(() => {
-    if (
-      !isNewRoute ||
-      manualSaleDraftRestoredRef.current ||
-      !products.length
-    ) {
+    if (!isNewRoute || manualSaleDraftRestoredRef.current || !products.length) {
       return;
     }
     manualSaleDraftRestoredRef.current = true;
@@ -3002,17 +2999,17 @@ export default function HtmlCaptureSalePage() {
 
     setIsResendingOse(true);
     try {
-      const response = await apiRequest<Record<string, unknown>, unknown, null>({
-        url: buildApiUrl(`/Nota/documentos/${docuId}/reenviar-ose`),
-        method: "POST",
-        fallback: null,
-      });
+      const response = await apiRequest<Record<string, unknown>, unknown, null>(
+        {
+          url: buildApiUrl(`/Nota/documentos/${docuId}/reenviar-ose`),
+          method: "POST",
+          fallback: null,
+        },
+      );
       const result = asRecord(response);
       if (!result || result.ok !== true || result.aceptado !== true) {
         toast.error(
-          safeTrim(
-            result?.msj_sunat ?? result?.mensaje ?? result?.message,
-          ) ||
+          safeTrim(result?.msj_sunat ?? result?.mensaje ?? result?.message) ||
             "No se pudo reenviar el documento a OSE.",
         );
         return;
@@ -3216,7 +3213,11 @@ export default function HtmlCaptureSalePage() {
     const documentNumber = lastTicket.documentNumber;
     const isInvoice = form.docTypeCode === "01";
     const isProforma = form.docTypeCode === "101";
-    const documentLabel = isInvoice ? "factura" : isProforma ? "proforma" : "boleta";
+    const documentLabel = isInvoice
+      ? "factura"
+      : isProforma
+        ? "proforma"
+        : "boleta";
     openDialog({
       title: `Anular ${documentLabel}`,
       content: (
@@ -3239,14 +3240,17 @@ export default function HtmlCaptureSalePage() {
               isProforma
                 ? "/Nota/anular-documento"
                 : isInvoice
-                ? "/Nota/factura/anular-individual"
-                : "/Nota/boleta/anular-individual",
+                  ? "/Nota/factura/anular-individual"
+                  : "/Nota/boleta/anular-individual",
             ),
             method: "POST",
             data: isProforma
               ? {
                   listaOrden: `${viewSunatStatus?.docuId || 0}|${lastTicket.noteId}|${session.username}|${form.concept}|${documentNumber}|${form.customerName}|${form.memberCode}|${form.transactionNumber}|00[${rows
-                    .map((row) => `${row.product.id}|${row.quantity.toFixed(2)}|${row.cost.toFixed(2)}`)
+                    .map(
+                      (row) =>
+                        `${row.product.id}|${row.quantity.toFixed(2)}|${row.cost.toFixed(2)}`,
+                    )
                     .join(";")}`,
                 }
               : {
@@ -3432,7 +3436,9 @@ export default function HtmlCaptureSalePage() {
     }
 
     if (!session.userId) {
-      toast.error("Tu sesión no tiene un usuario válido. Cierra sesión e ingresa nuevamente.");
+      toast.error(
+        "Tu sesión no tiene un usuario válido. Cierra sesión e ingresa nuevamente.",
+      );
       registerSaleRef.current = false;
       return;
     }
@@ -3810,10 +3816,10 @@ export default function HtmlCaptureSalePage() {
                         className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         <ArrowLeft className="h-4 w-4" />
-                        Volver a pagos realizados
+                        Volver
                       </button>
                       <span className="text-sm font-bold text-slate-800">
-                        Detalle del pago
+                        {formatDateTime(pagoVariosDetail.fechaEmision) || "-"}
                       </span>
                     </div>
                     <div className="border-b border-slate-100 px-5 py-3 text-sm">
@@ -3825,30 +3831,75 @@ export default function HtmlCaptureSalePage() {
                     <table className="w-full min-w-[900px] border-collapse text-sm">
                       <thead className="bg-white text-xs uppercase text-slate-400">
                         <tr>
-                          <th className="border-b border-slate-100 px-5 py-3 text-left">Documento</th>
-                          <th className="border-b border-slate-100 px-3 py-3 text-left">Código</th>
-                          <th className="border-b border-slate-100 px-3 py-3 text-left">Cliente</th>
-                          <th className="border-b border-slate-100 px-3 py-3 text-left">Concepto OBS</th>
-                          <th className="border-b border-slate-100 px-5 py-3 text-right">Efectivo</th>
-                          <th className="border-b border-slate-100 px-5 py-3 text-right">Depósito</th>
-                          <th className="border-b border-slate-100 px-5 py-3 text-right">Total</th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-left">
+                            Documento
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Código
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Cliente
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Concepto OBS
+                          </th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">
+                            Efectivo
+                          </th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">
+                            Depósito
+                          </th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">
+                            Total
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {isPagoVariosDetailLoading ? (
-                          <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-400">Cargando detalle...</td></tr>
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="px-5 py-12 text-center text-slate-400"
+                            >
+                              Cargando detalle...
+                            </td>
+                          </tr>
                         ) : pagoVariosDetailItems.length === 0 ? (
-                          <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-400">No hay documentos en este pago.</td></tr>
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="px-5 py-12 text-center text-slate-400"
+                            >
+                              No hay documentos en este pago.
+                            </td>
+                          </tr>
                         ) : (
                           pagoVariosDetailItems.map((item) => (
-                            <tr key={`${item.docuId}-${item.notaId}`} className="border-b border-slate-50 last:border-0">
-                              <td className="px-5 py-3 font-semibold text-slate-700">{item.documento || "-"}</td>
-                              <td className="px-3 py-3 text-slate-500">{item.codigo || "-"}</td>
-                              <td className="px-3 py-3 text-slate-600">{item.razonSocial || "-"}</td>
-                              <td className="px-3 py-3 text-slate-500">{item.conceptoOBS || "-"}</td>
-                              <td className="px-5 py-3 text-right text-slate-700">{money(item.efectivo)}</td>
-                              <td className="px-5 py-3 text-right text-slate-700">{money(item.deposito)}</td>
-                              <td className="px-5 py-3 text-right font-black text-slate-800">{money(item.monto)}</td>
+                            <tr
+                              key={`${item.docuId}-${item.notaId}`}
+                              className="border-b border-slate-50 last:border-0"
+                            >
+                              <td className="px-5 py-3 font-semibold text-slate-700">
+                                {item.documento || "-"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-500">
+                                {item.codigo || "-"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-600">
+                                {item.razonSocial || "-"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-500">
+                                {item.conceptoOBS || "-"}
+                              </td>
+                              <td className="px-5 py-3 text-right text-slate-700">
+                                {money(item.efectivo)}
+                              </td>
+                              <td className="px-5 py-3 text-right text-slate-700">
+                                {money(item.deposito)}
+                              </td>
+                              <td className="px-5 py-3 text-right font-black text-slate-800">
+                                {money(item.monto)}
+                              </td>
                             </tr>
                           ))
                         )}
@@ -3857,140 +3908,143 @@ export default function HtmlCaptureSalePage() {
                   </>
                 ) : (
                   <>
-                <div className="flex flex-wrap items-end gap-2 border-b border-slate-100 px-5 py-3">
-                  <label className="flex flex-col gap-1 text-xs text-slate-600">
-                    Fecha inicio
-                    <input
-                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                      type="date"
-                      value={pagoVariosHistoryStart}
-                      onChange={(event) =>
-                        setPagoVariosHistoryStart(event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-xs text-slate-600">
-                    Fecha fin
-                    <input
-                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                      type="date"
-                      value={pagoVariosHistoryEnd}
-                      onChange={(event) =>
-                        setPagoVariosHistoryEnd(event.target.value)
-                      }
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => void fetchPagoVariosHistory()}
-                    disabled={isPagoVariosHistoryLoading}
-                    className="h-10 rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-                  >
-                    Buscar
-                  </button>
-                  <span className="ml-auto text-xs font-medium text-slate-400">
-                    {integer(pagoVariosHistory.length)} pagos realizados
-                  </span>
-                </div>
-                <table className="w-full min-w-[1120px] border-collapse text-sm">
-                  <thead className="bg-white text-xs uppercase text-slate-400">
-                    <tr>
-                      <th className="border-b border-slate-100 px-5 py-3 text-left">
-                        Fecha
-                      </th>
-                      <th className="border-b border-slate-100 px-3 py-3 text-left">
-                        Descripción
-                      </th>
-                      <th className="border-b border-slate-100 px-3 py-3 text-left">
-                        Pago
-                      </th>
-                      <th className="border-b border-slate-100 px-3 py-3 text-left">
-                        Operación
-                      </th>
-                      <th className="border-b border-slate-100 px-3 py-3 text-left">
-                        Usuario
-                      </th>
-                      <th className="border-b border-slate-100 px-5 py-3 text-right">
-                        Efectivo
-                      </th>
-                      <th className="border-b border-slate-100 px-5 py-3 text-right">
-                        Depósito
-                      </th>
-                      <th className="border-b border-slate-100 px-5 py-3 text-right">
-                        Total
-                      </th>
-                      <th className="border-b border-slate-100 px-3 py-3 text-left">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isPagoVariosHistoryLoading ? (
-                      <tr>
-                        <td
-                          colSpan={9}
-                          className="px-5 py-12 text-center text-slate-400"
-                        >
-                          Cargando historial...
-                        </td>
-                      </tr>
-                    ) : pagoVariosHistory.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={9}
-                          className="px-5 py-12 text-center text-slate-400"
-                        >
-                          No hay pagos realizados en el periodo.
-                        </td>
-                      </tr>
-                    ) : (
-                      pagoVariosHistory.map((item) => (
-                        <tr
-                          key={item.pagoId}
-                          className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-                        >
-                          <td className="px-5 py-3 text-slate-600">
-                            {item.fechaEmision}
-                          </td>
-                          <td className="px-3 py-3 font-semibold text-slate-700">
-                            {item.descripcion}
-                          </td>
-                          <td className="px-3 py-3 text-slate-500">
-                            {pagoVariosPaymentLabel(item.formaPago, item.entidad)}
-                          </td>
-                          <td className="px-3 py-3 text-slate-500">
-                            {item.nroOperacion || "-"}
-                          </td>
-                          <td className="px-3 py-3 text-slate-500">
-                            {item.usuario}
-                          </td>
-                          <td className="px-5 py-3 text-right text-slate-700">
-                            {money(item.efectivo)}
-                          </td>
-                          <td className="px-5 py-3 text-right text-slate-700">
-                            {money(item.deposito)}
-                          </td>
-                          <td className="px-5 py-3 text-right font-black text-slate-800">
-                            {money(item.total)}
-                          </td>
-                          <td className="px-3 py-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => void viewPagoVarios(item)}
-                              disabled={isPagoVariosHistoryLoading}
-                              className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-blue-600 hover:underline disabled:opacity-50"
-                              title="Ver detalle del pago"
-                              aria-label="Ver detalle del pago"
-                            >
-                              <Eye className="h-4 w-4" />
-                              Ver
-                            </button>
-                          </td>
+                    <div className="flex flex-wrap items-end gap-2 border-b border-slate-100 px-5 py-3">
+                      <label className="flex flex-col gap-1 text-xs text-slate-600">
+                        Fecha inicio
+                        <input
+                          className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                          type="date"
+                          value={pagoVariosHistoryStart}
+                          onChange={(event) =>
+                            setPagoVariosHistoryStart(event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs text-slate-600">
+                        Fecha fin
+                        <input
+                          className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                          type="date"
+                          value={pagoVariosHistoryEnd}
+                          onChange={(event) =>
+                            setPagoVariosHistoryEnd(event.target.value)
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void fetchPagoVariosHistory()}
+                        disabled={isPagoVariosHistoryLoading}
+                        className="h-10 rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                      >
+                        Buscar
+                      </button>
+                      <span className="ml-auto text-xs font-medium text-slate-400">
+                        {integer(pagoVariosHistory.length)} pagos realizados
+                      </span>
+                    </div>
+                    <table className="w-full min-w-[1120px] border-collapse text-sm">
+                      <thead className="bg-white text-xs uppercase text-slate-400">
+                        <tr>
+                          <th className="border-b border-slate-100 px-5 py-3 text-left">
+                            Fecha
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Descripción
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Pago
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Operación
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Usuario
+                          </th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">
+                            Efectivo
+                          </th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">
+                            Depósito
+                          </th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">
+                            Total
+                          </th>
+                          <th className="border-b border-slate-100 px-3 py-3 text-left">
+                            Acciones
+                          </th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {isPagoVariosHistoryLoading ? (
+                          <tr>
+                            <td
+                              colSpan={9}
+                              className="px-5 py-12 text-center text-slate-400"
+                            >
+                              Cargando historial...
+                            </td>
+                          </tr>
+                        ) : pagoVariosHistory.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={9}
+                              className="px-5 py-12 text-center text-slate-400"
+                            >
+                              No hay pagos realizados en el periodo.
+                            </td>
+                          </tr>
+                        ) : (
+                          pagoVariosHistory.map((item) => (
+                            <tr
+                              key={item.pagoId}
+                              className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                            >
+                              <td className="px-5 py-3 text-slate-600">
+                                {item.fechaEmision}
+                              </td>
+                              <td className="px-3 py-3 font-semibold text-slate-700">
+                                {item.descripcion}
+                              </td>
+                              <td className="px-3 py-3 text-slate-500">
+                                {pagoVariosPaymentLabel(
+                                  item.formaPago,
+                                  item.entidad,
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-slate-500">
+                                {item.nroOperacion || "-"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-500">
+                                {item.usuario}
+                              </td>
+                              <td className="px-5 py-3 text-right text-slate-700">
+                                {money(item.efectivo)}
+                              </td>
+                              <td className="px-5 py-3 text-right text-slate-700">
+                                {money(item.deposito)}
+                              </td>
+                              <td className="px-5 py-3 text-right font-black text-slate-800">
+                                {money(item.total)}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => void viewPagoVarios(item)}
+                                  disabled={isPagoVariosHistoryLoading}
+                                  className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-blue-600 hover:underline disabled:opacity-50"
+                                  title="Ver detalle del pago"
+                                  aria-label="Ver detalle del pago"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  Ver
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </>
                 )}
               </>
@@ -4011,7 +4065,8 @@ export default function HtmlCaptureSalePage() {
                     pagoVariosDetail
                       ? pagoVariosDetailItems.length
                       : selectedPagoVariosItems.length,
-                  )} documentos {pagoVariosDetail ? "del pago" : "seleccionados"}
+                  )}{" "}
+                  documentos {pagoVariosDetail ? "del pago" : "seleccionados"}
                 </p>
               </div>
 
@@ -4047,9 +4102,9 @@ export default function HtmlCaptureSalePage() {
                         ? String(pagoVariosDetail.deposito)
                         : isPagoVariosMixed
                           ? pagoVariosDeposito
-                        : pagoVariosDepositoFinal > 0
-                          ? String(Number(pagoVariosDepositoFinal.toFixed(2)))
-                          : ""
+                          : pagoVariosDepositoFinal > 0
+                            ? String(Number(pagoVariosDepositoFinal.toFixed(2)))
+                            : ""
                     }
                     onChange={(event) =>
                       setPagoVariosDeposito(event.target.value)
@@ -4069,8 +4124,8 @@ export default function HtmlCaptureSalePage() {
                       pagoVariosDetail
                         ? String(pagoVariosDetail.efectivo)
                         : pagoVariosEfectivoFinal > 0
-                        ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
-                        : ""
+                          ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
+                          : ""
                     }
                     disabled
                   />
@@ -4087,7 +4142,9 @@ export default function HtmlCaptureSalePage() {
                     setPagoVariosEntidad(event.target.value);
                     focusPagoVariosField("operacion");
                   }}
-                  disabled={Boolean(pagoVariosDetail) || !pagoVariosEntidadEditable}
+                  disabled={
+                    Boolean(pagoVariosDetail) || !pagoVariosEntidadEditable
+                  }
                 >
                   {BANK_OPTIONS.map((item) => (
                     <option key={item}>{item}</option>
@@ -4116,7 +4173,9 @@ export default function HtmlCaptureSalePage() {
                     event.preventDefault();
                     focusPagoVariosField("descripcion");
                   }}
-                  disabled={Boolean(pagoVariosDetail) || !pagoVariosRequiereOperacion}
+                  disabled={
+                    Boolean(pagoVariosDetail) || !pagoVariosRequiereOperacion
+                  }
                 />
               </label>
 
@@ -4170,7 +4229,11 @@ export default function HtmlCaptureSalePage() {
                     <Trash2 className="h-4 w-4" />
                     Eliminar pago
                   </>
-                ) : isPagoVariosSaving ? "Guardando..." : "Pagar seleccionados"}
+                ) : isPagoVariosSaving ? (
+                  "Guardando..."
+                ) : (
+                  "Pagar seleccionados"
+                )}
               </button>
               {pagoVariosDetail ? (
                 <button
@@ -4228,8 +4291,8 @@ export default function HtmlCaptureSalePage() {
           isResendingOse
             ? "Reenviando documento a OSE..."
             : isLoadingRecord
-            ? "Cargando registro..."
-            : "Cargando datos de la extensión..."
+              ? "Cargando registro..."
+              : "Cargando datos de la extensión..."
         }
       />
       {PagoVariosModal}
