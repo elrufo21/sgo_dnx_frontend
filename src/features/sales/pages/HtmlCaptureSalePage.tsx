@@ -125,6 +125,10 @@ type ViewSunatStatus = {
   xmlUrl: string;
   cdrUrl: string;
 } | null;
+type AnulacionValidationResponse = {
+  ok?: boolean;
+  permite_anular?: boolean;
+};
 type PagoVariosItem = {
   docuId: number;
   notaId: number;
@@ -656,6 +660,7 @@ export default function HtmlCaptureSalePage() {
   const [viewSunatStatus, setViewSunatStatus] = useState<ViewSunatStatus>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isVoidingTicket, setIsVoidingTicket] = useState(false);
+  const [canVoidByDeadline, setCanVoidByDeadline] = useState(false);
   const [freeSaleReasonAsked, setFreeSaleReasonAsked] = useState(false);
   const [manualSaleType, setManualSaleType] =
     useState<ManualSaleType>("VENTA LIBRE");
@@ -781,6 +786,7 @@ export default function HtmlCaptureSalePage() {
     setMonthlyPvs(0);
     setLastTicket(null);
     setViewSunatStatus(null);
+    setCanVoidByDeadline(false);
     setFreeSaleReasonAsked(false);
     setManualSaleType("VENTA LIBRE");
     formMethods.reset(defaultForm);
@@ -1053,6 +1059,49 @@ export default function HtmlCaptureSalePage() {
       active = false;
     };
   }, [isExistingRoute, routeNoteId]);
+
+  useEffect(() => {
+    const docuId = viewSunatStatus?.docuId ?? 0;
+    if (
+      !isFromOrderNotesView ||
+      !["01", "03"].includes(form.docTypeCode) ||
+      docuId <= 0
+    ) {
+      setCanVoidByDeadline(false);
+      return;
+    }
+
+    let active = true;
+    setCanVoidByDeadline(false);
+    apiRequest<AnulacionValidationResponse, unknown, null>({
+      url: buildApiUrl("/Nota/anular/validar"),
+      method: "POST",
+      data: {
+        DOCU_ID: docuId,
+        NRO_DOCUMENTO_MODIFICA: lastTicket?.documentNumber,
+      },
+      fallback: null,
+    })
+      .then((response) => {
+        if (active) {
+          setCanVoidByDeadline(
+            response?.ok === true && response.permite_anular === true,
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setCanVoidByDeadline(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    form.docTypeCode,
+    isFromOrderNotesView,
+    lastTicket?.documentNumber,
+    viewSunatStatus?.docuId,
+  ]);
 
   useEffect(() => {
     if (!products.length) void fetchProducts("");
@@ -3237,6 +3286,7 @@ export default function HtmlCaptureSalePage() {
               ? { ...current, estadoSunat: "ANULADO", docuEstado: "ANULADO" }
               : current,
           );
+          setCanVoidByDeadline(false);
           toast.success(
             safeTrim(response?.mensaje ?? response?.message) ||
               `La ${documentLabel} fue anulada correctamente.`,
@@ -4163,6 +4213,7 @@ export default function HtmlCaptureSalePage() {
     Boolean(lastTicket) &&
     !isPaidPagoVarios &&
     !isVoidingTicket &&
+    (form.docTypeCode === "101" || canVoidByDeadline) &&
     ![viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some((value) =>
       ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
     );
