@@ -29,7 +29,11 @@ import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
-import { buildApiUrl, buildRootApiUrl, PRINT_AGENT_BASE_URL } from "@/config";
+import {
+  buildApiUrl,
+  PRINT_AGENT_BASE_URL,
+  PRINT_AGENT_TOKEN,
+} from "@/config";
 import {
   clearExternalCaptureDraft,
   clearManualSaleDraft,
@@ -225,6 +229,21 @@ const defaultForm: SaleForm = {
   transactionNumber: "",
 };
 const safeTrim = (value: unknown) => String(value ?? "").trim();
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("No se pudo preparar el PDF para impresión."));
+    });
+    reader.addEventListener("error", () =>
+      reject(new Error("No se pudo preparar el PDF para impresión.")),
+    );
+    reader.readAsDataURL(blob);
+  });
 const pagoVariosPaymentLabel = (formaPago: string, entidad: string) =>
   safeTrim(entidad) && safeTrim(entidad) !== "-"
     ? `${formaPago} · ${entidad}`
@@ -2615,37 +2634,6 @@ export default function HtmlCaptureSalePage() {
     products.length,
   ]);
 
-  const handleOpenDniClientModal = useCallback(() => {
-    if (isReadOnly) {
-      toast.error("Este registro solo se puede visualizar.");
-      return;
-    }
-    openDialog({
-      title: "",
-      maxWidth: "lg",
-      fullWidth: true,
-      cancelText: "Cerrar",
-      hideCancelButton: true,
-      content: (
-        <CustomerDialogContent
-          initialEditingClient={selectedClient}
-          onSelectClient={handleSelectClientFromDialog}
-          onCreateClient={handleCreateClientFromDialog}
-          onUpdateClient={handleUpdateClientFromDialog}
-          onDeleteClient={handleDeleteClientFromDialog}
-        />
-      ),
-    });
-  }, [
-    handleCreateClientFromDialog,
-    handleDeleteClientFromDialog,
-    handleSelectClientFromDialog,
-    handleUpdateClientFromDialog,
-    isReadOnly,
-    openDialog,
-    selectedClient,
-  ]);
-
   useEffect(() => {
     if (
       !isNewRoute ||
@@ -3108,28 +3096,34 @@ export default function HtmlCaptureSalePage() {
       toast.error("No se puede imprimir un comprobante anulado o rechazado.");
       return;
     }
+    if (!PRINT_AGENT_TOKEN) {
+      throw new Error(
+        "Configura VITE_PRINT_AGENT_TOKEN para imprimir con el agente DNX.",
+      );
+    }
+
     const blob = await buildTicketBlob(ticket.documentNumber, ticket.noteId);
-    const file = new File([blob], `${ticket.documentNumber || "ticket"}.pdf`, {
-      type: "application/pdf",
-    });
-    const formData = new FormData();
-    formData.append("file", file);
+    let response: Response;
+    try {
+      response = await fetch(`${PRINT_AGENT_BASE_URL}/v1/print`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PRINT_AGENT_TOKEN}`,
+        },
+        body: JSON.stringify({ pdfBase64: await blobToDataUrl(blob) }),
+      });
+    } catch {
+      throw new Error(
+        "No se pudo conectar al agente DNX. Verifica que esté iniciado.",
+      );
+    }
 
-    const result = await apiRequest({
-      url: buildRootApiUrl("/api/print/pdf"),
-      method: "POST",
-      data: formData,
-      config: { headers: { Accept: "application/json" } },
-      fallback: null,
-    });
-
-    const resultRecord = asRecord(result);
-    if (!resultRecord?.ok) {
-      const responseData = asRecord(asRecord(resultRecord?.response)?.data);
+    const resultRecord = asRecord(await response.json().catch(() => null));
+    if (!response.ok || !resultRecord?.ok) {
       const printMessage =
-        safeTrim(
-          responseData?.message ?? responseData?.error ?? resultRecord?.message,
-        ) || "No se pudo enviar a la tiketera.";
+        safeTrim(resultRecord?.message ?? resultRecord?.error) ||
+        "No se pudo enviar a la tiketera.";
       throw new Error(printMessage);
     }
 
@@ -4830,9 +4824,6 @@ export default function HtmlCaptureSalePage() {
                   canEditCapturedClient
                     ? () => void handleCreateAndEditCapturedClient()
                     : undefined
-                }
-                onOpenClientModal={
-                  isReadOnly ? undefined : handleOpenDniClientModal
                 }
               />
             </div>

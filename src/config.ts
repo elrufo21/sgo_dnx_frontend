@@ -10,6 +10,9 @@ export const PRINT_AGENT_BASE_URL = (
   String(import.meta.env.VITE_PRINT_AGENT_BASE_URL ?? DEFAULT_PRINT_AGENT_BASE_URL).trim() ||
   DEFAULT_PRINT_AGENT_BASE_URL
 ).replace(/\/+$/, "");
+export const PRINT_AGENT_TOKEN = String(
+  import.meta.env.VITE_PRINT_AGENT_TOKEN ?? "",
+).trim();
 if (import.meta.env.PROD && !String(import.meta.env.VITE_API_BASE_URL ?? "").trim()) {
   console.warn(
     "VITE_API_BASE_URL no esta configurada en produccion. Se usara el valor por defecto local."

@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   readonly VITE_API_DOCUMENTO?: string;
   readonly VITE_PRINT_AGENT_BASE_URL?: string;
+  readonly VITE_PRINT_AGENT_TOKEN?: string;
   readonly VITE_PASSWORD_EXPIRATION_LOCK_ENABLED?: string;
 }
 
