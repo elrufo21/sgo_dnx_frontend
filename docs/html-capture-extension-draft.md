@@ -18,12 +18,15 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 - El borrador no se envía al servidor ni crea una venta por sí solo.
 - Al elegir una entidad bancaria válida, el foco pasa a **Nro Operación** para continuar el registro del pago.
 - Al visualizar una venta registrada desde el listado o el despacho de facturas, su fecha y hora de emisión aparece junto al botón **Volver**.
-- Una captura de **boleta** conserva el nombre del cliente, pero no carga DNI ni RUC; las facturas sí conservan su RUC.
+- Una captura de **boleta** conserva el cliente y su DNI registrado; no carga RUC. Las facturas conservan su RUC.
 - En el resumen OBS/IOC, el estado **ANULADO** se muestra en rojo.
 - En el resumen OBS/IOC, los importes se actualizan con la búsqueda activa: **Subtotal** incluye todas las filas, **Anulados** suma solo las anuladas y **Total** las excluye.
 - Está limitado a la pestaña actual y se valida contra la empresa y el usuario que lo generaron.
 - Las ventas libres guardan en la misma sesión sus datos de formulario, productos, cantidades, precios y tipo de venta. Se restauran al volver a la pantalla y se eliminan en las mismas acciones que una captura.
 - Solo hay un borrador de captura o de venta libre activo por tipo; una nueva captura descarta el borrador de venta libre.
 - Los documentos guardados con `conceptoOBS = VENTA` se muestran como **Cashbill** al volver a abrirlos.
+- El ticket impreso replica el escritorio: una transacción que contiene `RS` se rotula como **IOC**; otra transacción como **CASH BILL**; sin transacción, como **LIBRE**.
 - Al registrar una venta, el `usuarioId` se obtiene desde cualquiera de los campos de identificador que pueda tener la sesión. Si la sesión no contiene un ID positivo, la venta se bloquea y se pide ingresar nuevamente; así no se envía `usuarioId = 0` al procedimiento de caja.
-- En una boleta desde **S/ 700.00**, el DNI queda bloqueado para impedir búsquedas o cambios directos. El botón de lápiz junto al campo abre el modal de Clientes para seleccionar, registrar o editar al cliente y aplicar sus datos a la venta.
+- En una **boleta**, el DNI queda bloqueado para impedir búsquedas o cambios directos. El cliente se selecciona por nombre, código o con el botón de lápiz junto al campo; entonces se aplica su DNI registrado a la venta.
+- La distribución de pago toma el total calculado de la venta para asignar efectivo, depósito o sus combinaciones.
+- Para boletas y facturas, la pantalla obtiene el nombre del equipo desde el agente local DNX. La API busca ese nombre en `MAQUINAS` y usa su serie asignada; si el agente no está activo o la máquina no tiene serie, se bloquea la emisión y no se usa `BA01` o `FA01` como respaldo.

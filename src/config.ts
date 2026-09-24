@@ -1,10 +1,15 @@
 const DEFAULT_API_BASE_URL = "http://localhost:5000/api/v1";
+const DEFAULT_PRINT_AGENT_BASE_URL = "http://127.0.0.1:5174";
 
 const rawApiBaseUrl =
   String(import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).trim() ||
   DEFAULT_API_BASE_URL;
 
 export const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
+export const PRINT_AGENT_BASE_URL = (
+  String(import.meta.env.VITE_PRINT_AGENT_BASE_URL ?? DEFAULT_PRINT_AGENT_BASE_URL).trim() ||
+  DEFAULT_PRINT_AGENT_BASE_URL
+).replace(/\/+$/, "");
 if (import.meta.env.PROD && !String(import.meta.env.VITE_API_BASE_URL ?? "").trim()) {
   console.warn(
     "VITE_API_BASE_URL no esta configurada en produccion. Se usara el valor por defecto local."

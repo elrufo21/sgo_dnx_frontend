@@ -29,7 +29,7 @@ import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
-import { buildApiUrl, buildRootApiUrl } from "@/config";
+import { buildApiUrl, buildRootApiUrl, PRINT_AGENT_BASE_URL } from "@/config";
 import {
   clearExternalCaptureDraft,
   clearManualSaleDraft,
@@ -653,6 +653,8 @@ export default function HtmlCaptureSalePage() {
   const [manualProductIndex, setManualProductIndex] = useState(0);
   const [monthlyPvs, setMonthlyPvs] = useState(0);
   const [correlative, setCorrelative] = useState<Correlative>(null);
+  const [machineName, setMachineName] = useState("");
+  const [correlativeError, setCorrelativeError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isResendingOse, setIsResendingOse] = useState(false);
   const [hasReenviadoOse, setHasReenviadoOse] = useState(false);
@@ -727,6 +729,11 @@ export default function HtmlCaptureSalePage() {
   const isCapturedSale = Boolean(capture) || isCashbillSale;
   const isLoadingRecord = isExistingRoute && loadedRecordId !== routeNoteId;
   const saleType = isCapturedSale ? "CASHBILL" : manualSaleType;
+  const printedSaleType = safeTrim(form.transactionNumber)
+    ? form.transactionNumber.includes("RS")
+      ? "IOC"
+      : "CASH BILL"
+    : "LIBRE";
   const saleTypeForDatabase = isCapturedSale
     ? "VENTA"
     : manualSaleType === "POR PASAR AL OBS"
@@ -1107,14 +1114,48 @@ export default function HtmlCaptureSalePage() {
   }, [fetchProducts, products.length]);
 
   useEffect(() => {
+    let active = true;
+
+    const loadMachineName = async () => {
+      try {
+        const response = await fetch(`${PRINT_AGENT_BASE_URL}/v1/system`);
+        if (!response.ok) throw new Error();
+        const data = (await response.json()) as { hostname?: unknown };
+        const hostname = safeTrim(data.hostname);
+        if (!hostname) throw new Error();
+        if (!active) return;
+        setMachineName(hostname);
+        setCorrelativeError("");
+      } catch {
+        if (!active) return;
+        setMachineName("");
+        setCorrelativeError(
+          "No se detectó el agente DNX en esta computadora. Inícialo para emitir boletas o facturas.",
+        );
+      }
+    };
+
+    void loadMachineName();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (isReadOnly) return;
     const doc = DOC_CONFIG[form.docTypeCode];
+    const requiresMachineSeries = ["01", "03"].includes(form.docTypeCode);
     let active = true;
     setCorrelative(null);
 
+    if (requiresMachineSeries && !machineName) return;
+
     const query = new URLSearchParams({
       companiaId: String(session.companyId),
-      serie: doc.serie,
+      documento: doc.docu,
+      ...(requiresMachineSeries
+        ? { maquina: machineName }
+        : { serie: doc.serie }),
     });
 
     apiRequest<
@@ -1123,6 +1164,7 @@ export default function HtmlCaptureSalePage() {
         nroComprobante?: string;
         numero?: string;
         serie?: string;
+        mensaje?: string;
       },
       unknown,
       null
@@ -1132,8 +1174,18 @@ export default function HtmlCaptureSalePage() {
       fallback: null,
     })
       .then((response) => {
-        if (!active || !response?.ok) return;
-        const serie = safeTrim(response.serie) || doc.serie;
+        if (!active) return;
+        if (!response?.ok) {
+          if (requiresMachineSeries) {
+            setCorrelativeError(
+              safeTrim(response?.mensaje) ||
+                "Esta computadora no tiene una serie configurada en MAQUINAS.",
+            );
+          }
+          return;
+        }
+        const serie = safeTrim(response.serie) || (requiresMachineSeries ? "" : doc.serie);
+        if (!serie) return;
         const numero = safeTrim(response.numero) || "00000000";
         setCorrelative({
           serie,
@@ -1143,13 +1195,17 @@ export default function HtmlCaptureSalePage() {
         });
       })
       .catch(() => {
-        if (active) setCorrelative(null);
+        if (!active) return;
+        setCorrelative(null);
+        if (requiresMachineSeries) {
+          setCorrelativeError("No se pudo obtener la serie asignada a esta computadora.");
+        }
       });
 
     return () => {
       active = false;
     };
-  }, [form.docTypeCode, isReadOnly, session.companyId]);
+  }, [form.docTypeCode, isReadOnly, machineName, session.companyId]);
 
   const fetchPagoVarios = useCallback(async () => {
     if (!session.userId) {
@@ -2323,7 +2379,6 @@ export default function HtmlCaptureSalePage() {
             formMethods.setValue("customerDoc", "", { shouldDirty: true });
           } else {
             formMethods.setValue("customerRuc", "", { shouldDirty: true });
-            formMethods.setValue("customerDoc", "", { shouldDirty: true });
           }
           if (data.customerEmail) {
             formMethods.setValue("customerEmail", data.customerEmail, {
@@ -2852,7 +2907,7 @@ export default function HtmlCaptureSalePage() {
       operationNumber={form.operationNumber}
       memberCode={form.memberCode}
       transactionNumber={form.transactionNumber}
-      saleType={saleType}
+      saleType={printedSaleType}
       items={cartItems}
       totals={{
         subTotal: totals.subtotal,
@@ -3353,6 +3408,16 @@ export default function HtmlCaptureSalePage() {
     if (registerSaleRef.current) return;
     registerSaleRef.current = true;
 
+    const requiresMachineSeries = ["01", "03"].includes(form.docTypeCode);
+    if (requiresMachineSeries && (!machineName || !correlative)) {
+      toast.error(
+        correlativeError ||
+          "No se pudo obtener la serie asignada a esta computadora.",
+      );
+      registerSaleRef.current = false;
+      return;
+    }
+
     if (!selectedClient && !clients.length) {
       await fetchClients("");
     }
@@ -3406,7 +3471,7 @@ export default function HtmlCaptureSalePage() {
     }
 
     const doc = DOC_CONFIG[form.docTypeCode];
-    const notaSerie = correlative?.serie || doc.serie;
+    const notaSerie = correlative?.serie || (requiresMachineSeries ? "" : doc.serie);
     const notaNumero = correlative?.numero || "00000000";
     const total = Number(totals.total.toFixed(2));
     const isPagoVariosSale = form.condition === "PAGO/VARIOS";
@@ -3453,6 +3518,7 @@ export default function HtmlCaptureSalePage() {
         url: buildApiUrl("/Nota/crearOrden"),
         method: "POST",
         data: {
+          machineName: requiresMachineSeries ? machineName : undefined,
           nota: {
             notaId: 0,
             notaDocu: doc.docu,

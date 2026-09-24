@@ -57,7 +57,7 @@ interface SaleCaptureFormFieldsProps {
   clientOptions: ClientOption[];
   disabled?: boolean;
   correlative?: string;
-  totalAmount?: number;
+  totalAmount: number;
   preserveMissingClientData?: boolean;
   onClientSelected?: (
     client: Client | null,
@@ -110,7 +110,7 @@ export function SaleCaptureFormFields({
   clientOptions,
   disabled = false,
   correlative,
-  totalAmount = 0,
+  totalAmount,
   preserveMissingClientData = false,
   onClientSelected,
   onCreateClient,
@@ -135,12 +135,10 @@ export function SaleCaptureFormFields({
   );
   const bankEntity = values.bankEntity ?? "-";
   const docTypeCode = values.docTypeCode ?? "03";
-  const isDniLocked = docTypeCode === "03" && totalAmount >= 700;
+  const isDniLocked = docTypeCode === "03";
   const correlativeDisplay = values.correlativeDisplay ?? "";
   const emissionDate = values.emissionDate ?? "";
-  const serie =
-    docTypeCode === "01" ? "FA01" : docTypeCode === "101" ? "0001" : "BA01";
-  const currentCorrelative = correlative ?? `${serie}-00000000`;
+  const currentCorrelative = correlative ?? (docTypeCode === "101" ? "0001-00000000" : "");
   const searchTimerRef = useRef<number | null>(null);
   const focusedPaymentMethodRef = useRef("");
 
