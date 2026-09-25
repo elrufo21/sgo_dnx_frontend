@@ -2,7 +2,7 @@ import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { toast } from "@/shared/ui/toast";
 import { useBillingConfigStore } from "@/store/configuration/billingConfig.store";
 import type { BillingProcessType } from "@/types/billingConfig";
-import { Download, FileUp, RefreshCw, Save } from "lucide-react";
+import { FileUp, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const processOptions: Array<{ value: BillingProcessType; label: string }> = [
@@ -18,35 +18,14 @@ const hasAllowedCertificateExtension = (filename: string) => {
   return ALLOWED_CERTIFICATE_EXTENSIONS.some((ext) => normalized.endsWith(ext));
 };
 
-const resolveDownloadName = (rawName: string) => {
-  const normalized = String(rawName ?? "").trim();
-  if (!normalized || normalized === "-" || normalized === "Certificado cargado") {
-    return "certificado-sunat.p12";
-  }
-  return hasAllowedCertificateExtension(normalized) ? normalized : `${normalized}.p12`;
-};
-
-const decodeBase64ToBytes = (base64Value: string) => {
-  const cleaned = base64Value.replace(/\s+/g, "");
-  const binary = window.atob(cleaned);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
-};
-
 export default function BillingSettingsPage() {
   const { config, loading, saving, fetchConfig, saveConfig } =
     useBillingConfigStore();
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [certificatePassword, setCertificatePassword] = useState("");
-  const [certificatePasswordTouched, setCertificatePasswordTouched] =
-    useState(false);
   const [solUser, setSolUser] = useState("");
   const [solUserTouched, setSolUserTouched] = useState(false);
   const [solPassword, setSolPassword] = useState("");
-  const [solPasswordTouched, setSolPasswordTouched] = useState(false);
   const [processType, setProcessType] = useState<BillingProcessType | "">("");
   const [processTypeTouched, setProcessTypeTouched] = useState(false);
 
@@ -54,15 +33,11 @@ export default function BillingSettingsPage() {
     void fetchConfig();
   }, [fetchConfig]);
 
-  const effectiveCertificatePassword = certificatePasswordTouched
-    ? certificatePassword
-    : certificatePassword || config?.certificatePassword || "";
+  const effectiveCertificatePassword = certificatePassword;
 
   const effectiveSolUser = solUserTouched ? solUser : solUser || config?.solUser || "";
 
-  const effectiveSolPassword = solPasswordTouched
-    ? solPassword
-    : solPassword || config?.solPassword || "";
+  const effectiveSolPassword = solPassword;
 
   const effectiveProcessType = processTypeTouched
     ? processType || ("BETA" as BillingProcessType)
@@ -97,30 +72,6 @@ export default function BillingSettingsPage() {
   const handleRefresh = useCallback(() => {
     void fetchConfig();
   }, [fetchConfig]);
-
-  const handleDownloadCertificate = useCallback(() => {
-    const certificateBase64 = config?.certificateBase64 ?? "";
-    if (!certificateBase64.trim()) {
-      toast.error("No hay certificado disponible para descargar.");
-      return;
-    }
-
-    try {
-      const certificateBytes = decodeBase64ToBytes(certificateBase64);
-      const blob = new Blob([certificateBytes], { type: "application/x-pkcs12" });
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = objectUrl;
-      anchor.download = resolveDownloadName(config?.certificateName ?? "");
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(objectUrl);
-    } catch (error) {
-      console.error("No se pudo descargar el certificado", error);
-      toast.error("No se pudo descargar el certificado.");
-    }
-  }, [config]);
 
   const handleSave = useCallback(async () => {
     const hasNewCertificate = certificateFile instanceof File;
@@ -212,15 +163,6 @@ export default function BillingSettingsPage() {
           <p className="mt-1 text-xs text-slate-500">
             Última actualización: {config?.updatedAt ?? "-"}
           </p>
-          <button
-            type="button"
-            onClick={handleDownloadCertificate}
-            disabled={!config?.certificateBase64}
-            className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Download className="h-4 w-4" />
-            Descargar certificado
-          </button>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -295,7 +237,6 @@ export default function BillingSettingsPage() {
               type="password"
               value={effectiveCertificatePassword}
               onChange={(event) => {
-                setCertificatePasswordTouched(true);
                 setCertificatePassword(event.target.value);
               }}
               className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"
@@ -323,7 +264,6 @@ export default function BillingSettingsPage() {
               type="password"
               value={effectiveSolPassword}
               onChange={(event) => {
-                setSolPasswordTouched(true);
                 setSolPassword(event.target.value);
               }}
               className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"

@@ -38,6 +38,7 @@ type CustomerDialogContentProps = {
   ) => Promise<boolean> | boolean;
   onDeleteClient?: (client: Client) => Promise<boolean> | boolean;
   initialEditingClient?: Client | null;
+  focusDniOnOpen?: boolean;
 };
 
 export default function CustomerDialogContent({
@@ -48,6 +49,7 @@ export default function CustomerDialogContent({
   onUpdateClient,
   onDeleteClient,
   initialEditingClient = null,
+  focusDniOnOpen = false,
 }: CustomerDialogContentProps) {
   const clients = useClientsStore((state) => state.clients);
   const totalClients = useClientsStore((state) => state.totalClients);
@@ -334,6 +336,9 @@ export default function CustomerDialogContent({
               variant="modal"
               initialData={editingClient ?? initialData}
               formId={CUSTOMER_DIALOG_FORM_ID}
+              initialFocus={
+                focusDniOnOpen && editingClient ? "dni" : undefined
+              }
               onSave={(data) =>
                 editingClient && onUpdateClient
                   ? onUpdateClient(editingClient, data)

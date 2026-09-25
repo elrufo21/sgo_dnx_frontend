@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
-import { useAuthStore } from "@/store/auth/auth.store";
 import type {
   BillingConfigSummary,
   SaveBillingConfigPayload,
@@ -136,12 +135,6 @@ const normalizeCertificateName = (value: unknown) => {
   return raw;
 };
 
-const looksLikeBase64Payload = (value: string) => {
-  const compact = value.replace(/\s+/g, "");
-  if (compact.length < 120) return false;
-  return /^[A-Za-z0-9+/=]+$/.test(compact);
-};
-
 const mapApiToSummary = (payload: unknown): BillingConfigSummary | null => {
   const item = resolvePayloadItem(payload);
   if (!item) return null;
@@ -155,17 +148,13 @@ const mapApiToSummary = (payload: unknown): BillingConfigSummary | null => {
     item.nombreCertificado ??
     item.NombreCertificado;
   const certificateValue = normalizeText(certificateRaw);
-  const certificateBase64 = looksLikeBase64Payload(certificateValue)
-    ? certificateValue.replace(/\s+/g, "")
-    : null;
   const certificateName =
     normalizeText(item.nombreCertificado ?? item.NombreCertificado) ||
-    (certificateBase64 ? "certificado-sunat.p12" : normalizeCertificateName(certificateRaw));
+    normalizeCertificateName(certificateRaw);
 
   const hasCertificateRaw = item.hasCertificate ?? item.tieneCertificado ?? item.TieneCertificado;
   const hasCertificate =
     certificateValue.length > 0 ||
-    Boolean(certificateBase64) ||
     String(hasCertificateRaw ?? "")
       .trim()
       .toLowerCase() === "true" ||
@@ -174,23 +163,17 @@ const mapApiToSummary = (payload: unknown): BillingConfigSummary | null => {
   return {
     hasCertificate,
     certificateName,
-    certificateBase64,
+    certificateBase64: null,
     certificateExpiresAt: normalizeText(
       item.certificateExpiresAt ??
         item.fechaVencimientoCertificado ??
         item.FechaVencimientoCertificado,
     ) || null,
-    certificatePassword: normalizeText(
-      item.ClaveCertificado ??
-        item.claveCertificado ??
-        item.certificadoClave,
-    ),
+    certificatePassword: "",
     solUser: normalizeText(
       item.UsuarioSOL ?? item.usuarioSOL ?? item.usuarioSol ?? item.solUser,
     ),
-    solPassword: normalizeText(
-      item.ClaveSOL ?? item.claveSOL ?? item.claveSol ?? item.solPassword,
-    ),
+    solPassword: "",
     processType: resolveProcessType(
       item.Entorno ??
         item.entorno ??
@@ -213,102 +196,6 @@ const isAxiosLikeError = (value: unknown) =>
 
 const GET_ENDPOINT = `${API_BASE_URL}/Nota/credenciales-sunat`;
 const SAVE_ENDPOINT = `${API_BASE_URL}/Nota/credenciales-sunat`;
-const AUTH_STORAGE_KEY = "sgo.auth.session";
-
-const toEntornoFromProcessType = (processType: BillingProcessType) =>
-  processType === "PRODUCCION" ? "1" : "3";
-
-const syncSunatConfigToSession = (
-  summary: BillingConfigSummary,
-  companyId: number,
-) => {
-  if (typeof window === "undefined") return;
-
-  try {
-    const rawSession = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!rawSession) return;
-
-    const parsed = JSON.parse(rawSession) as
-      | {
-          user?: Record<string, unknown>;
-          loginPayload?: Record<string, unknown>;
-        }
-      | null;
-    if (!parsed || typeof parsed !== "object") return;
-
-    const entornoValue = toEntornoFromProcessType(summary.processType);
-    const userData = (parsed.user ?? {}) as Record<string, unknown>;
-    const payloadData = (parsed.loginPayload ?? {}) as Record<string, unknown>;
-
-    const nextUser: Record<string, unknown> = {
-      ...userData,
-      companyId: normalizeText(userData.companyId, String(companyId)),
-      usuarioSol: summary.solUser,
-      UsuarioSol: summary.solUser,
-      UsuarioSOL: summary.solUser,
-      claveSol: summary.solPassword,
-      ClaveSol: summary.solPassword,
-      ClaveSOL: summary.solPassword,
-      claveCertificado: summary.certificatePassword,
-      ClaveCertificado: summary.certificatePassword,
-      entorno: entornoValue,
-      Entorno: entornoValue,
-    };
-
-    if (summary.certificateBase64) {
-      nextUser.certificadoBase64 = summary.certificateBase64;
-      nextUser.CertificadoBase64 = summary.certificateBase64;
-      nextUser.CertificadoPFX = summary.certificateBase64;
-    }
-
-    const nextLoginPayload: Record<string, unknown> = {
-      ...payloadData,
-      companiaId: normalizeText(payloadData.companiaId, String(companyId)),
-      usuarioSol: summary.solUser,
-      UsuarioSol: summary.solUser,
-      UsuarioSOL: summary.solUser,
-      claveSol: summary.solPassword,
-      ClaveSol: summary.solPassword,
-      ClaveSOL: summary.solPassword,
-      claveCertificado: summary.certificatePassword,
-      ClaveCertificado: summary.certificatePassword,
-      entorno: entornoValue,
-      Entorno: entornoValue,
-    };
-
-    if (summary.certificateBase64) {
-      nextLoginPayload.certificadoBase64 = summary.certificateBase64;
-      nextLoginPayload.CertificadoBase64 = summary.certificateBase64;
-      nextLoginPayload.CertificadoPFX = summary.certificateBase64;
-    }
-
-    const nextSession = {
-      ...parsed,
-      user: nextUser,
-      loginPayload: nextLoginPayload,
-    };
-
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
-
-    const authState = useAuthStore.getState();
-    if (authState.user) {
-      useAuthStore.setState({
-        user: {
-          ...authState.user,
-          usuarioSol: summary.solUser,
-          claveSol: summary.solPassword,
-          certificadoBase64:
-            summary.certificateBase64 || authState.user.certificadoBase64,
-          claveCertificado: summary.certificatePassword,
-          entorno: entornoValue,
-        },
-      });
-    }
-  } catch (error) {
-    console.error("No se pudo sincronizar credenciales SUNAT en la sesión", error);
-  }
-};
-
 export const useBillingConfigStore = create<BillingConfigState>((set, get) => ({
   config: null,
   loading: false,
@@ -331,7 +218,6 @@ export const useBillingConfigStore = create<BillingConfigState>((set, get) => ({
 
       const summary = mapApiToSummary(response);
       if (summary) {
-        syncSunatConfigToSession(summary, companyId);
         set({ config: summary, loading: false });
         return;
       }
@@ -372,7 +258,6 @@ export const useBillingConfigStore = create<BillingConfigState>((set, get) => ({
 
       const summary = mapApiToSummary(response);
       if (summary) {
-        syncSunatConfigToSession(summary, companyId);
         set({ config: summary, saving: false });
       } else {
         await get().fetchConfig(companyId);

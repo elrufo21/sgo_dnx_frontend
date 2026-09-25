@@ -2236,6 +2236,31 @@ export default function HtmlCaptureSalePage() {
     session.username,
   ]);
 
+  const totals = useMemo(() => {
+    const subtotal = rows.reduce(
+      (sum, row) =>
+        sum + safeRowNumber(row.quantity) * safeRowNumber(row.price),
+      0,
+    );
+    const discount = Math.min(capture?.discount ?? 0, subtotal);
+    const total = subtotal - discount;
+    return {
+      subtotal,
+      discount,
+      base: total / 1.18,
+      igv: total - total / 1.18,
+      total,
+      pv: rows.reduce(
+        (sum, row) => sum + row.pv * safeRowNumber(row.quantity),
+        0,
+      ),
+      sv: rows.reduce(
+        (sum, row) => sum + row.sv * safeRowNumber(row.quantity),
+        0,
+      ),
+    };
+  }, [capture?.discount, rows]);
+
   const handleCreateAndEditCapturedClient = useCallback(async () => {
     const client = await createClientFromCapturedForm();
     if (!client) return;
@@ -2249,6 +2274,7 @@ export default function HtmlCaptureSalePage() {
       content: (
         <CustomerDialogContent
           initialEditingClient={client}
+          focusDniOnOpen={Number(totals.total.toFixed(2)) >= 700}
           onSelectClient={handleSelectClientFromDialog}
           onCreateClient={handleCreateClientFromDialog}
           onUpdateClient={handleUpdateClientFromDialog}
@@ -2263,6 +2289,7 @@ export default function HtmlCaptureSalePage() {
     handleSelectClientFromDialog,
     handleUpdateClientFromDialog,
     openDialog,
+    totals.total,
   ]);
 
   useEffect(() => {
@@ -2489,31 +2516,6 @@ export default function HtmlCaptureSalePage() {
       searchClients,
     ],
   );
-
-  const totals = useMemo(() => {
-    const subtotal = rows.reduce(
-      (sum, row) =>
-        sum + safeRowNumber(row.quantity) * safeRowNumber(row.price),
-      0,
-    );
-    const discount = Math.min(capture?.discount ?? 0, subtotal);
-    const total = subtotal - discount;
-    return {
-      subtotal,
-      discount,
-      base: total / 1.18,
-      igv: total - total / 1.18,
-      total,
-      pv: rows.reduce(
-        (sum, row) => sum + row.pv * safeRowNumber(row.quantity),
-        0,
-      ),
-      sv: rows.reduce(
-        (sum, row) => sum + row.sv * safeRowNumber(row.quantity),
-        0,
-      ),
-    };
-  }, [capture?.discount, rows]);
 
   const cartItems = useMemo<PosCartItem[]>(
     () =>

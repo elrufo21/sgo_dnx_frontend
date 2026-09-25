@@ -133,7 +133,7 @@ export function SaleCaptureFormFields({
   );
   const bankEntity = values.bankEntity ?? "-";
   const docTypeCode = values.docTypeCode ?? "03";
-  const isDniLocked = docTypeCode === "03";
+  const isDniLocked = true;
   const correlativeDisplay = values.correlativeDisplay ?? "";
   const emissionDate = values.emissionDate ?? "";
   const currentCorrelative = correlative ?? (docTypeCode === "101" ? "0001-00000000" : "");

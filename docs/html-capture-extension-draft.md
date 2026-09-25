@@ -27,7 +27,8 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 - Los documentos guardados con `conceptoOBS = VENTA` se muestran como **Cashbill** al volver a abrirlos.
 - El ticket impreso replica el escritorio: una transacción que contiene `RS` se rotula como **IOC**; otra transacción como **CASH BILL**; sin transacción, como **LIBRE**.
 - Al registrar una venta, el `usuarioId` se obtiene desde cualquiera de los campos de identificador que pueda tener la sesión. Si la sesión no contiene un ID positivo, la venta se bloquea y se pide ingresar nuevamente; así no se envía `usuarioId = 0` al procedimiento de caja.
-- En una **boleta**, el DNI queda bloqueado para impedir búsquedas o cambios directos. El cliente se selecciona por nombre o código; una captura con cliente nuevo se crea y edita únicamente desde el botón **Editar** junto al código del cliente.
+- El DNI queda bloqueado en toda venta para impedir búsquedas o cambios directos. El cliente se selecciona por nombre o código; una captura con cliente nuevo se crea y edita únicamente desde el botón **Editar** junto al código del cliente.
+- Al editar el cliente creado desde una venta de S/ 700 o más, el modal enfoca el campo DNI.
 - La distribución de pago toma el total calculado de la venta para asignar efectivo, depósito o sus combinaciones.
 - Para boletas y facturas, la pantalla obtiene el nombre del equipo desde el agente local DNX. La API busca ese nombre en `MAQUINAS` y usa su serie asignada; si el agente no está activo o la máquina no tiene serie, se bloquea la emisión y no se usa `BA01` o `FA01` como respaldo.
 - El ticket se genera en la web y se envía al agente local DNX por `POST /v1/print`; así se imprime en la predeterminada de Windows sin abrir el diálogo del navegador ni pasar por `/api/print/pdf`. El frontend debe definir `VITE_PRINT_AGENT_TOKEN` con el mismo token de `agent.config.json`; al cambiarlo se reinicia Vite.

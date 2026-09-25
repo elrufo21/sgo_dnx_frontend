@@ -722,7 +722,7 @@ const TicketDocument = ({
 
   return (
     <Document>
-      <Page size={[226, 760]} style={styles.page}>
+      <Page size={{ width: 226 }} wrap={false} style={styles.page}>
         <View style={styles.header}>
           {ticketData.logo && (
             <Image src={ticketData.logo} style={styles.logo} />

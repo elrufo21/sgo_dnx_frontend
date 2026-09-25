@@ -36,6 +36,7 @@ interface ClientFormBaseProps {
   variant?: "page" | "modal";
   showModalActions?: boolean;
   formId?: string;
+  initialFocus?: "dni";
 }
 
 const buildDefaults = (
@@ -72,6 +73,7 @@ export default function CustomerFormBase({
   variant = "page",
   showModalActions = false,
   formId,
+  initialFocus,
 }: ClientFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousTipoDocumentoRef = useRef<"ruc" | "dni" | null>(null);
@@ -166,8 +168,17 @@ export default function CustomerFormBase({
   };
 
   useEffect(() => {
-    focusFirstInput(containerRef.current);
-  }, [mode, initialData]);
+    if (initialFocus !== "dni") {
+      focusFirstInput(containerRef.current);
+      return;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      setFocus("dni");
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [initialData, initialFocus, mode, setFocus]);
 
   useEffect(() => {
     reset(defaults);
