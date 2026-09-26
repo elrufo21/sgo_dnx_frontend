@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/config";
+import { resolveMediaUrl } from "@/shared/helpers/resolveMediaUrl";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { apiRequest } from "@/shared/helpers/apiRequest";
@@ -254,7 +255,7 @@ export default function PettyCashMovementPage() {
       title: "Comprobante",
       content: (
         <img
-          src={url}
+          src={resolveMediaUrl(url)}
           alt="Comprobante del movimiento"
           className="max-h-[70vh] w-full object-contain"
         />
