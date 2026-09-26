@@ -1,8 +1,11 @@
-import { ArrowRight, FileBadge2, Layers3, Mail } from "lucide-react";
+import { ArrowRight, FileBadge2, Layers3, Mail, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router";
+import { useAuthStore } from "@/store/auth/auth.store";
+import { hasPermission } from "@/shared/security/permissions";
 
 export default function ConfigurationDashboard() {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
 
   const items = [
     {
@@ -10,20 +13,30 @@ export default function ConfigurationDashboard() {
       desc: "Configura certificado digital y credenciales SOL.",
       icon: <FileBadge2 className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/billing",
+      permission: "CONFIGURACION.FACTURACION",
     },
     {
       title: "Ventas y boletas",
       desc: "Define envío de boletas y captura de datos.",
       icon: <Layers3 className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/boleta-batch",
+      permission: "CONFIGURACION.VENTAS_BOLETAS",
     },
     {
       title: "Caja",
       desc: "Configura el envío por correo del cierre de caja.",
       icon: <Mail className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/caja",
+      permission: "CONFIGURACION.CAJA",
     },
-  ];
+    {
+      title: "Permisos",
+      desc: "Define accesos por área y excepciones por usuario.",
+      icon: <ShieldCheck className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/permissions",
+      permission: "CONFIGURACION.PERMISOS",
+    },
+  ].filter((item) => hasPermission(user, item.permission));
 
   return (
     <div className="space-y-4 px-2 py-2 sm:px-1">

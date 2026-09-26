@@ -16,6 +16,8 @@ import MainLayout from "./layouts/MainLayout";
 import { RedirectIfAuthenticated, RequireAuth } from "./guards/AuthGuard";
 import LoginPage from "@/features/auth/LoginPage";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
+import { ModuleAccessGuard } from "@/shared/security/ModuleAccessGuard";
+import { AccessDeniedPage } from "./AccessDeniedPage";
 
 const router = createBrowserRouter([
   {
@@ -32,28 +34,34 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
     element: (
       <RequireAuth>
-        <MainLayout />
+        <ModuleAccessGuard />
       </RequireAuth>
     ),
     children: [
       {
-        index: true,
-        element: <Navigate to="/sales/html_capture/new" replace />,
+        element: <MainLayout />,
+        children: [
+          { path: "access-denied", element: <AccessDeniedPage /> },
+          {
+            index: true,
+            element: <Navigate to="/sales/html_capture/new" replace />,
+          },
+          ...productRoutes,
+          ...customerRoutes,
+          ...salesRoutes,
+          ...posRoutes, // legacy direct routes (kept for compatibility if needed)
+          ...purchansesRoutes, // legacy direct routes
+          ...shoppingRoutes, // legacy direct routes
+          ...sendNoteRoutes, // legacy direct routes
+          ...serviceInvoiceRoutes,
+          ...boletasSummaryRoutes,
+          ...configurationRoutes,
+          ...accountingRoutes,
+          ...maintenanceRoutes,
+          ...cashFlowRoutes,
+          { path: "*", element: <h1>404 - Not Found</h1> },
+        ],
       },
-      ...productRoutes,
-      ...customerRoutes,
-      ...salesRoutes,
-      ...posRoutes, // legacy direct routes (kept for compatibility if needed)
-      ...purchansesRoutes, // legacy direct routes
-      ...shoppingRoutes, // legacy direct routes
-      ...sendNoteRoutes, // legacy direct routes
-      ...serviceInvoiceRoutes,
-      ...boletasSummaryRoutes,
-      ...configurationRoutes,
-      ...accountingRoutes,
-      ...maintenanceRoutes,
-      ...cashFlowRoutes,
-      { path: "*", element: <h1>404 - Not Found</h1> },
     ],
   },
   { path: "*", element: <Navigate to="/login" replace /> },

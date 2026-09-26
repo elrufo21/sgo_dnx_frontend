@@ -2,6 +2,7 @@ import { ArrowRight, FileSpreadsheet, ReceiptText, Send } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { hasPermission } from "@/shared/security/permissions";
 
 export default function AccountingDashboard() {
   const navigate = useNavigate();
@@ -32,8 +33,13 @@ export default function AccountingDashboard() {
       });
     }
 
-    return baseItems;
-  }, [user?.boletaPorLote]);
+    const permissionByRoute: Record<string, string> = {
+      "/accounting/invoice-dispatch": "CONTABILIDAD.ENVIO_FACTURAS",
+      "/accounting/pdt-company": "CONTABILIDAD.PDT_EMPRESA",
+      "/accounting/boletas_summary": "CONTABILIDAD.RESUMEN_BOLETAS",
+    };
+    return baseItems.filter((item) => hasPermission(user, permissionByRoute[item.route]));
+  }, [user]);
 
   return (
     <div className="space-y-4 px-2 py-2 sm:px-1">

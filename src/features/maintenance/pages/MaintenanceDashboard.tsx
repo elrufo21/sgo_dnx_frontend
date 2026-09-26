@@ -13,6 +13,7 @@ import {
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { hasPermission } from "@/shared/security/permissions";
 
 export default function MaintenanceDashboard() {
   const navigate = useNavigate();
@@ -79,8 +80,19 @@ export default function MaintenanceDashboard() {
       });
     }
 
-    return baseItems;
-  }, [user?.boletaPorLote]);
+    const permissionByRoute: Record<string, string> = {
+      "/maintenance/products": "MANTENIMIENTO.PRODUCTOS",
+      "/maintenance/categories": "MANTENIMIENTO.CATEGORIAS",
+      "/maintenance/areas": "MANTENIMIENTO.AREAS",
+      "/maintenance/computers": "MANTENIMIENTO.COMPUTADORAS",
+      "/maintenance/employees": "MANTENIMIENTO.EMPLEADOS",
+      "/maintenance/users": "MANTENIMIENTO.USUARIOS",
+      "/maintenance/providers": "MANTENIMIENTO.PROVEEDORES",
+      "/maintenance/holidays": "MANTENIMIENTO.FERIADOS",
+      "/maintenance/boletas_summary": "MANTENIMIENTO.RESUMEN_BOLETAS",
+    };
+    return baseItems.filter((item) => hasPermission(user, permissionByRoute[item.route]));
+  }, [user]);
 
   return (
     <div className="space-y-4 px-2 py-2 sm:px-1">

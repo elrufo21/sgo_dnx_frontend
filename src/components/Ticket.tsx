@@ -220,14 +220,12 @@ const numberToWords = (amount: number, currencyLabel = "SOLES") => {
 const styles = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
-    padding: "6px",
+    padding: "2px",
     fontFamily: "Helvetica",
     fontSize: 10,
     display: "flex",
     flexDirection: "column",
     width: "80mm",
-    borderWidth: 1,
-    borderColor: "#000",
   },
   header: {
     marginBottom: 8,

@@ -28,6 +28,7 @@ import { useAuthStore } from "@/store/auth/auth.store";
 import { useBoletaBatchConfigStore } from "@/store/configuration/boletaBatchConfig.store";
 import { useUsersStore } from "@/store/users/users.store";
 import type { User } from "@/store/users/users.store";
+import { hasPermission } from "@/shared/security/permissions";
 
 const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
 const PASSWORD_POLICY_MESSAGE =
@@ -550,8 +551,27 @@ export default function MainLayout() {
       },
     ];
 
-    return items;
-  }, [flagCaja]);
+    const permissionByRoute: Record<string, string> = {
+      "/sales/pos": "VENTAS.POS",
+      "/sales/html_capture/new": "VENTAS.CAPTURAR",
+      "/sales/order_notes": "VENTAS.LISTA",
+      "/sales/obs_capture": "VENTAS.OBS",
+      "/cash_flow_control": "CAJA.CONTROL",
+      "/cash-final-report": "CAJA.INFORME_FINAL",
+      "/petty-cash-movements": "CAJA.CHICA",
+      "/shopping": "COMPRAS.GESTIONAR",
+      "/service-invoices": "FACTURAS_SERVICIO.GESTIONAR",
+      "/customers": "CLIENTES.GESTIONAR",
+      "/accounting": "CONTABILIDAD.VER",
+      "/maintenance": "MANTENIMIENTO.VER",
+      "/configuration": "CONFIGURACION.VER",
+    };
+
+    return items.filter((item) => {
+      const permission = permissionByRoute[item.to];
+      return !permission || hasPermission(user, permission);
+    });
+  }, [flagCaja, user]);
 
   const filteredItems = navItems.filter((item) =>
     item.label.toUpperCase().includes(search.toUpperCase()),

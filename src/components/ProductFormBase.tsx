@@ -64,7 +64,14 @@ const toDateInputValue = (value: unknown) => {
   const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) return isoMatch[0];
   const dateMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  return dateMatch ? `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}` : raw;
+  if (!dateMatch) return raw;
+
+  const first = Number(dateMatch[1]);
+  const second = Number(dateMatch[2]);
+  // La lista heredada puede devolver MM/dd/yyyy; distinguirla cuando el día es > 12.
+  return first <= 12 && second > 12
+    ? `${dateMatch[3]}-${dateMatch[1]}-${dateMatch[2]}`
+    : `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
 };
 
 const deriveInitialUnitsPerPackage = (

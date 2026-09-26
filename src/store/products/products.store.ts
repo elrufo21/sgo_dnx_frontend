@@ -534,8 +534,8 @@ const buildProductFormData = (
   formData.append("data", dataSerialized);
 
   Object.entries(payload).forEach(([key, value]) => {
-    // El backend asigna la imagen; no enviar productoImagen.
-    if (key === "productoImagen") return;
+    // El backend asigna la imagen y la fecha de registro; no enviar esos campos.
+    if (key === "productoImagen" || key === "productoFecha") return;
     const normalized = value === undefined || value === null ? "" : String(value);
     formData.append(key, normalized);
   });

@@ -27,6 +27,8 @@ export interface AuthUser {
   maxDiscount: number;
   boletaPorLote: boolean;
   flagCaptura: boolean;
+  isAdministrator: boolean;
+  permissions: string[];
 }
 
 export interface AuthSession {
@@ -83,6 +85,8 @@ interface LoginResponse {
   DescuentoMax?: string | number | null;
   BoletaPorLote?: string | number | boolean | null;
   FlagCaptura?: string | number | boolean | null;
+  Administrador?: string | number | boolean | null;
+  Permisos?: string[] | null;
   Token?: string | null;
   ExpiresAtUtc?: string | null;
   ExpiresInSeconds?: number | null;
@@ -213,6 +217,11 @@ const normalizeBooleanFlag = (value: unknown): boolean => {
   );
 };
 
+const normalizePermissions = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? [...new Set(value.map((code) => normalizeText(code).toUpperCase()).filter(Boolean))]
+    : [];
+
 const resolveBoletaPorLoteFlag = (payload: LoginResponse): boolean =>
   normalizeBooleanFlag(
     readLoginValue(
@@ -278,6 +287,12 @@ const normalizeAuthUser = (user: AuthUser): AuthUser => ({
   ),
   flagCaptura: normalizeBooleanFlag(
     (user as AuthUser & { flagCaptura?: unknown }).flagCaptura,
+  ),
+  isAdministrator: normalizeBooleanFlag(
+    (user as AuthUser & { isAdministrator?: unknown }).isAdministrator,
+  ),
+  permissions: normalizePermissions(
+    (user as AuthUser & { permissions?: unknown }).permissions,
   ),
 });
 
@@ -476,6 +491,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
           ),
           boletaPorLote,
           flagCaptura,
+          isAdministrator: normalizeBooleanFlag(
+            readLoginValue(parsed, "Administrador", "administrador"),
+          ),
+          permissions: normalizePermissions(
+            readLoginValue(parsed, "Permisos", "permisos"),
+          ),
         },
         loginPayload: {
           ...parsed,

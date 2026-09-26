@@ -46,7 +46,7 @@ const mapApiToClient = (item: unknown): Client => {
       payload.DocumentoPredeterminado ??
       "",
   ).trim().toUpperCase();
-  const documentoPredeterminado = docuRaw || "BOLETA";
+  const documentoPredeterminado = docuRaw;
 
   return {
     id: Number(payload.clienteId ?? payload.ClienteId ?? payload.id ?? 0),
@@ -272,8 +272,7 @@ const parseComboClients = (value: unknown): Client[] =>
         registradoPor: String(parts[9] ?? "").trim(),
         fecha: formatDateTime(parts[10]) || null,
         clienteCodigo: String(parts[11] ?? "").trim(),
-        documentoPredeterminado:
-          String(parts[12] ?? "").trim().toUpperCase() || "BOLETA",
+        documentoPredeterminado: String(parts[12] ?? "").trim().toUpperCase(),
       };
     })
     .filter((client) => client.id || client.nombreRazon);

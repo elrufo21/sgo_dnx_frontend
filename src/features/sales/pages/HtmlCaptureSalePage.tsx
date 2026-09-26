@@ -44,6 +44,7 @@ import {
   type ExternalCaptureDraftData,
 } from "@/features/sales/persistence/externalCaptureDraft";
 import { ServiceInvoicePdfDocument } from "@/features/serviceInvoices/components/ServiceInvoicePdf";
+import { resolveCaptureDocumentType } from "@/features/sales/helpers/captureDocument";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
@@ -673,6 +674,8 @@ export default function HtmlCaptureSalePage() {
   const [monthlyPvs, setMonthlyPvs] = useState(0);
   const [correlative, setCorrelative] = useState<Correlative>(null);
   const [machineName, setMachineName] = useState("");
+  const [machinePrinter, setMachinePrinter] = useState("");
+  const [machinePrinterError, setMachinePrinterError] = useState("");
   const [correlativeError, setCorrelativeError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isResendingOse, setIsResendingOse] = useState(false);
@@ -1142,12 +1145,35 @@ export default function HtmlCaptureSalePage() {
         const data = (await response.json()) as { hostname?: unknown };
         const hostname = safeTrim(data.hostname);
         if (!hostname) throw new Error();
+        const machines = await apiRequest<
+          Array<{
+            nombreMaquina?: unknown;
+            tiketera?: unknown;
+            ticketera?: unknown;
+          }>
+        >({
+          url: buildApiUrl("/Maquina/list?pageSize=100"),
+          method: "GET",
+          fallback: [],
+        });
+        const machine = machines.find(
+          (item) => normalizeCode(item.nombreMaquina) === normalizeCode(hostname),
+        );
+        const printer = safeTrim(machine?.tiketera ?? machine?.ticketera);
         if (!active) return;
         setMachineName(hostname);
+        setMachinePrinter(printer);
+        setMachinePrinterError(
+          printer
+            ? ""
+            : `La máquina ${hostname} no tiene una ticketera configurada en MAQUINAS.`,
+        );
         setCorrelativeError("");
       } catch {
         if (!active) return;
         setMachineName("");
+        setMachinePrinter("");
+        setMachinePrinterError("");
         setCorrelativeError(
           "No se detectó el agente DNX en esta computadora. Inícialo para emitir boletas o facturas.",
         );
@@ -2353,23 +2379,24 @@ export default function HtmlCaptureSalePage() {
         capturedInvoiceApiClientRef.current = null;
         capturedInvoiceApiRucRef.current = "";
         const docTypeText = data.ruc.toUpperCase();
-        const nextDocTypeCode = docTypeText.includes("FACTURA")
+        const obsDocTypeCode: SaleForm["docTypeCode"] = docTypeText.includes("FACTURA")
           ? "01"
           : docTypeText.includes("BOLETA")
             ? "03"
             : docValue.length === 11
               ? "01"
               : "03";
-        const customerDocValue = nextDocTypeCode === "01" ? docValue : "";
+        const customerRucValue = obsDocTypeCode === "01" ? docValue : "";
+        const customerDocValue = obsDocTypeCode === "01" ? "" : docValue;
         const localClient =
           clientOptions.find(
             (opt) =>
               isActiveClient(opt.client) &&
               ((opt.code && opt.code === safeTrim(data.memberCode)) ||
-                (nextDocTypeCode === "01" &&
-                  customerDocValue &&
-                  normalizeDocumentText(opt.client.ruc) === customerDocValue) ||
-                (nextDocTypeCode !== "01" &&
+                (obsDocTypeCode === "01" &&
+                  customerRucValue &&
+                  normalizeDocumentText(opt.client.ruc) === customerRucValue) ||
+                (obsDocTypeCode !== "01" &&
                   customerDocValue &&
                   normalizeDocumentText(opt.client.dni) === customerDocValue)),
           )?.client ?? null;
@@ -2382,49 +2409,45 @@ export default function HtmlCaptureSalePage() {
         const searchedClients =
           !localClient &&
           !codeClient &&
-          nextDocTypeCode === "01" &&
-          customerDocValue
-            ? await searchClients(customerDocValue).catch(() => [])
+          obsDocTypeCode === "01" &&
+          customerRucValue
+            ? await searchClients(customerRucValue).catch(() => [])
             : [];
         const searchedClient =
           searchedClients.find(
             (client) =>
               isActiveClient(client) &&
-              (normalizeDocumentText(client.ruc) === customerDocValue ||
+              (normalizeDocumentText(client.ruc) === customerRucValue ||
                 (memberCode && getClientCode(client) === memberCode)),
           ) ?? null;
         const matchedClient = localClient ?? codeClient ?? searchedClient;
+        const nextDocTypeCode = resolveCaptureDocumentType(
+          obsDocTypeCode,
+          matchedClient?.documentoPredeterminado,
+        );
         if (nextDocTypeCode === "01" && matchedClient && !localClient) {
           capturedInvoiceApiClientRef.current = matchedClient;
-          capturedInvoiceApiRucRef.current = customerDocValue;
+          capturedInvoiceApiRucRef.current = customerRucValue;
         }
         formMethods.setValue("docTypeCode", nextDocTypeCode, {
           shouldDirty: true,
         });
-        formMethods.setValue(
-          "customerRuc",
-          nextDocTypeCode === "01" ? customerDocValue : "",
-          { shouldDirty: true },
-        );
-        formMethods.setValue(
-          "customerDoc",
-          nextDocTypeCode !== "01" ? customerDocValue : "",
-          { shouldDirty: true },
-        );
         if (matchedClient) {
           applyClient(matchedClient, { preserveDocType: true });
-          formMethods.setValue("docTypeCode", nextDocTypeCode, {
-            shouldDirty: true,
-          });
           if (nextDocTypeCode === "01") {
             formMethods.setValue(
               "customerRuc",
-              customerDocValue || matchedClient.ruc || "",
+              matchedClient.ruc || customerRucValue,
               { shouldDirty: true },
             );
             formMethods.setValue("customerDoc", "", { shouldDirty: true });
-          } else {
+          } else if (nextDocTypeCode === "03") {
             formMethods.setValue("customerRuc", "", { shouldDirty: true });
+            formMethods.setValue(
+              "customerDoc",
+              matchedClient.dni || (obsDocTypeCode === "03" ? docValue : ""),
+              { shouldDirty: true },
+            );
           }
           if (data.customerEmail) {
             formMethods.setValue("customerEmail", data.customerEmail, {
@@ -2432,10 +2455,20 @@ export default function HtmlCaptureSalePage() {
             });
           }
         } else {
+          formMethods.setValue(
+            "customerRuc",
+            customerRucValue,
+            { shouldDirty: true },
+          );
+          formMethods.setValue(
+            "customerDoc",
+            obsDocTypeCode !== "01" ? docValue : "",
+            { shouldDirty: true },
+          );
           if (nextDocTypeCode === "01") {
             const lookup =
-              customerDocValue.length === 11
-                ? await consultarDocumentoCliente("ruc", customerDocValue)
+              customerRucValue.length === 11
+                ? await consultarDocumentoCliente("ruc", customerRucValue)
                 : null;
             const lookupClient = lookup?.ok ? lookup.client : null;
             if (!lookupClient) {
@@ -2495,12 +2528,6 @@ export default function HtmlCaptureSalePage() {
         formMethods.setValue("memberCode", data.memberCode, {
           shouldDirty: true,
         });
-        if (nextDocTypeCode !== "01") {
-          formMethods.setValue("customerRuc", "", { shouldDirty: true });
-        } else {
-          formMethods.setValue("customerDoc", "", { shouldDirty: true });
-        }
-
         setLastTicket(null);
       } finally {
         setIsApplyingCapture(false);
@@ -3103,6 +3130,12 @@ export default function HtmlCaptureSalePage() {
         "Configura VITE_PRINT_AGENT_TOKEN para imprimir con el agente DNX.",
       );
     }
+    if (!machinePrinter) {
+      throw new Error(
+        machinePrinterError ||
+          "Esta computadora no tiene una ticketera configurada en MAQUINAS.",
+      );
+    }
 
     const blob = await buildTicketBlob(ticket.documentNumber, ticket.noteId);
     let response: Response;
@@ -3113,7 +3146,10 @@ export default function HtmlCaptureSalePage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${PRINT_AGENT_TOKEN}`,
         },
-        body: JSON.stringify({ pdfBase64: await blobToDataUrl(blob) }),
+        body: JSON.stringify({
+          pdfBase64: await blobToDataUrl(blob),
+          printer: machinePrinter,
+        }),
       });
     } catch {
       throw new Error(
@@ -3625,27 +3661,6 @@ export default function HtmlCaptureSalePage() {
         { type: "SGO_DXN_CAPTURE_COMPLETED" },
         window.location.origin,
       );
-
-      if (
-        saleClient?.id &&
-        safeTrim(saleClient.documentoPredeterminado).toUpperCase() !== doc.docu
-      ) {
-        const updated = await updateClient(saleClient.id, {
-          ...saleClient,
-          documentoPredeterminado: doc.docu,
-        });
-        if (updated.ok) {
-          saleClient =
-            updated.client ??
-            ({ ...saleClient, documentoPredeterminado: doc.docu } as Client);
-          applyClient(saleClient, { preserveDocType: true });
-        } else {
-          toast.warning(
-            updated.error ??
-              "Venta registrada, pero no se pudo actualizar el documento predeterminado del cliente.",
-          );
-        }
-      }
 
       const sunat = doc.docu === "FACTURA" ? parseSunatResult(result) : null;
       const rejectedInvoice = sunat ? isRejectedSunatResult(sunat) : false;
@@ -4348,12 +4363,14 @@ export default function HtmlCaptureSalePage() {
       (estado) => safeTrim(estado).toUpperCase() === "PENDIENTE",
     );
   const canVoidViewedNote =
-    isFromOrderNotesView &&
+    isExistingRoute &&
     ["01", "03", "101"].includes(form.docTypeCode) &&
     Boolean(lastTicket) &&
     !isPaidPagoVarios &&
     !isVoidingTicket &&
-    (form.docTypeCode === "101" || canVoidByDeadline) &&
+    (form.condition === "PAGO/VARIOS" ||
+      form.docTypeCode === "101" ||
+      (isFromOrderNotesView && canVoidByDeadline)) &&
     ![viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some((value) =>
       ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
     );
