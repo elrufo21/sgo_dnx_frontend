@@ -16,6 +16,8 @@ Un número de operación ya usado para la misma entidad bancaria no puede regist
 
 El modal **Pago Varios** incluye las pestañas **Pendientes** y **Pagos realizados**. Conserva una altura fija adaptable a la pantalla al cambiar de pestaña. La segunda replica el historial del escritorio y permite filtrar los pagos registrados por rango de fechas.
 
+Los montos pendientes se reciben como números desde la API. El backend interpreta el formato entregado por el procedimiento (`1,234.56`) antes de responder, por lo que la interfaz muestra correctamente importes con miles y decimales.
+
 La descripción del pago es un borrador del modal: se conserva al seleccionar documentos o modificar los demás campos y se limpia al registrar, eliminar o elegir **Nuevo**. Se muestra y se registra siempre en mayúsculas. Al eliminar un pago, el formulario vuelve a sus valores iniciales.
 
 Cada pago realizado tiene un botón **Ver**. Su detalle se muestra en la pestaña **Pendientes** con la fecha y hora de registro en el encabezado, documentos a la izquierda y forma de pago, importes, entidad, operación y descripción a la derecha. Desde ahí permite volver al historial, eliminarlo con clave de administrador o usar **Nuevo** para limpiar el formulario y regresar a los documentos pendientes.
