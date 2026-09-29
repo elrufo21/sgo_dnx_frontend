@@ -2,6 +2,7 @@ import CashFlowCreate from "./pages/cashFlowCreate";
 import CashFlowList from "./pages/cashFlowList";
 import PettyCashMovementPage from "./pages/PettyCashMovementPage";
 import CashFinalReportPage from "./pages/CashFinalReportPage";
+import DepositosCentroPage from "./pages/DepositosCentroPage";
 
 export default [
   {
@@ -26,6 +27,13 @@ export default [
     element: <CashFinalReportPage />,
     handle: {
       breadcrumb: [{ label: "Generar informe de caja final" }],
+    },
+  },
+  {
+    path: "depositos-centro",
+    element: <DepositosCentroPage />,
+    handle: {
+      breadcrumb: [{ label: "Depósitos principales de centros" }],
     },
   },
   {

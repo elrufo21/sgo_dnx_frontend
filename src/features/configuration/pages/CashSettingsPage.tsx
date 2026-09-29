@@ -5,12 +5,13 @@ import { Mail, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 export default function CashSettingsPage() {
-  const { flagCaja, correosAdmin, loading, saving, fetchConfig, saveCajaConfig } =
+  const { flagCaja, correosAdmin, diasMaxDep, loading, saving, fetchConfig, saveCajaConfig } =
     useBoletaBatchConfigStore();
-  const [draft, setDraft] = useState<{ flagCaja: boolean; correosAdmin: string } | null>(null);
+  const [draft, setDraft] = useState<{ flagCaja: boolean; correosAdmin: string; diasMaxDep: number } | null>(null);
   const nextFlagCaja = draft?.flagCaja ?? flagCaja;
   const nextCorreosAdmin = draft?.correosAdmin ?? correosAdmin;
-  const hasChanges = nextFlagCaja !== flagCaja || nextCorreosAdmin !== correosAdmin;
+  const nextDiasMaxDep = draft?.diasMaxDep ?? diasMaxDep;
+  const hasChanges = nextFlagCaja !== flagCaja || nextCorreosAdmin !== correosAdmin || nextDiasMaxDep !== diasMaxDep;
 
   useEffect(() => {
     void fetchConfig();
@@ -22,14 +23,14 @@ export default function CashSettingsPage() {
   }, [fetchConfig]);
 
   const handleSave = useCallback(async () => {
-    const ok = await saveCajaConfig(nextFlagCaja, nextCorreosAdmin);
+    const ok = await saveCajaConfig(nextFlagCaja, nextCorreosAdmin, nextDiasMaxDep);
     if (!ok) {
       toast.error("No se pudo guardar la configuración de caja.");
       return;
     }
     setDraft(null);
     toast.success("Configuración de caja actualizada.");
-  }, [nextCorreosAdmin, nextFlagCaja, saveCajaConfig]);
+  }, [nextCorreosAdmin, nextDiasMaxDep, nextFlagCaja, saveCajaConfig]);
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
@@ -71,13 +72,19 @@ export default function CashSettingsPage() {
               <span className="block text-sm font-medium text-slate-800">Permitir múltiples cajas abiertas</span>
               <span className="mt-1 block text-xs text-slate-600">Desactivado: solo una caja abierta. Activado: se permiten varias cajas abiertas.</span>
             </span>
-            <input type="checkbox" className="h-5 w-5 accent-[#B23636]" checked={nextFlagCaja} onChange={(event) => setDraft({ flagCaja: event.target.checked, correosAdmin: nextCorreosAdmin })} />
+            <input type="checkbox" className="h-5 w-5 accent-[#B23636]" checked={nextFlagCaja} onChange={(event) => setDraft({ flagCaja: event.target.checked, correosAdmin: nextCorreosAdmin, diasMaxDep: nextDiasMaxDep })} />
           </label>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700" htmlFor="correos-admin-caja">Destinatarios del cierre de caja</label>
-            <input id="correos-admin-caja" type="text" value={nextCorreosAdmin} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, correosAdmin: event.target.value })} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20" placeholder="correo@empresa.com; otro@empresa.com" />
+            <input id="correos-admin-caja" type="text" value={nextCorreosAdmin} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, correosAdmin: event.target.value, diasMaxDep: nextDiasMaxDep })} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20" placeholder="correo@empresa.com; otro@empresa.com" />
             <p className="text-xs text-slate-500">Separa varios correos con coma o punto y coma. Al registrarlos aparecerá el botón para enviar el PDF del cierre.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700" htmlFor="dias-max-deposito">Días para validar depósitos principales</label>
+            <input id="dias-max-deposito" type="number" min={0} max={3650} step={1} value={nextDiasMaxDep} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, correosAdmin: nextCorreosAdmin, diasMaxDep: Math.max(0, Math.min(3650, Number(event.target.value) || 0)) })} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20" />
+            <p className="text-xs text-slate-500">La validación cuenta movimientos de depósito en el rango desde hoy menos estos días hasta hoy, incluidos todos sus estados.</p>
           </div>
         </div>
 

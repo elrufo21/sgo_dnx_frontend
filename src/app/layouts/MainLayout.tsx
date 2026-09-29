@@ -17,7 +17,7 @@ import {
   Printer,
   Truck,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
@@ -34,15 +34,24 @@ const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
 const PASSWORD_POLICY_MESSAGE =
   "La contrasena debe tener minimo 6 caracteres, una mayuscula, una minuscula y un numero";
 
+type NavLinkItem = { label: string; to: string; icon: ReactNode; state?: Record<string, boolean> };
+type NavGroupItem = { label: string; id: string; icon: ReactNode; children: NavLinkItem[] };
+type NavItem = NavLinkItem | NavGroupItem;
+
 export default function MainLayout() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
+  const [cashMenuOpen, setCashMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pagoVariosCount, setPagoVariosCount] = useState(0);
   const userMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const [search, setSearch] = useState(""); // 🔍 buscador
   const { pathname } = useLocation();
+  useEffect(() => {
+    if (["/cash_flow_control", "/cash-final-report", "/petty-cash-movements", "/depositos-centro"].some((path) => pathname === path || pathname.startsWith(`${path}/`)))
+      setCashMenuOpen(true);
+  }, [pathname]);
   const openDialog = useDialogStore((state) => state.openDialog);
 
   const user = useAuthStore((state) => state.user);
@@ -468,7 +477,35 @@ export default function MainLayout() {
   }, [userMenuOpen]);
 
   const navItems = useMemo(() => {
-    const items = [
+    const caja: NavGroupItem = {
+      label: "Caja",
+      id: "caja",
+      icon: <WalletCards size={18} />,
+      children: [
+        {
+          label: "Control de flujo de caja",
+          to: "/cash_flow_control",
+          icon: <StoreIcon />,
+          state: { resetSearchFilter: true },
+        },
+        ...(flagCaja
+          ? [{ label: "Generar informe final", to: "/cash-final-report", icon: <Printer size={18} />, state: { resetSearchFilter: true } }]
+          : []),
+        {
+          label: "Caja Chica",
+          to: "/petty-cash-movements",
+          icon: <WalletCards size={18} />,
+          state: { resetSearchFilter: true },
+        },
+        {
+          label: "Depósitos centros",
+          to: "/depositos-centro",
+          icon: <Landmark size={18} />,
+          state: { resetSearchFilter: true },
+        },
+      ],
+    };
+    const items: NavItem[] = [
       /*  {
         label: "Ventas",
         to: "/sales/pos",
@@ -487,26 +524,7 @@ export default function MainLayout() {
         icon: <CopySlashIcon size={18} />,
         state: { resetOrderNotesFilters: true, resetSearchFilter: true },
       },
-      {
-        label: "Control de flujo de caja",
-        to: "/cash_flow_control",
-        icon: <StoreIcon />,
-        state: { resetSearchFilter: true },
-      },
-      ...(flagCaja
-        ? [{
-            label: "Generar informe final",
-            to: "/cash-final-report",
-            icon: <Printer size={18} />,
-            state: { resetSearchFilter: true },
-          }]
-        : []),
-      {
-        label: "Caja Chica",
-        to: "/petty-cash-movements",
-        icon: <WalletCards size={18} />,
-        state: { resetSearchFilter: true },
-      },
+      caja,
       {
         label: "Extraer Ventas OBS",
         to: "/sales/obs_capture",
@@ -559,6 +577,7 @@ export default function MainLayout() {
       "/cash_flow_control": "CAJA.CONTROL",
       "/cash-final-report": "CAJA.INFORME_FINAL",
       "/petty-cash-movements": "CAJA.CHICA",
+      "/depositos-centro": "CAJA.VER",
       "/shopping": "COMPRAS.GESTIONAR",
       "/service-invoices": "FACTURAS_SERVICIO.GESTIONAR",
       "/customers": "CLIENTES.GESTIONAR",
@@ -567,15 +586,25 @@ export default function MainLayout() {
       "/configuration": "CONFIGURACION.VER",
     };
 
-    return items.filter((item) => {
-      const permission = permissionByRoute[item.to];
-      return !permission || hasPermission(user, permission);
-    });
+    return items.map((item) => {
+      if (!("children" in item)) {
+        const permission = permissionByRoute[item.to];
+        return !permission || hasPermission(user, permission) ? item : null;
+      }
+      const children = item.children.filter((child) => {
+        const permission = permissionByRoute[child.to];
+        return !permission || hasPermission(user, permission);
+      });
+      return children.length ? { ...item, children } : null;
+    }).filter((item): item is NavItem => item !== null);
   }, [flagCaja, user]);
 
-  const filteredItems = navItems.filter((item) =>
-    item.label.toUpperCase().includes(search.toUpperCase()),
-  );
+  const filteredItems: NavItem[] = navItems.flatMap<NavItem>((item): NavItem[] => {
+    if (!("children" in item)) return item.label.toUpperCase().includes(search.toUpperCase()) ? [item] : [];
+    const groupMatches = item.label.toUpperCase().includes(search.toUpperCase());
+    const children = groupMatches ? item.children : item.children.filter((child) => child.label.toUpperCase().includes(search.toUpperCase()));
+    return children.length ? [{ ...item, children }] : [];
+  });
 
   const pageTitle = useMemo(() => {
     const overrides = [{ path: "/sales/order_notes", title: "Nota Pedido" }];
@@ -584,7 +613,10 @@ export default function MainLayout() {
     );
     if (override) return override.title;
 
-    const activeItem = [...navItems]
+    const activeItem = navItems.reduce<NavLinkItem[]>((links, item) => {
+      links.push(...("children" in item ? item.children : [item]));
+      return links;
+    }, [])
       .sort((a, b) => b.to.length - a.to.length)
       .find(
         (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
@@ -593,10 +625,7 @@ export default function MainLayout() {
   }, [navItems, pathname]);
 
   // Render de items del menú
-  const renderNavItem = (
-    item: (typeof navItems)[0],
-    alwaysShowLabel = false,
-  ) => {
+  const renderNavItem = (item: NavLinkItem, alwaysShowLabel = false) => {
     const active = pathname === item.to || pathname.startsWith(item.to + "/");
 
     return (
@@ -621,6 +650,23 @@ export default function MainLayout() {
       </Link>
     );
   };
+
+  const renderSidebarItems = (alwaysShowLabel = false) =>
+    (search ? filteredItems : navItems).map((item) => {
+      if (!("children" in item)) return renderNavItem(item, alwaysShowLabel);
+      const active = item.children.some((child) => pathname === child.to || pathname.startsWith(`${child.to}/`));
+      const expanded = (open || alwaysShowLabel) && (search.length > 0 || cashMenuOpen);
+      return <div key={item.id}>
+        <button type="button" aria-expanded={expanded} onClick={() => {
+          if (!open && !alwaysShowLabel) { setOpen(true); setCashMenuOpen(true); }
+          else setCashMenuOpen((value) => !value);
+        }} className={`group flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${!open && !alwaysShowLabel ? "justify-center" : "justify-start"} ${active ? "bg-slate-700 text-white shadow-sm" : "text-slate-200 hover:bg-slate-700/70 hover:text-white"}`} title={!open && !alwaysShowLabel ? item.label : undefined}>
+          {item.icon}
+          {(open || alwaysShowLabel) && <><span className="flex-1 truncate text-left">{item.label}</span><ChevronDown size={16} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></>}
+        </button>
+        {expanded && (open || alwaysShowLabel) && <div className="ml-3 mt-1 space-y-1 border-l border-slate-600 pl-2">{item.children.map((child) => renderNavItem(child, alwaysShowLabel))}</div>}
+      </div>;
+    });
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-slate-100">
@@ -665,9 +711,7 @@ export default function MainLayout() {
 
         {/* Navegación */}
         <nav className="mt-4 flex flex-1 flex-col gap-1 overflow-y-auto px-2 pb-3">
-          {(search ? filteredItems : navItems).map((item) =>
-            renderNavItem(item),
-          )}
+          {renderSidebarItems()}
         </nav>
 
         <div className="border-t border-slate-700/70 px-3 py-3 text-center text-xs text-slate-400">
@@ -709,9 +753,7 @@ export default function MainLayout() {
         </div>
 
         <nav className="mt-4 flex flex-1 flex-col gap-1 overflow-y-auto px-2 pb-4">
-          {(search ? filteredItems : navItems).map((item) =>
-            renderNavItem(item, true),
-          )}
+          {renderSidebarItems(true)}
         </nav>
       </aside>
 

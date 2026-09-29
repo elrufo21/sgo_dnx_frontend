@@ -8,11 +8,12 @@ interface BoletaBatchConfigState {
   flagCaptura: boolean;
   flagCaja: boolean;
   correosAdmin: string;
+  diasMaxDep: number;
   loading: boolean;
   saving: boolean;
   fetchConfig: () => Promise<void>;
   saveConfig: (boletaPorLote: boolean, flagCaptura: boolean) => Promise<boolean>;
-  saveCajaConfig: (flagCaja: boolean, correosAdmin: string) => Promise<boolean>;
+  saveCajaConfig: (flagCaja: boolean, correosAdmin: string, diasMaxDep: number) => Promise<boolean>;
 }
 
 const AUTH_STORAGE_KEY = "sgo.auth.session";
@@ -25,6 +26,10 @@ const normalizeText = (value: unknown, fallback = "") => {
 const toPositiveInt = (value: unknown, fallback = 1) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+};
+const toNonNegativeInt = (value: unknown, fallback = 7) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? Math.min(3650, Math.floor(numeric)) : fallback;
 };
 
 const normalizeBooleanFlag = (value: unknown): boolean => {
@@ -245,6 +250,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
     flagCaptura: false,
     flagCaja: false,
     correosAdmin: "",
+    diasMaxDep: 7,
     loading: false,
     saving: false,
 
@@ -271,6 +277,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
           ),
           flagCaja: normalizeBooleanFlag(company?.flagCaja ?? company?.FlagCaja),
           correosAdmin: normalizeText(company?.correosAdmin ?? company?.CorreosAdmin),
+          diasMaxDep: toNonNegativeInt(company?.diasMaxDep ?? company?.DiasMaxDep),
           loading: false,
         });
       } catch (error) {
@@ -324,14 +331,14 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
       }
     },
 
-    saveCajaConfig: async (flagCaja, correosAdmin) => {
+    saveCajaConfig: async (flagCaja, correosAdmin, diasMaxDep) => {
       const companyId = resolveCompanyId();
       set({ saving: true });
       try {
         const response = await apiRequest<unknown>({
           url: buildApiUrl(`/Compania/${companyId}/caja-configuracion`),
           method: "PATCH",
-          data: { flagCaja, correosAdmin: correosAdmin.trim() },
+          data: { flagCaja, correosAdmin: correosAdmin.trim(), diasMaxDep },
           fallback: null,
         });
 
@@ -344,6 +351,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
         set({
           flagCaja: normalizeBooleanFlag(record?.flagCaja ?? record?.FlagCaja ?? flagCaja),
           correosAdmin: normalizeText(record?.correosAdmin ?? record?.CorreosAdmin ?? correosAdmin),
+          diasMaxDep: toNonNegativeInt(record?.diasMaxDep ?? record?.DiasMaxDep ?? diasMaxDep),
           saving: false,
         });
         return true;

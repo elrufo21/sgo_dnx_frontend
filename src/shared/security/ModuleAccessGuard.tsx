@@ -18,6 +18,7 @@ const routePermissions: [string, string][] = [
   ["/products", "MANTENIMIENTO.PRODUCTOS"],
   ["/cash-final-report", "CAJA.INFORME_FINAL"],
   ["/petty-cash-movements", "CAJA.CHICA"],
+  ["/depositos-centro", "CAJA.VER"],
   ["/cash_flow_control/create", "CAJA.APERTURA"],
   ["/cash_flow_control", "CAJA.CONTROL"],
   ["/shopping", "COMPRAS.GESTIONAR"],
