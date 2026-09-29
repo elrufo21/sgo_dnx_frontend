@@ -158,11 +158,48 @@ export default function PettyCashMovementPage() {
         nroOperacion: item.nroOperacion,
       });
       setImageFile(null);
-      setImagePreview(item.rutaImagen || "");
+      setImagePreview(item.rutaImagen.trim());
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [reset],
   );
+
+  const viewedMovement = movements.find((item) => item.id === viewingId);
+  const canAttachImage =
+    viewing &&
+    viewedMovement !== undefined &&
+    !isAutomaticMovement(viewedMovement) &&
+    !viewedMovement.rutaImagen.trim();
+
+  const attachImage = async () => {
+    if (viewingId === null || !imageFile || viewedMovement?.rutaImagen.trim()) return;
+
+    const data = new FormData();
+    data.append("usuarioId", String(userId));
+    data.append("imagen", imageFile);
+    setSaving(true);
+    try {
+      const result = await apiRequest<
+        { ok?: boolean; mensaje?: string; rutaImagen?: string },
+        FormData,
+        { ok?: boolean; mensaje?: string; rutaImagen?: string }
+      >({
+        url: `${API_BASE_URL}/PettyCashMovement/${viewingId}/image`,
+        method: "POST",
+        data,
+        fallback: { ok: false, mensaje: "No se pudo adjuntar la imagen." },
+      });
+      if (!result?.ok)
+        return toast.error(result?.mensaje || "No se pudo adjuntar la imagen.");
+
+      setImageFile(null);
+      setImagePreview(String(result.rutaImagen ?? ""));
+      toast.success(result.mensaje || "Imagen adjuntada al movimiento.");
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const save = async (values: PettyCashFormData) => {
     const amount = Number(values.importe);
@@ -185,7 +222,6 @@ export default function PettyCashMovementPage() {
     setSaving(true);
     const data = new FormData();
     Object.entries({
-      id: "",
       usuarioId: userId,
       movimiento: values.movimiento,
       detalle: values.detalle.trim(),
@@ -402,28 +438,42 @@ export default function PettyCashMovementPage() {
                 />
                 <div className="text-xs font-semibold text-slate-600">
                   <div className="mt-1 flex flex-wrap items-center gap-3">
-                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                      <ImagePlus className="h-4 w-4" /> Cargar imagen
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        disabled={!cajaId || saving || viewing}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (!file) return;
-                          if (
-                            !/^image\/(jpeg|png|webp)$/.test(file.type) ||
-                            file.size > 5 * 1024 * 1024
-                          )
-                            return toast.error(
-                              "Selecciona una imagen JPG, PNG o WEBP de hasta 5 MB.",
-                            );
-                          setImageFile(file);
-                          setImagePreview(URL.createObjectURL(file));
-                        }}
-                      />
-                    </label>
+                    {(!viewing || canAttachImage) && (
+                      <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                        <ImagePlus className="h-4 w-4" />
+                        {viewing
+                          ? imageFile
+                            ? "Elegir otra imagen"
+                            : "Adjuntar imagen"
+                          : "Cargar imagen"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={!cajaId || saving || (viewing && !viewingId)}
+                          onChange={(event) => {
+                            const input = event.currentTarget;
+                            const file = input.files?.[0];
+                            input.value = "";
+                            if (!file) return;
+                            if (
+                              !/^image\/(jpeg|png|webp)$/.test(file.type) ||
+                              file.size > 5 * 1024 * 1024
+                            )
+                              return toast.error(
+                                "Selecciona una imagen JPG, PNG o WEBP de hasta 5 MB.",
+                              );
+                            if (viewing) {
+                              setImageFile(file);
+                              setImagePreview(URL.createObjectURL(file));
+                              return;
+                            }
+                            setImageFile(file);
+                            setImagePreview(URL.createObjectURL(file));
+                          }}
+                        />
+                      </label>
+                    )}
                     {imagePreview ? (
                       <button
                         type="button"
@@ -443,17 +493,30 @@ export default function PettyCashMovementPage() {
 
               <div className="mt-4 flex justify-end">
                 {viewing ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      clearForm();
-                    }}
-                    disabled={saving}
-                    className="mr-2 inline-flex h-10 items-center bg-[#B23636] gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-white hover:bg-[#96312a] disabled:opacity-50"
-                  >
-                    <Plus className="h-4 w-4" /> Nuevo
-                  </button>
+                  <div className="flex gap-2">
+                    {canAttachImage && imageFile && (
+                      <button
+                        type="button"
+                        onClick={() => void attachImage()}
+                        disabled={saving}
+                        className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#B23636] px-4 text-sm font-semibold text-white hover:bg-[#96312a] disabled:opacity-50"
+                      >
+                        <Save className="h-4 w-4" />
+                        {saving ? "Guardando..." : "Guardar comprobante"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        clearForm();
+                      }}
+                      disabled={saving}
+                      className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-[#B23636] px-4 text-sm font-semibold text-white hover:bg-[#96312a] disabled:opacity-50"
+                    >
+                      <Plus className="h-4 w-4" /> Nuevo
+                    </button>
+                  </div>
                 ) : (
                   <button
                     type="submit"

@@ -1067,7 +1067,6 @@ export const useBoletasSummaryStore = create<BoletasSummaryState>((set) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       return parseSendSummaryResponse(response);
@@ -1093,7 +1092,6 @@ export const useBoletasSummaryStore = create<BoletasSummaryState>((set) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       return parseSendSummaryResponse(response);
@@ -1118,7 +1116,6 @@ export const useBoletasSummaryStore = create<BoletasSummaryState>((set) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       return parseConsultSummaryResponse(response);
@@ -1141,7 +1138,6 @@ export const useBoletasSummaryStore = create<BoletasSummaryState>((set) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       return parseConsultSummaryResponse(response);

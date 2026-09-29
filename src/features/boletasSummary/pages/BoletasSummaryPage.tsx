@@ -462,18 +462,12 @@ export default function BoletasSummaryPage() {
     const isSuccess = hasAcceptedFlag
       ? response.aceptado === true
       : response.ok || response.flg_rta === "1";
-    const httpStatus = Number(response.http_status ?? 0);
     const code = safeTrim(response.cod_sunat);
     const message = safeTrim(response.mensaje);
     const sunatMessage = safeTrim(response.msj_sunat);
     const registroBdMensaje = safeTrim(
       response.registro_bd?.mensaje || response.registro_bd?.resultado,
     );
-    const detailParts = [message, code, sunatMessage, registroBdMensaje].filter(
-      Boolean,
-    );
-    const detailText = detailParts.join(" - ");
-
     if (isSuccess) {
       const ticket = safeTrim(response.ticket || response.msj_sunat);
       const successPrefix = isCancelledMode
@@ -514,20 +508,12 @@ export default function BoletasSummaryPage() {
       return;
     }
 
-    if (httpStatus >= 500) {
-      toast.error(detailText || "Error técnico backend al enviar resumen.");
-      return;
-    }
-
-    if (detailText) {
-      toast.error(detailText);
-      return;
-    }
-
     toast.error(
-      isCancelledMode
-        ? "No se pudo enviar la baja."
-        : "No se pudo enviar el resumen.",
+      sunatMessage ||
+        message ||
+        (isCancelledMode
+          ? "No se pudo enviar la baja."
+          : "No se pudo enviar el resumen."),
     );
   }, [
     fetchDocuments,
@@ -921,10 +907,6 @@ export default function BoletasSummaryPage() {
           return;
         }
 
-        if (code && message) {
-          toast.error(`${code} - ${message}`);
-          return;
-        }
         toast.error(
           message ||
             (isCancelled
