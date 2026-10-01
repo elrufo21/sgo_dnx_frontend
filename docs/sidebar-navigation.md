@@ -1,5 +1,9 @@
 # Navegación del sidebar
 
+## Ventas
+
+El módulo **Reportes** del sidebar abre el acceso al reporte anual de ventas y al reporte de productos. Ambos conservan el permiso `VENTAS.VER`; su propósito y uso están en `reportes.md`.
+
 ## Menú Caja
 
 El sidebar agrupa bajo **Caja** el control de flujo, Caja Chica y Depósitos centros. **Generar informe final** aparece dentro del mismo grupo cuando `Compania.FlagCaja` está activo. Cada submenú conserva su ruta, estado de navegación y permiso actual; Caja se oculta si el usuario no tiene acceso a ninguno de sus módulos.

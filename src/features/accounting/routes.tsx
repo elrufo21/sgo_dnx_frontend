@@ -2,6 +2,8 @@ import AccountingDashboard from "./pages/AccountingDashboard";
 import BoletasSummaryPage from "@/features/boletasSummary/pages/BoletasSummaryPage";
 import InvoiceDispatchPage from "./pages/InvoiceDispatchPage";
 import PdtCompanyPage from "./pages/PdtCompanyPage";
+import SireVentasPage from "./pages/SireVentasPage";
+import SireComprasPage from "./pages/SireComprasPage";
 
 export default [
   {
@@ -30,6 +32,16 @@ export default [
         { label: "Envio de facturas" },
       ],
     },
+  },
+  {
+    path: "accounting/sire-ventas",
+    element: <SireVentasPage />,
+    handle: { breadcrumb: [{ label: "Contabilidad", to: "/accounting" }, { label: "SIRE ventas" }] },
+  },
+  {
+    path: "accounting/sire-compras",
+    element: <SireComprasPage />,
+    handle: { breadcrumb: [{ label: "Contabilidad", to: "/accounting" }, { label: "SIRE compras" }] },
   },
   {
     path: "accounting/boletas_summary",

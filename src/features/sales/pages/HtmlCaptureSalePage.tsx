@@ -29,11 +29,7 @@ import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
-import {
-  buildApiUrl,
-  PRINT_AGENT_BASE_URL,
-  PRINT_AGENT_TOKEN,
-} from "@/config";
+import { buildApiUrl, PRINT_AGENT_BASE_URL, PRINT_AGENT_TOKEN } from "@/config";
 import {
   clearExternalCaptureDraft,
   clearManualSaleDraft,
@@ -1157,7 +1153,8 @@ export default function HtmlCaptureSalePage() {
           fallback: [],
         });
         const machine = machines.find(
-          (item) => normalizeCode(item.nombreMaquina) === normalizeCode(hostname),
+          (item) =>
+            normalizeCode(item.nombreMaquina) === normalizeCode(hostname),
         );
         const printer = safeTrim(machine?.tiketera ?? machine?.ticketera);
         if (!active) return;
@@ -1175,7 +1172,7 @@ export default function HtmlCaptureSalePage() {
         setMachinePrinter("");
         setMachinePrinterError("");
         setCorrelativeError(
-          "No se detectó el agente DNX en esta computadora. Inícialo para emitir boletas o facturas.",
+          "No se detectó el agente DXN en esta computadora. Inícialo para emitir boletas o facturas.",
         );
       }
     };
@@ -1229,7 +1226,8 @@ export default function HtmlCaptureSalePage() {
           }
           return;
         }
-        const serie = safeTrim(response.serie) || (requiresMachineSeries ? "" : doc.serie);
+        const serie =
+          safeTrim(response.serie) || (requiresMachineSeries ? "" : doc.serie);
         if (!serie) return;
         const numero = safeTrim(response.numero) || "00000000";
         setCorrelative({
@@ -1243,7 +1241,9 @@ export default function HtmlCaptureSalePage() {
         if (!active) return;
         setCorrelative(null);
         if (requiresMachineSeries) {
-          setCorrelativeError("No se pudo obtener la serie asignada a esta computadora.");
+          setCorrelativeError(
+            "No se pudo obtener la serie asignada a esta computadora.",
+          );
         }
       });
 
@@ -2379,7 +2379,9 @@ export default function HtmlCaptureSalePage() {
         capturedInvoiceApiClientRef.current = null;
         capturedInvoiceApiRucRef.current = "";
         const docTypeText = data.ruc.toUpperCase();
-        const obsDocTypeCode: SaleForm["docTypeCode"] = docTypeText.includes("FACTURA")
+        const obsDocTypeCode: SaleForm["docTypeCode"] = docTypeText.includes(
+          "FACTURA",
+        )
           ? "01"
           : docTypeText.includes("BOLETA")
             ? "03"
@@ -2455,11 +2457,9 @@ export default function HtmlCaptureSalePage() {
             });
           }
         } else {
-          formMethods.setValue(
-            "customerRuc",
-            customerRucValue,
-            { shouldDirty: true },
-          );
+          formMethods.setValue("customerRuc", customerRucValue, {
+            shouldDirty: true,
+          });
           formMethods.setValue(
             "customerDoc",
             obsDocTypeCode !== "01" ? docValue : "",
@@ -3127,7 +3127,7 @@ export default function HtmlCaptureSalePage() {
     }
     if (!PRINT_AGENT_TOKEN) {
       throw new Error(
-        "Configura VITE_PRINT_AGENT_TOKEN para imprimir con el agente DNX.",
+        "Configura VITE_PRINT_AGENT_TOKEN para imprimir con el agente DXN.",
       );
     }
     if (!machinePrinter) {
@@ -3153,7 +3153,7 @@ export default function HtmlCaptureSalePage() {
       });
     } catch {
       throw new Error(
-        "No se pudo conectar al agente DNX. Verifica que esté iniciado.",
+        "No se pudo conectar al agente DXN. Verifica que esté iniciado.",
       );
     }
 
@@ -3503,7 +3503,8 @@ export default function HtmlCaptureSalePage() {
     }
 
     const doc = DOC_CONFIG[form.docTypeCode];
-    const notaSerie = correlative?.serie || (requiresMachineSeries ? "" : doc.serie);
+    const notaSerie =
+      correlative?.serie || (requiresMachineSeries ? "" : doc.serie);
     const notaNumero = correlative?.numero || "00000000";
     const total = Number(totals.total.toFixed(2));
     const isPagoVariosSale = form.condition === "PAGO/VARIOS";

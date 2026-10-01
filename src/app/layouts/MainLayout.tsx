@@ -16,8 +16,17 @@ import {
   WalletCards,
   Printer,
   Truck,
+  BarChart3,
+  PackageSearch,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
@@ -34,14 +43,24 @@ const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
 const PASSWORD_POLICY_MESSAGE =
   "La contrasena debe tener minimo 6 caracteres, una mayuscula, una minuscula y un numero";
 
-type NavLinkItem = { label: string; to: string; icon: ReactNode; state?: Record<string, boolean> };
-type NavGroupItem = { label: string; id: string; icon: ReactNode; children: NavLinkItem[] };
+type NavLinkItem = {
+  label: string;
+  to: string;
+  icon: ReactNode;
+  state?: Record<string, boolean>;
+};
+type NavGroupItem = {
+  label: string;
+  id: string;
+  icon: ReactNode;
+  children: NavLinkItem[];
+};
 type NavItem = NavLinkItem | NavGroupItem;
 
 export default function MainLayout() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
-  const [cashMenuOpen, setCashMenuOpen] = useState(false);
+  const [openMenuGroup, setOpenMenuGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pagoVariosCount, setPagoVariosCount] = useState(0);
@@ -49,8 +68,13 @@ export default function MainLayout() {
   const [search, setSearch] = useState(""); // 🔍 buscador
   const { pathname } = useLocation();
   useEffect(() => {
-    if (["/cash_flow_control", "/cash-final-report", "/petty-cash-movements", "/depositos-centro"].some((path) => pathname === path || pathname.startsWith(`${path}/`)))
-      setCashMenuOpen(true);
+    const inCash = [
+      "/cash_flow_control",
+      "/cash-final-report",
+      "/petty-cash-movements",
+      "/depositos-centro",
+    ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    setOpenMenuGroup(inCash ? "caja" : pathname.startsWith("/reports") ? "reportes" : null);
   }, [pathname]);
   const openDialog = useDialogStore((state) => state.openDialog);
 
@@ -59,7 +83,9 @@ export default function MainLayout() {
   const isPasswordExpired = useAuthStore((state) => state.isPasswordExpired);
   const logout = useAuthStore((state) => state.logout);
   const flagCaja = useBoletaBatchConfigStore((state) => state.flagCaja);
-  const fetchCajaConfig = useBoletaBatchConfigStore((state) => state.fetchConfig);
+  const fetchCajaConfig = useBoletaBatchConfigStore(
+    (state) => state.fetchConfig,
+  );
 
   const users = useUsersStore((state) => state.users);
   const fetchUsers = useUsersStore((state) => state.fetchUsers);
@@ -489,7 +515,14 @@ export default function MainLayout() {
           state: { resetSearchFilter: true },
         },
         ...(flagCaja
-          ? [{ label: "Generar informe final", to: "/cash-final-report", icon: <Printer size={18} />, state: { resetSearchFilter: true } }]
+          ? [
+              {
+                label: "Generar informe final",
+                to: "/cash-final-report",
+                icon: <Printer size={18} />,
+                state: { resetSearchFilter: true },
+              },
+            ]
           : []),
         {
           label: "Caja Chica",
@@ -503,6 +536,15 @@ export default function MainLayout() {
           icon: <Landmark size={18} />,
           state: { resetSearchFilter: true },
         },
+      ],
+    };
+    const reportes: NavGroupItem = {
+      label: "Reportes",
+      id: "reportes",
+      icon: <TableProperties size={18} />,
+      children: [
+        { label: "Reporte de ventas", to: "/reports/sales", icon: <BarChart3 size={18} /> },
+        { label: "Reporte de productos", to: "/reports/products", icon: <PackageSearch size={18} /> },
       ],
     };
     const items: NavItem[] = [
@@ -524,6 +566,7 @@ export default function MainLayout() {
         icon: <CopySlashIcon size={18} />,
         state: { resetOrderNotesFilters: true, resetSearchFilter: true },
       },
+      reportes,
       caja,
       {
         label: "Extraer Ventas OBS",
@@ -573,6 +616,9 @@ export default function MainLayout() {
       "/sales/pos": "VENTAS.POS",
       "/sales/html_capture/new": "VENTAS.CAPTURAR",
       "/sales/order_notes": "VENTAS.LISTA",
+      "/reports": "VENTAS.VER",
+      "/reports/sales": "VENTAS.VER",
+      "/reports/products": "VENTAS.VER",
       "/sales/obs_capture": "VENTAS.OBS",
       "/cash_flow_control": "CAJA.CONTROL",
       "/cash-final-report": "CAJA.INFORME_FINAL",
@@ -586,37 +632,55 @@ export default function MainLayout() {
       "/configuration": "CONFIGURACION.VER",
     };
 
-    return items.map((item) => {
-      if (!("children" in item)) {
-        const permission = permissionByRoute[item.to];
-        return !permission || hasPermission(user, permission) ? item : null;
-      }
-      const children = item.children.filter((child) => {
-        const permission = permissionByRoute[child.to];
-        return !permission || hasPermission(user, permission);
-      });
-      return children.length ? { ...item, children } : null;
-    }).filter((item): item is NavItem => item !== null);
+    return items
+      .map((item) => {
+        if (!("children" in item)) {
+          const permission = permissionByRoute[item.to];
+          return !permission || hasPermission(user, permission) ? item : null;
+        }
+        const children = item.children.filter((child) => {
+          const permission = permissionByRoute[child.to];
+          return !permission || hasPermission(user, permission);
+        });
+        return children.length ? { ...item, children } : null;
+      })
+      .filter((item): item is NavItem => item !== null);
   }, [flagCaja, user]);
 
-  const filteredItems: NavItem[] = navItems.flatMap<NavItem>((item): NavItem[] => {
-    if (!("children" in item)) return item.label.toUpperCase().includes(search.toUpperCase()) ? [item] : [];
-    const groupMatches = item.label.toUpperCase().includes(search.toUpperCase());
-    const children = groupMatches ? item.children : item.children.filter((child) => child.label.toUpperCase().includes(search.toUpperCase()));
-    return children.length ? [{ ...item, children }] : [];
-  });
+  const filteredItems: NavItem[] = navItems.flatMap<NavItem>(
+    (item): NavItem[] => {
+      if (!("children" in item))
+        return item.label.toUpperCase().includes(search.toUpperCase())
+          ? [item]
+          : [];
+      const groupMatches = item.label
+        .toUpperCase()
+        .includes(search.toUpperCase());
+      const children = groupMatches
+        ? item.children
+        : item.children.filter((child) =>
+            child.label.toUpperCase().includes(search.toUpperCase()),
+          );
+      return children.length ? [{ ...item, children }] : [];
+    },
+  );
 
   const pageTitle = useMemo(() => {
-    const overrides = [{ path: "/sales/order_notes", title: "Nota Pedido" }];
+    const overrides = [
+      { path: "/reports/sales", title: "Reporte de ventas" },
+      { path: "/reports/products", title: "Reporte de productos" },
+      { path: "/sales/order_notes", title: "Nota Pedido" },
+    ];
     const override = overrides.find(
       (item) => pathname === item.path || pathname.startsWith(`${item.path}/`),
     );
     if (override) return override.title;
 
-    const activeItem = navItems.reduce<NavLinkItem[]>((links, item) => {
-      links.push(...("children" in item ? item.children : [item]));
-      return links;
-    }, [])
+    const activeItem = navItems
+      .reduce<NavLinkItem[]>((links, item) => {
+        links.push(...("children" in item ? item.children : [item]));
+        return links;
+      }, [])
       .sort((a, b) => b.to.length - a.to.length)
       .find(
         (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
@@ -654,18 +718,48 @@ export default function MainLayout() {
   const renderSidebarItems = (alwaysShowLabel = false) =>
     (search ? filteredItems : navItems).map((item) => {
       if (!("children" in item)) return renderNavItem(item, alwaysShowLabel);
-      const active = item.children.some((child) => pathname === child.to || pathname.startsWith(`${child.to}/`));
-      const expanded = (open || alwaysShowLabel) && (search.length > 0 || cashMenuOpen);
-      return <div key={item.id}>
-        <button type="button" aria-expanded={expanded} onClick={() => {
-          if (!open && !alwaysShowLabel) { setOpen(true); setCashMenuOpen(true); }
-          else setCashMenuOpen((value) => !value);
-        }} className={`group flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${!open && !alwaysShowLabel ? "justify-center" : "justify-start"} ${active ? "bg-slate-700 text-white shadow-sm" : "text-slate-200 hover:bg-slate-700/70 hover:text-white"}`} title={!open && !alwaysShowLabel ? item.label : undefined}>
-          {item.icon}
-          {(open || alwaysShowLabel) && <><span className="flex-1 truncate text-left">{item.label}</span><ChevronDown size={16} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></>}
-        </button>
-        {expanded && (open || alwaysShowLabel) && <div className="ml-3 mt-1 space-y-1 border-l border-slate-600 pl-2">{item.children.map((child) => renderNavItem(child, alwaysShowLabel))}</div>}
-      </div>;
+      const active = item.children.some(
+        (child) => pathname === child.to || pathname.startsWith(`${child.to}/`),
+      );
+      const expanded =
+        (open || alwaysShowLabel) &&
+        (search.length > 0 || openMenuGroup === item.id);
+      return (
+        <div key={item.id}>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => {
+              if (!open && !alwaysShowLabel) {
+                setOpen(true);
+                setOpenMenuGroup(item.id);
+              } else {
+                setOpenMenuGroup((value) => value === item.id ? null : item.id);
+              }
+            }}
+            className={`group flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${!open && !alwaysShowLabel ? "justify-center" : "justify-start"} ${active ? "bg-slate-700 text-white shadow-sm" : "text-slate-200 hover:bg-slate-700/70 hover:text-white"}`}
+            title={!open && !alwaysShowLabel ? item.label : undefined}
+          >
+            {item.icon}
+            {(open || alwaysShowLabel) && (
+              <>
+                <span className="flex-1 truncate text-left">{item.label}</span>
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${expanded ? "rotate-180" : ""}`}
+                />
+              </>
+            )}
+          </button>
+          {expanded && (open || alwaysShowLabel) && (
+            <div className="ml-3 mt-1 space-y-1 border-l border-slate-600 pl-2">
+              {item.children.map((child) =>
+                renderNavItem(child, alwaysShowLabel),
+              )}
+            </div>
+          )}
+        </div>
+      );
     });
 
   return (
@@ -683,7 +777,7 @@ export default function MainLayout() {
               open ? "opacity-100" : "opacity-0"
             }`}
           >
-            DNX VENTAS
+            DXN VENTAS
           </h1>
 
           <button
@@ -732,7 +826,7 @@ export default function MainLayout() {
         }`}
       >
         <div className="flex items-center justify-between border-b border-slate-700/70 px-4 py-3">
-          <h1 className="text-base font-semibold text-white">DNX VENTAS</h1>
+          <h1 className="text-base font-semibold text-white">DXN VENTAS</h1>
           <button
             onClick={() => setMobileOpen(false)}
             className="rounded-md p-2 transition-colors hover:bg-slate-700"

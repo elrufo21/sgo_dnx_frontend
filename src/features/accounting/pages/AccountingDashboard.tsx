@@ -1,4 +1,4 @@
-import { ArrowRight, FileSpreadsheet, ReceiptText, Send } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, ReceiptText, Send, ShoppingBasket } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -22,6 +22,18 @@ export default function AccountingDashboard() {
         icon: <FileSpreadsheet className="h-10 w-10 text-emerald-600" />,
         route: "/accounting/pdt-company",
       },
+      {
+        title: "SIRE ventas",
+        desc: "Consulta registros RVIE, compara ventas y valida comprobantes en SUNAT.",
+        icon: <FileSpreadsheet className="h-10 w-10 text-[#B23636]" />,
+        route: "/accounting/sire-ventas",
+      },
+      {
+        title: "SIRE compras",
+        desc: "Consulta la propuesta RCE de compras por periodo tributario.",
+        icon: <ShoppingBasket className="h-10 w-10 text-[#B23636]" />,
+        route: "/accounting/sire-compras",
+      },
     ];
 
     if (user?.boletaPorLote !== false) {
@@ -37,6 +49,8 @@ export default function AccountingDashboard() {
       "/accounting/invoice-dispatch": "CONTABILIDAD.ENVIO_FACTURAS",
       "/accounting/pdt-company": "CONTABILIDAD.PDT_EMPRESA",
       "/accounting/boletas_summary": "CONTABILIDAD.RESUMEN_BOLETAS",
+      "/accounting/sire-ventas": "CONTABILIDAD.VER",
+      "/accounting/sire-compras": "CONTABILIDAD.VER",
     };
     return baseItems.filter((item) => hasPermission(user, permissionByRoute[item.route]));
   }, [user]);

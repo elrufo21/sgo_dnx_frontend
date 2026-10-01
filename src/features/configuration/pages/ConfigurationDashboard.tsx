@@ -1,4 +1,4 @@
-import { ArrowRight, FileBadge2, Layers3, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, FileBadge2, KeyRound, Layers3, Mail, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { hasPermission } from "@/shared/security/permissions";
@@ -13,6 +13,13 @@ export default function ConfigurationDashboard() {
       desc: "Configura certificado digital y credenciales SOL.",
       icon: <FileBadge2 className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/billing",
+      permission: "CONFIGURACION.FACTURACION",
+    },
+    {
+      title: "Credenciales SUNAT",
+      desc: "Configura las claves API para SIRE y validación de comprobantes.",
+      icon: <KeyRound className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/sunat",
       permission: "CONFIGURACION.FACTURACION",
     },
     {

@@ -4,6 +4,7 @@ import maintenanceRoutes from "@/features/maintenance/routes";
 import productRoutes from "@/features/products/routes";
 import customerRoutes from "../features/customers/routes";
 import salesRoutes from "../features/sales/routes";
+import reportsRoutes from "../features/reports/routes";
 import posRoutes from "../features/pos/routes";
 import purchansesRoutes from "../features/purchanses/routes";
 import shoppingRoutes from "../features/shopping/routes";
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
           ...productRoutes,
           ...customerRoutes,
           ...salesRoutes,
+          ...reportsRoutes,
           ...posRoutes, // legacy direct routes (kept for compatibility if needed)
           ...purchansesRoutes, // legacy direct routes
           ...shoppingRoutes, // legacy direct routes

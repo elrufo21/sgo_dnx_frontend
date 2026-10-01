@@ -245,7 +245,10 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
   );
 
   return (
-    <Document title={props.documentTitle ?? `Cierre de caja ${props.cajaId}`} author="DNX Ventas">
+    <Document
+      title={props.documentTitle ?? `Cierre de caja ${props.cajaId}`}
+      author="DXN Ventas"
+    >
       <Page size="A4" style={styles.page}>
         <Header title="Centro de Servicio- Reporte General Caja Diaria" />
         <View style={styles.dateBar}>
@@ -362,45 +365,47 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
         </View>
       </Page>
 
-      {props.products !== undefined && <Page size="A4" style={styles.page}>
-        <Header
-          title="Centro de Servicios - Resumen de Venta (Producto)"
-          subtitle={`[ ${dateOnly(props.fechaApertura)} - ${dateOnly(props.fechaCierre || props.fechaApertura)} ]`}
-        />
-        <View style={styles.table}>
-          <DataRow
-            cells={["Codigo", "Descripcion", "Cantidad", "IMPORTE"]}
-            widths={[18, 50, 14, 18]}
-            alignments={["left", "left", "center", "right"]}
-            header
+      {props.products !== undefined && (
+        <Page size="A4" style={styles.page}>
+          <Header
+            title="Centro de Servicios - Resumen de Venta (Producto)"
+            subtitle={`[ ${dateOnly(props.fechaApertura)} - ${dateOnly(props.fechaCierre || props.fechaApertura)} ]`}
           />
-          {products.length ? (
-            products.map((product) => (
+          <View style={styles.table}>
+            <DataRow
+              cells={["Codigo", "Descripcion", "Cantidad", "IMPORTE"]}
+              widths={[18, 50, 14, 18]}
+              alignments={["left", "left", "center", "right"]}
+              header
+            />
+            {products.length ? (
+              products.map((product) => (
+                <DataRow
+                  key={`${product.codigo}-${product.descripcion}`}
+                  cells={[
+                    product.codigo,
+                    product.descripcion,
+                    money(product.cantidad),
+                    money(product.importe),
+                  ]}
+                  widths={[18, 50, 14, 18]}
+                  alignments={["left", "left"]}
+                />
+              ))
+            ) : (
               <DataRow
-                key={`${product.codigo}-${product.descripcion}`}
-                cells={[
-                  product.codigo,
-                  product.descripcion,
-                  money(product.cantidad),
-                  money(product.importe),
-                ]}
+                cells={["-", "Sin productos para esta caja", "0.00", "0.00"]}
                 widths={[18, 50, 14, 18]}
                 alignments={["left", "left"]}
               />
-            ))
-          ) : (
-            <DataRow
-              cells={["-", "Sin productos para esta caja", "0.00", "0.00"]}
-              widths={[18, 50, 14, 18]}
-              alignments={["left", "left"]}
-            />
-          )}
-        </View>
-        <View style={styles.productTotal}>
-          <Text>items: {products.length}</Text>
-          <Text>TOTAL S/ {money(totalProductos)}</Text>
-        </View>
-      </Page>}
+            )}
+          </View>
+          <View style={styles.productTotal}>
+            <Text>items: {products.length}</Text>
+            <Text>TOTAL S/ {money(totalProductos)}</Text>
+          </View>
+        </Page>
+      )}
     </Document>
   );
 }

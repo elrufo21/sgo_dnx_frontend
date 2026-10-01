@@ -21,7 +21,6 @@ export default [
       breadcrumb: [{ label: "Ventas" }],
     },
   },
-
   // Ventas (listado, crear, editar)
   {
     path: "sales/purchases",
