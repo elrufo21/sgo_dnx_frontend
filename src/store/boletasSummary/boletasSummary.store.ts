@@ -53,6 +53,33 @@ const normalizeText = (value: unknown, fallback = "") => {
   return text || fallback;
 };
 
+const normalizeVoucherEndpoint = (value: string) => {
+  const match = value.trim().match(/^(.+?)-(\d+)$/);
+  if (!match) return value.trim();
+  const serie = match[1].replace(/0/g, "") || match[1];
+  const numero = match[2].replace(/^0+(?=\d)/, "");
+  return `${serie}-${numero}`;
+};
+
+const normalizeVoucherRange = (value: unknown) => {
+  const raw = normalizeText(value);
+  if (!raw) return raw;
+  const endpoints = raw.split(/\s+al\s+/i);
+  if (endpoints.length === 1) {
+    const legacyRange = raw.match(/^(.+?-\d+)-(.+?-\d+)$/);
+    if (legacyRange) endpoints.splice(0, 1, legacyRange[1], legacyRange[2]);
+  }
+  if (
+    endpoints.length > 2 ||
+    !endpoints.every((endpoint) => /^.+?-\d+$/.test(endpoint.trim()))
+  ) {
+    return raw;
+  }
+  const first = normalizeVoucherEndpoint(endpoints[0]);
+  const last = normalizeVoucherEndpoint(endpoints[1] ?? endpoints[0]);
+  return `${first} al ${last}`;
+};
+
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 
@@ -339,11 +366,13 @@ const mapDelimitedSentSummaryRow = (
         ["Secuencia", "NroDocumento"],
         -1,
       ) || serie,
-    rangoNumeros: getDelimitedValue(
-      parts,
-      headerIndex,
-      ["RangoNumeros", "RangoNumero"],
-      5,
+    rangoNumeros: normalizeVoucherRange(
+      getDelimitedValue(
+        parts,
+        headerIndex,
+        ["RangoNumeros", "RangoNumero"],
+        5,
+      ),
     ),
     subTotal: getDelimitedValue(parts, headerIndex, ["SubTotal"], 6) || "0.00",
     igv: getDelimitedValue(parts, headerIndex, ["IGV"], 7) || "0.00",
@@ -491,7 +520,7 @@ const parseSentSummariesResponse = (payload: unknown): BoletaSummarySentRecord[]
               row.Serie ??
               row.resumenSerie,
           ),
-          rangoNumeros: normalizeText(
+          rangoNumeros: normalizeVoucherRange(
             row.rangoNumeros ?? row.RangoNumeros ?? row.rangoNumero,
           ),
           subTotal: normalizeText(row.subTotal ?? row.SubTotal, "0.00"),

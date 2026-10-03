@@ -55,6 +55,9 @@ const isHistoryGuardDisabled = (field: FormFieldElement) => {
 };
 const isInsideDialog = (field: FormFieldElement) =>
   Boolean(field.closest('[role="dialog"]'));
+const isAutocompleteField = (field: FormFieldElement) =>
+  field instanceof HTMLInputElement &&
+  field.getAttribute("role") === "combobox";
 
 const setUppercaseStyle = (field: FormFieldElement) => {
   setAttr(field, "data-uppercase-managed", "true");
@@ -82,6 +85,8 @@ const getFieldDescriptors = (field: FormFieldElement) => {
 };
 
 const shouldSkipUppercase = (field: FormFieldElement) => {
+  if (isAutocompleteField(field)) return true;
+
   const noUppercaseAttr = field.getAttribute("data-no-uppercase");
   if (noUppercaseAttr === "true" || noUppercaseAttr === "1") return true;
 
@@ -152,6 +157,15 @@ const hardenField = (
   if (!isTextLikeField(field)) return;
 
   if (isHistoryGuardDisabled(field) || isInsideDialog(field)) {
+    clearManagedUppercaseStyle(field);
+    if (field.hasAttribute("data-history-managed-readonly")) {
+      field.removeAttribute("readonly");
+      field.removeAttribute("data-history-managed-readonly");
+    }
+    return;
+  }
+
+  if (isAutocompleteField(field)) {
     clearManagedUppercaseStyle(field);
     if (field.hasAttribute("data-history-managed-readonly")) {
       field.removeAttribute("readonly");

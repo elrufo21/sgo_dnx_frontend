@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart } from "@mui/x-charts/BarChart";
-import { LineChart } from "@mui/x-charts/LineChart";
+import { LineChart, MarkElement, type MarkElementProps } from "@mui/x-charts/LineChart";
 import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import { Search } from "lucide-react";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 
@@ -44,6 +45,24 @@ export default function SalesReportPage() {
     queryKey: ["sales-report", selectedYear],
     queryFn: () => fetchReport(selectedYear),
   });
+  const chartMax = Math.max(...(report.data?.months.map((month) => month.total) ?? [0])) * 1.15 || 1;
+  const ValueLabelMark = (props: MarkElementProps) => (
+    <g>
+      <MarkElement {...props} />
+      <text
+        x={props.x}
+        y={props.y}
+        dy={-10}
+        textAnchor="middle"
+        fontSize={10}
+        fontWeight={600}
+        fill="#334155"
+        pointerEvents="none"
+      >
+        {formatCurrency(report.data?.months[props.dataIndex]?.total ?? 0)}
+      </text>
+    </g>
+  );
 
   const consult = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,13 +92,16 @@ export default function SalesReportPage() {
                   : undefined
               }
             />
-            <Button
+            <IconButton
               type="submit"
-              variant="contained"
+              aria-label="Consultar reporte de ventas"
+              title="Consultar reporte de ventas"
               disabled={!validYear || report.isFetching}
+              color="primary"
+              className="h-10 w-10"
             >
-              Consultar
-            </Button>
+              <Search size={20} />
+            </IconButton>
           </form>
           <ToggleButtonGroup
             aria-label="Tipo de gráfica"
@@ -119,12 +141,15 @@ export default function SalesReportPage() {
               xAxis={[{ scaleType: "band", dataKey: "monthName", label: "Mes" }]}
               yAxis={[{
                 width: 120,
+                max: chartMax,
                 valueFormatter: (value: number) => axisCurrency.format(value),
               }]}
               series={[
                 {
                   dataKey: "total",
                   label: "Ventas",
+                  barLabel: (item) => formatCurrency(Number(item.value ?? 0)),
+                  barLabelPlacement: "outside",
                   valueFormatter: (value) => formatCurrency(value ?? 0),
                 },
               ]}
@@ -137,15 +162,18 @@ export default function SalesReportPage() {
               xAxis={[{ scaleType: "point", dataKey: "monthName", label: "Mes" }]}
               yAxis={[{
                 width: 120,
+                max: chartMax,
                 valueFormatter: (value: number) => axisCurrency.format(value),
               }]}
               series={[
                 {
                   dataKey: "total",
                   label: "Ventas",
+                  showMark: true,
                   valueFormatter: (value) => formatCurrency(value ?? 0),
                 },
               ]}
+              slots={{ mark: ValueLabelMark }}
               height={440}
               margin={{ left: 140, right: 24, top: 24, bottom: 48 }}
             />

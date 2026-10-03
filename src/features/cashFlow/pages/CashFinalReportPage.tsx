@@ -43,6 +43,7 @@ type Preparation = {
   fecha: string;
   cajeros: string;
   totalObs: number;
+  totalObsDisponible: boolean;
   sencillo: number;
   monedas: Coin[];
   ingresos: Omit<Movement, "manual">[];
@@ -184,12 +185,17 @@ export default function CashFinalReportPage() {
       if (
         !response ||
         typeof response !== "object" ||
-        !("totalObs" in response)
+        !("totalObs" in response) ||
+        !("totalObsDisponible" in response)
       )
         throw new Error("No se pudo actualizar el total OBS.");
       setPreparation((current) =>
         current
-          ? { ...current, totalObs: Number(response.totalObs || 0) }
+          ? {
+              ...current,
+              totalObs: Number(response.totalObs || 0),
+              totalObsDisponible: response.totalObsDisponible === true,
+            }
           : current,
       );
       toast.success("Sistema OBS actualizado.");
@@ -322,6 +328,10 @@ export default function CashFinalReportPage() {
 
   const save = async () => {
     if (!preparation || !user) return;
+    if (!preparation.totalObsDisponible) {
+      toast.error("No se pudo obtener el monto total del OBS para esta fecha.");
+      return;
+    }
     if (totals.difference !== 0 && !observaciones.trim()) {
       toast.error("Ingresa una observación para justificar la diferencia.");
       return;
@@ -399,6 +409,7 @@ export default function CashFinalReportPage() {
         fecha: report.fecha,
         cajeros: report.cajeros,
         totalObs: report.totalObs,
+        totalObsDisponible: true,
         sencillo:
           detail.ingresos.find(
             (row) => row.descripcion.trim().toUpperCase() === "SENCILLO",
@@ -653,6 +664,7 @@ export default function CashFinalReportPage() {
               !(view === "new" || editing) ||
               saving ||
               !preparation ||
+              !preparation.totalObsDisponible ||
               (view === "new" && preparation.existe)
             }
             onClick={() => void save()}
@@ -980,8 +992,8 @@ export default function CashFinalReportPage() {
                       <button
                         type="button"
                         onClick={() => void refreshObs()}
-                        disabled={readOnly || refreshingObs || !preparation}
-                        title="Actualizar total desde OBS"
+                        disabled={readOnly || editing || refreshingObs || !preparation}
+                        title={editing ? "El monto OBS guardado se conserva al editar" : "Actualizar total desde OBS"}
                         className="inline-flex items-center gap-1 font-semibold text-gray-700 hover:text-slate-950 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-60"
                       >
                         Sistema (OBS):
@@ -993,6 +1005,11 @@ export default function CashFinalReportPage() {
                         {money(preparation?.totalObs || 0)}
                       </div>
                     </div>
+                    {preparation && !preparation.totalObsDisponible && (
+                      <p role="alert" className="text-right text-[11px] font-medium text-red-600">
+                        No se pudo obtener el monto OBS para esta fecha.
+                      </p>
+                    )}
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-gray-700">
                         Salidas:

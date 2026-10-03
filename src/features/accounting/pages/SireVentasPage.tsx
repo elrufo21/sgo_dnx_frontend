@@ -819,7 +819,9 @@ export default function SireVentasRegistrosPage() {
       setSelectedBdKeys([]);
       setSunatValidationResponse(null);
       setSunatValidationRows([]);
-      toast.error("No se pudo comparar los registros SIRE.");
+      toast.error(
+        "No se pudo completar la comparación SIRE. SUNAT podría estar demorado o temporalmente no disponible; intente nuevamente en unos minutos.",
+      );
     } finally {
       setComparing(false);
     }

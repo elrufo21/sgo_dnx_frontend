@@ -4,7 +4,7 @@
 
 El módulo **Reportes** es un grupo desplegable en el menú lateral con las opciones **Reporte de ventas** y **Reporte de productos**. La ruta `/reports` redirige al reporte anual de ventas. Ambos reportes requieren el permiso existente `VENTAS.VER`.
 
-En el reporte de ventas se ingresa un año y se alterna entre columnas y líneas. En el reporte de productos se selecciona un año y un producto activo buscándolo por nombre o código, luego se consulta. La página presenta la cantidad e importe anual, una gráfica mensual y una tabla con cantidad e importe de cada mes. En pantallas amplias, la gráfica y la tabla mensual se muestran en paralelo; en pantallas angostas se apilan.
+En el reporte de ventas se ingresa un año y se alterna entre columnas y líneas; la gráfica muestra el importe mensual sobre cada barra o punto. En el reporte de productos se selecciona un producto activo buscándolo por nombre o código; la lista se filtra mientras se escribe y el reporte se consulta automáticamente al elegir el producto y al cambiar el año válido. Su gráfica muestra la cantidad vendida por mes y unidad del producto, mientras la tarjeta anual y la tabla mantienen los importes de venta. En pantallas amplias, la gráfica y la tabla mensual se muestran en paralelo; en pantallas angostas se apilan.
 
 ## Fuente y reglas
 
