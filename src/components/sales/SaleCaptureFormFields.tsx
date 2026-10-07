@@ -70,6 +70,7 @@ interface SaleCaptureFormFieldsProps {
   sendingEmail?: boolean;
   allowEmailEdit?: boolean;
   onSearchClients?: (search: string) => void;
+  onSearchRucs?: (search: string) => void;
 }
 
 const safeTrim = (value: unknown) => String(value ?? "").trim();
@@ -119,6 +120,7 @@ export function SaleCaptureFormFields({
   sendingEmail = false,
   allowEmailEdit = false,
   onSearchClients,
+  onSearchRucs,
 }: SaleCaptureFormFieldsProps) {
   const { control, setFocus, setValue } = useFormContext<SaleCaptureFormValues>();
   const values = useWatch({
@@ -246,6 +248,19 @@ export function SaleCaptureFormFields({
     [onSearchClients],
   );
 
+  const queueRucSearch = useCallback(
+    (value: string) => {
+      if (!onSearchRucs) return;
+      const search = safeTrim(value);
+      if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+      if (search.length < 2) return;
+      searchTimerRef.current = window.setTimeout(() => {
+        onSearchRucs?.(search);
+      }, 300);
+    },
+    [onSearchRucs],
+  );
+
   const validClientOptions = useMemo(
     () =>
       clientOptions
@@ -328,22 +343,27 @@ export function SaleCaptureFormFields({
   }, [validClientOptions]);
 
   const customerRucOptions = useMemo(() => {
-    const byRuc = new Map<string, (typeof validClientOptions)[number]>();
+    const byRuc = new Map<string, (typeof validClientOptions)[number][]>();
     validClientOptions.forEach((opt) => {
       const ruc = normalizeDocumentText(opt.client.ruc);
-      if (!isPlaceholderDocument(ruc) && !byRuc.has(ruc)) byRuc.set(ruc, opt);
+      if (isPlaceholderDocument(ruc)) return;
+      const matches = byRuc.get(ruc) ?? [];
+      matches.push(opt);
+      byRuc.set(ruc, matches);
     });
 
-    return Array.from(byRuc.entries()).map(([ruc, opt]) => ({
-      label: ruc,
-      value: ruc,
-      ruc: safeTrim(opt.client.ruc),
-      dni: safeTrim(opt.client.dni),
-      code: opt.code,
-      nombreRazon: opt.label,
-      id: opt.client.id,
-      client: opt.client,
-    }));
+    return Array.from(byRuc.entries())
+      .filter(([, matches]) => matches.length === 1)
+      .map(([ruc, [opt]]) => ({
+        label: ruc,
+        value: ruc,
+        ruc: safeTrim(opt.client.ruc),
+        dni: safeTrim(opt.client.dni),
+        code: opt.code,
+        nombreRazon: opt.label,
+        id: opt.client.id,
+        client: opt.client,
+      }));
   }, [validClientOptions]);
 
   const customerCodeOptions = useMemo(
@@ -527,6 +547,15 @@ export function SaleCaptureFormFields({
     onClientSelected?.(null);
   };
 
+  const clearCustomerIdentityPreservingRuc = () => {
+    setValue("memberCode", "", { shouldDirty: true });
+    setValue("customerName", "", { shouldDirty: true });
+    setValue("customerDoc", "", { shouldDirty: true });
+    setValue("customerEmail", "", { shouldDirty: true });
+    setValue("address", "", { shouldDirty: true });
+    onClientSelected?.(null);
+  };
+
   const handleMissingCustomer = () => {
     toast.error(
       "Intentaste seleccionar un cliente que no existe, por favor agrega el cliente y seleccionalo.",
@@ -585,6 +614,50 @@ export function SaleCaptureFormFields({
       );
     };
 
+  const findClientsByRuc = (inputValue: string) => {
+    const document = normalizeDocumentText(inputValue);
+    if (!document) return [];
+    return validClientOptions
+      .filter(
+        (option) => normalizeDocumentText(option.client.ruc) === document,
+      )
+      .map((option) => option.client);
+  };
+
+  const handleRucInputChange = (inputValue: string) => {
+    queueRucSearch(inputValue);
+    clearCustomerIdentityPreservingRuc();
+
+    const document = normalizeDocumentText(inputValue);
+    if (document.length !== 11) return;
+    const matches = findClientsByRuc(document);
+    if (matches.length === 1) applyClientSelection(matches[0], "01");
+  };
+
+  const handleRucEnter = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    const input =
+      event.target instanceof HTMLInputElement
+        ? event.target
+        : event.currentTarget;
+    const document = normalizeDocumentText(input.value);
+    if (document.length !== 11) return;
+
+    const matches = findClientsByRuc(document);
+    event.preventDefault();
+    event.stopPropagation();
+    if (matches.length === 1) {
+      applyClientSelection(matches[0], "01");
+      window.requestAnimationFrame(() => focusNextInput(input));
+    } else if (matches.length > 1) {
+      toast.error(
+        "Hay varios clientes con este RUC. Corrige los registros duplicados antes de continuar.",
+      );
+    } else {
+      toast.error("El RUC no existe. Agrega el cliente y selecciónalo.");
+    }
+  };
+
   const selectExactClientInput = (
     inputValue: string,
     findClient: (inputValue: string) => Client | null,
@@ -616,19 +689,28 @@ export function SaleCaptureFormFields({
     ({ inputValue }: { inputValue: string }) => {
       const document = normalizeDocumentText(inputValue);
       if (!document) return;
-      const match =
-        validClientOptions.find((option) =>
-          type === "ruc"
-            ? normalizeDocumentText(option.client.ruc) === document
-            : normalizeDocumentText(option.client.dni) === document,
-        )?.client ?? null;
-      if (match) {
-        applyClientSelection(match, type === "ruc" ? "01" : "03");
+      if (type === "ruc") {
+        const matches = findClientsByRuc(document);
+        if (matches.length === 1) {
+          applyClientSelection(matches[0], "01");
+        } else if (matches.length > 1) {
+          toast.error(
+            "Hay varios clientes con este RUC. Corrige los registros duplicados antes de continuar.",
+          );
+        } else {
+          toast.error("El RUC no existe. Agrega el cliente y selecciónalo.");
+        }
         return;
       }
-      toast.error(
-        `El ${type === "ruc" ? "RUC" : "DNI"} no existe. Agrega el cliente y seleccionalo.`,
-      );
+      const match =
+        validClientOptions.find(
+          (option) => normalizeDocumentText(option.client.dni) === document,
+        )?.client ?? null;
+      if (match) {
+        applyClientSelection(match, "03");
+        return;
+      }
+      toast.error("El DNI no existe. Agrega el cliente y seleccionalo.");
       if (!preserveMissingClientData) clearCustomerSelection();
     };
 
@@ -909,9 +991,7 @@ export function SaleCaptureFormFields({
               pattern: "[0-9]*",
               maxLength: 11,
             }}
-            onInputValueChange={(value) =>
-              selectExactClientInput(value, findClientByDocument("ruc"), "01")
-            }
+            onInputValueChange={handleRucInputChange}
             filterOptions={(options, state) =>
               filterDocumentOptions(options, state.inputValue)
             }
@@ -925,9 +1005,7 @@ export function SaleCaptureFormFields({
                 "01",
               );
             }}
-            onInputKeyDown={(event) =>
-              selectClientOnEnter(event, findClientByDocument("ruc"), "01")
-            }
+            onInputKeyDown={handleRucEnter}
             onInputBlur={handleDocumentBlur("ruc")}
           />
           <div className="sm:col-span-2">

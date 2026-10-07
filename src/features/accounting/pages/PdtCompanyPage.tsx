@@ -212,24 +212,6 @@ const parseDelimitedDataset = (rawValue: string): DelimitedDataset | null => {
   };
 };
 
-const resolveSalesStatus = (documento: string, estado: string) => {
-  const docNormalized = normalizeFilterText(documento);
-  const statusNormalized = normalizeFilterText(estado);
-  const isFacturaOrBoleta =
-    docNormalized.includes("factura") ||
-    docNormalized.includes("boleta") ||
-    docNormalized === "01" ||
-    docNormalized === "03";
-  const isCancelledOrDropped =
-    statusNormalized.includes("anul") || statusNormalized.includes("baja");
-
-  if (isFacturaOrBoleta && isCancelledOrDropped) {
-    return "EMITIDO";
-  }
-
-  return estado;
-};
-
 const mapSalesRow = (
   rowParts: string[],
   headerIndex: Record<string, number>,
@@ -245,10 +227,7 @@ const mapSalesRow = (
   icbper: readField(rowParts, headerIndex, ["ICBPER"], 8),
   total: readField(rowParts, headerIndex, ["Total"], 9),
   usuario: readField(rowParts, headerIndex, ["Usuario"], 10),
-  estado: resolveSalesStatus(
-    readField(rowParts, headerIndex, ["Documento"], 1),
-    readField(rowParts, headerIndex, ["Estado"], 11),
-  ),
+  estado: readField(rowParts, headerIndex, ["Estado"], 11),
   referencia: readField(rowParts, headerIndex, ["Referencia"], 12),
   codigo: readField(rowParts, headerIndex, ["Codigo", "CDSunat"], 13),
   mensaje: readField(rowParts, headerIndex, ["Mensaje"], 14),

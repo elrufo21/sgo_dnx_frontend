@@ -76,13 +76,29 @@ export interface BoletaSummarySendBajaDetailPayload {
   tipoComprobante: string;
   nroComprobante: string;
   descripcion: string;
+  tipoDocumento?: string;
+  nroDocumento?: string;
+  statu?: string;
+  codMoneda?: string;
+  total?: number;
+  icbper?: number;
+  gravada?: number;
+  isc?: number;
+  igv?: number;
+  otros?: number;
+  cargoXAsignacion?: number;
+  montoCargoXAsig?: number;
+  exonerado?: number;
+  inafecto?: number;
+  exportacion?: number;
+  gratuitas?: number;
   docuId: number;
   notaId?: number;
 }
 
 interface BoletaSummaryBasePayload {
-  NRO_DOCUMENTO_EMPRESA: string;
-  RAZON_SOCIAL: string;
+  NRO_DOCUMENTO_EMPRESA?: string;
+  RAZON_SOCIAL?: string;
   USUARIO?: string;
   Usuario?: string;
   usuario?: string;
@@ -93,11 +109,11 @@ interface BoletaSummaryBasePayload {
   SECUENCIA: string;
   FECHA_REFERENCIA: string;
   FECHA_DOCUMENTO: string;
-  TIPO_PROCESO: string | number;
-  CONTRA_FIRMA: string;
-  USUARIO_SOL_EMPRESA: string;
-  PASS_SOL_EMPRESA: string;
-  RUTA_PFX: string;
+  TIPO_PROCESO?: string | number;
+  CONTRA_FIRMA?: string;
+  USUARIO_SOL_EMPRESA?: string;
+  PASS_SOL_EMPRESA?: string;
+  RUTA_PFX?: string;
   COMPANIA_ID: number;
 }
 
@@ -113,6 +129,10 @@ export interface BoletaSummarySendPayload extends BoletaSummaryBasePayload {
 export interface BoletaSummarySendBajaPayload
   extends BoletaSummaryBasePayload {
   detalle: BoletaSummarySendBajaDetailPayload[];
+  SUBTOTAL: number;
+  IGV: number;
+  ICBPER: number;
+  TOTAL: number;
 }
 
 export interface BoletaSummarySendResponse {
@@ -140,16 +160,17 @@ export interface BoletaSummarySendResponse {
 
 export interface BoletaSummaryConsultPayload {
   RESUMEN_ID: number;
+  COMPANIA_ID: number;
   TICKET: string;
   CODIGO_SUNAT: string;
   MENSAJE_SUNAT: string;
   ESTADO: string;
   SECUENCIA: string;
-  RUC: string;
-  USUARIO_SOL_EMPRESA: string;
-  PASS_SOL_EMPRESA: string;
+  RUC?: string;
+  USUARIO_SOL_EMPRESA?: string;
+  PASS_SOL_EMPRESA?: string;
   TIPO_DOCUMENTO: string;
-  TIPO_PROCESO: number;
+  TIPO_PROCESO?: number;
   INTENTOS: number;
 }
 

@@ -12,6 +12,7 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 4. Al confirmar una venta, la pantalla también indica a la extensión que descarte la captura pendiente. Así no se vuelve a cargar al regresar al formulario.
 5. Desde la confirmación hasta abrir un nuevo registro, la pantalla bloquea cualquier guardado automático o mensaje tardío de la extensión para que una venta ya emitida no vuelva a convertirse en borrador.
 6. Al abrir una venta desde Lista de ventas, sus datos se mantienen solo en consulta; al volver a Ventas se descarta esa vista y nunca se guarda ni se restaura como borrador. Los borradores manuales se identifican como creados desde el formulario `/new`; los datos antiguos con una correlativa de una venta registrada también se descartan.
+7. Al editar el RUC, se desvinculan los datos del cliente previamente seleccionado. El autocomplete consulta solo `ClienteRuc` mediante `rucOnly=true`; no usa la búsqueda general por DNI, nombre o código. La selección automática requiere los 11 dígitos y una única coincidencia exacta. Si no hay coincidencia, el RUC escrito se conserva. Al reconciliar los valores del formulario, el cliente se resuelve por código, RUC y nombre antes de usar el DNI, porque puede haber fichas distintas con DNI duplicado.
 
 ## Alcance y seguridad
 

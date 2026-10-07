@@ -24,8 +24,6 @@ import { calculateBoletaTotals, parseAmount } from "../boletasSummary.utils";
 const columnHelper = createColumnHelper<BoletaSummaryDocument>();
 const sentColumnHelper = createColumnHelper<BoletaSummarySentRecord>();
 
-const DEFAULT_TIPO_PROCESO = 3;
-
 const formatCurrency = (value: number) =>
   value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -372,32 +370,27 @@ export default function BoletasSummaryPage() {
       tipoComprobante: "03",
       nroComprobante: safeTrim(row.serieNumero),
       descripcion: "ANULACION DE DOCUMENTO",
+      tipoDocumento: "1",
+      nroDocumento: safeTrim(row.clienteDni) || "00000000",
+      statu: "3",
+      codMoneda: "PEN",
+      total: Number(parseAmount(row.total).toFixed(2)),
+      icbper: Number(parseAmount(row.icbper).toFixed(2)),
+      gravada: Number(parseAmount(row.subTotal).toFixed(2)),
+      igv: Number(parseAmount(row.igv).toFixed(2)),
+      isc: 0,
+      otros: 0,
+      cargoXAsignacion: 1,
+      montoCargoXAsig: 0,
+      exonerado: 0,
+      inafecto: 0,
+      exportacion: 0,
+      gratuitas: 0,
       docuId: row.docuId,
       notaId: row.notaId,
     }));
 
-    const tipoProcesoRaw = Number(
-      user.entorno ??
-        loginPayload.Entorno ??
-        loginPayload.entorno ??
-        DEFAULT_TIPO_PROCESO,
-    );
-    const tipoProceso =
-      Number.isFinite(tipoProcesoRaw) && tipoProcesoRaw > 0
-        ? Math.floor(tipoProcesoRaw)
-        : DEFAULT_TIPO_PROCESO;
-
     const payloadBase = {
-      NRO_DOCUMENTO_EMPRESA: safeTrim(
-        user.companyRuc ??
-          parsedSession?.companiaRuc ??
-          loginPayload.companiaRuc,
-      ),
-      RAZON_SOCIAL: safeTrim(
-        user.companyName ??
-          parsedSession?.razonSocial ??
-          loginPayload.razonSocial,
-      ),
       USUARIO: currentUser || "SISTEMA",
       Usuario: currentUser || "SISTEMA",
       usuario: currentUser || "SISTEMA",
@@ -408,37 +401,6 @@ export default function BoletasSummaryPage() {
       SECUENCIA: String(nextSequence),
       FECHA_REFERENCIA: referenceDateIso,
       FECHA_DOCUMENTO: todayIso,
-      TIPO_PROCESO: tipoProceso,
-      CONTRA_FIRMA: safeTrim(
-        user.claveCertificado ??
-          user.ClaveCertificado ??
-          loginPayload.claveCertificado ??
-          loginPayload.ClaveCertificado,
-      ),
-      USUARIO_SOL_EMPRESA: safeTrim(
-        user.usuarioSol ??
-          user.UsuarioSol ??
-          user.UsuarioSOL ??
-          loginPayload.usuarioSol ??
-          loginPayload.UsuarioSol ??
-          loginPayload.UsuarioSOL,
-      ),
-      PASS_SOL_EMPRESA: safeTrim(
-        user.claveSol ??
-          user.ClaveSol ??
-          user.ClaveSOL ??
-          loginPayload.claveSol ??
-          loginPayload.ClaveSol ??
-          loginPayload.ClaveSOL,
-      ),
-      RUTA_PFX: safeTrim(
-        user.certificadoBase64 ??
-          user.CertificadoBase64 ??
-          user.CertificadoPFX ??
-          loginPayload.certificadoBase64 ??
-          loginPayload.CertificadoBase64 ??
-          loginPayload.CertificadoPFX,
-      ),
       COMPANIA_ID: Number.isFinite(companyId) && companyId > 0 ? companyId : 1,
     };
 
@@ -447,6 +409,10 @@ export default function BoletasSummaryPage() {
           ...payloadBase,
           CODIGO: "RA",
           detalle: detalleBaja,
+          SUBTOTAL: Number(totals.subTotal.toFixed(2)),
+          IGV: Number(totals.igv.toFixed(2)),
+          ICBPER: Number(totals.icbper.toFixed(2)),
+          TOTAL: Number(totals.total.toFixed(2)),
         } as BoletaSummarySendBajaPayload)
       : await sendSummary({
           ...payloadBase,
@@ -771,44 +737,6 @@ export default function BoletasSummaryPage() {
         return;
       }
 
-      let parsedSession: BoletasSummarySession = null;
-      if (typeof window !== "undefined") {
-        try {
-          const raw = window.localStorage.getItem("sgo.auth.session");
-          parsedSession = raw
-            ? (JSON.parse(raw) as BoletasSummarySession)
-            : null;
-        } catch {
-          parsedSession = null;
-        }
-      }
-
-      const user = parsedSession?.user ?? {};
-      const loginPayload = parsedSession?.loginPayload ?? {};
-      const ruc = safeTrim(
-        row.ruc ??
-          user.companyRuc ??
-          parsedSession?.companiaRuc ??
-          loginPayload.companiaRuc,
-      );
-      const usuarioSol = safeTrim(
-        row.usuarioSolEmpresa ??
-          user.usuarioSol ??
-          user.UsuarioSol ??
-          user.UsuarioSOL ??
-          loginPayload.usuarioSol ??
-          loginPayload.UsuarioSol ??
-          loginPayload.UsuarioSOL,
-      );
-      const passSol = safeTrim(
-        row.passSolEmpresa ??
-          user.claveSol ??
-          user.ClaveSol ??
-          user.ClaveSOL ??
-          loginPayload.claveSol ??
-          loginPayload.ClaveSol ??
-          loginPayload.ClaveSOL,
-      );
       const secuencia = safeTrim(row.secuencia ?? row.serie);
       const isCancelled = isCancelledSentSummary(row);
       const estado = isCancelled ? "B" : "P";
@@ -816,29 +744,15 @@ export default function BoletasSummaryPage() {
         row.tipoDocumento || (isCancelled ? "RA" : "RC"),
       );
 
-      const tipoProcesoRaw = Number(
-        row.tipoProceso ??
-          user.entorno ??
-          loginPayload.Entorno ??
-          loginPayload.entorno ??
-          DEFAULT_TIPO_PROCESO,
-      );
-      const tipoProceso =
-        Number.isFinite(tipoProcesoRaw) && tipoProcesoRaw > 0
-          ? Math.floor(tipoProcesoRaw)
-          : DEFAULT_TIPO_PROCESO;
       const intentosRaw = Number(row.intentos ?? 0);
       const intentos =
         Number.isFinite(intentosRaw) && intentosRaw >= 0
           ? Math.floor(intentosRaw)
           : 0;
 
-      if (!ruc) {
-        toast.error("No se encontró RUC de empresa para consultar.");
-        return;
-      }
-      if (!usuarioSol || !passSol) {
-        toast.error("Faltan credenciales SOL para consultar el ticket.");
+      const companiaId = Number(row.companiaId);
+      if (!Number.isFinite(companiaId) || companiaId <= 0) {
+        toast.error("No se encontró la compañía del resumen.");
         return;
       }
       if (!secuencia) {
@@ -850,16 +764,13 @@ export default function BoletasSummaryPage() {
       try {
         const payload = {
           RESUMEN_ID: resumenId,
+          COMPANIA_ID: companiaId,
           TICKET: ticket,
           CODIGO_SUNAT: "",
           MENSAJE_SUNAT: "",
           ESTADO: estado,
           SECUENCIA: secuencia,
-          RUC: ruc,
-          USUARIO_SOL_EMPRESA: usuarioSol,
-          PASS_SOL_EMPRESA: passSol,
           TIPO_DOCUMENTO: tipoDocumento,
-          TIPO_PROCESO: tipoProceso,
           INTENTOS: intentos,
         };
         const response = isCancelled

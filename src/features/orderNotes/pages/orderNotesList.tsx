@@ -86,6 +86,9 @@ const isAnnulledStatus = (value: unknown) =>
     .includes("ANULAD") ||
   String(value ?? "")
     .toUpperCase()
+    .includes("BAJA") ||
+  String(value ?? "")
+    .toUpperCase()
     .includes("RECHAZADO");
 
 const isCancelledStatus = (value: unknown) =>

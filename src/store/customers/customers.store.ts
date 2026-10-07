@@ -11,6 +11,7 @@ type FetchClientsParams =
       search?: string;
       page?: number;
       pageSize?: number;
+      rucOnly?: boolean;
     };
 
 interface ClientsState {
@@ -23,6 +24,7 @@ interface ClientsState {
     search: string,
     estado?: "ACTIVO" | "INACTIVO" | "",
     pageSize?: number,
+    rucOnly?: boolean,
   ) => Promise<Client[]>;
   fetchClientById: (id: number) => Promise<Client | null>;
   fetchClientByCodigo: (codigo: string) => Promise<Client | null>;
@@ -215,12 +217,13 @@ const isApiError = (value: unknown) =>
 
 const parseParams = (params: FetchClientsParams = "ACTIVO") =>
   typeof params === "string"
-    ? { estado: params, search: "", page: 1, pageSize: 50 }
+    ? { estado: params, search: "", page: 1, pageSize: 50, rucOnly: false }
     : {
         estado: params.estado ?? "ACTIVO",
         search: params.search ?? "",
         page: params.page ?? 1,
         pageSize: params.pageSize ?? 50,
+        rucOnly: params.rucOnly ?? false,
       };
 
 const buildClientListUrl = (params: FetchClientsParams = "ACTIVO") => {
@@ -228,6 +231,7 @@ const buildClientListUrl = (params: FetchClientsParams = "ACTIVO") => {
   const query = new URLSearchParams();
   if (parsed.estado) query.set("estado", parsed.estado);
   if (parsed.search.trim()) query.set("search", parsed.search.trim());
+  if (parsed.rucOnly) query.set("rucOnly", "true");
   query.set("page", String(parsed.page));
   query.set("pageSize", String(parsed.pageSize));
   return `${API_BASE_URL}/Cliente/list?${query.toString()}`;
@@ -340,15 +344,24 @@ export const useClientsStore = create<ClientsState>((set, get) => ({
     }
   },
 
-  searchClients: async (search, estado = "ACTIVO", pageSize = 20) => {
+  searchClients: async (search, estado = "ACTIVO", pageSize = 20, rucOnly = false) => {
     const term = search.trim();
     if (term.length < 2) return [];
     const current = get().clients;
     if (get().allClientsLoaded) {
-      return filterClients(current, term, estado).slice(0, pageSize);
+      const matches = rucOnly
+        ? current.filter(
+            (client) =>
+              (!estado || client.estado === estado) &&
+              String(client.ruc ?? "")
+                .replace(/\D/g, "")
+                .includes(term.replace(/\D/g, "")),
+          )
+        : filterClients(current, term, estado);
+      return matches.slice(0, pageSize);
     }
     const response = await apiRequest<unknown>({
-      url: buildClientListUrl({ estado, search: term, page: 1, pageSize }),
+      url: buildClientListUrl({ estado, search: term, page: 1, pageSize, rucOnly }),
       method: "GET",
       fallback: [],
     });

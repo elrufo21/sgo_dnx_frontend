@@ -7,3 +7,4 @@ La pantalla **Contabilidad / Despacho de facturas** lista exclusivamente documen
 - La consulta usa `GET /Nota/facturas-servicio` con `pendientesOse=true`, por lo que el filtro también queda aplicado en la API.
 - Cada fila cuenta con el botón `Ver` de Lista de ventas y, durante la consulta, se muestra el cargando general del sistema.
 - Al abrir un pendiente se ingresa a `/sales/html_capture/:notaId`. Ahí se muestran `Volver` y `Reenviar`; Volver conserva el rango usado en Despacho de facturas y Reenviar usa `POST /Nota/documentos/:docuId/reenviar-ose` para emitir el documento guardado.
+- Antes de reenviar una factura (`TipoCodigo = 01`), la pantalla valida que el RUC tenga 11 dígitos, pase el dígito verificador y exista/esté activo mediante la consulta de documento ya usada al registrar clientes de factura. Si la consulta no lo confirma, no llama al endpoint de reenvío. Las notas de crédito (`TipoCodigo = 07`) no requieren esta consulta de RUC.

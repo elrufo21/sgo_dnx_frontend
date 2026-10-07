@@ -662,6 +662,7 @@ export default function HtmlCaptureSalePage() {
     useState<CaptureData | null>(null);
   const [isApplyingCapture, setIsApplyingCapture] = useState(false);
   const [loadedRecordId, setLoadedRecordId] = useState<number | null>(null);
+  const [loadedRecordClient, setLoadedRecordClient] = useState<Client | null>(null);
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [manualProductSearch, setManualProductSearch] = useState("");
   const [manualProductSearchFocused, setManualProductSearchFocused] =
@@ -832,6 +833,7 @@ export default function HtmlCaptureSalePage() {
     if (isNewRoute) {
       draftPersistenceEnabledRef.current = true;
       setLoadedRecordId(null);
+      setLoadedRecordClient(null);
       setViewedOrderNoteId(null);
       resetDraft();
       return;
@@ -843,6 +845,7 @@ export default function HtmlCaptureSalePage() {
     let active = true;
     const loadRecord = async () => {
       setLoadedRecordId(null);
+      setLoadedRecordClient(null);
       setViewedEmissionDateTime("");
       try {
         const [notaResult, detailsResult] = await Promise.all([
@@ -864,6 +867,7 @@ export default function HtmlCaptureSalePage() {
         const client = clientId ? await fetchClientById(clientId) : null;
         if (!active || recordLoadVersion !== recordLoadVersionRef.current)
           return;
+        setLoadedRecordClient(client);
 
         const docu = safeTrim(nota.notaDocu ?? nota.NotaDocu).toUpperCase();
         const docTypeCode: SaleForm["docTypeCode"] = docu.includes("FACTURA")
@@ -1679,43 +1683,55 @@ export default function HtmlCaptureSalePage() {
       if (!client) return false;
       const code = safeTrim(form.memberCode);
       const name = safeTrim(form.customerName);
-      const dni = normalizeDocumentText(form.customerDoc);
       const ruc = normalizeDocumentText(form.customerRuc);
-      return Boolean(
-        (code && getClientCode(client) === code) ||
-        (dni && normalizeDocumentText(client.dni) === dni) ||
-        (ruc && normalizeDocumentText(client.ruc) === ruc) ||
-        (name &&
-          name.toUpperCase() !== "VARIOS" &&
-          normalizeLabelText(client.nombreRazon) === normalizeLabelText(name)),
-      );
+      if (code) return getClientCode(client) === code;
+      if (ruc) return normalizeDocumentText(client.ruc) === ruc;
+      if (name && name.toUpperCase() !== "VARIOS") {
+        return normalizeLabelText(client.nombreRazon) === normalizeLabelText(name);
+      }
+      return false;
     },
-    [form.customerDoc, form.customerName, form.customerRuc, form.memberCode],
+    [form.customerName, form.customerRuc, form.memberCode],
   );
-  const selectedClient = useMemo(
-    () =>
-      clientOptions.find(
-        (opt) =>
-          opt.label === safeTrim(form.customerName) ||
-          (safeTrim(form.memberCode) &&
-            opt.code === safeTrim(form.memberCode)) ||
-          (safeTrim(form.customerDoc) &&
-            opt.client.dni === safeTrim(form.customerDoc)) ||
-          (safeTrim(form.customerRuc) &&
-            opt.client.ruc === safeTrim(form.customerRuc)),
-      )?.client ??
+  const selectedClient = useMemo(() => {
+    if (isExistingRoute && loadedRecordId === routeNoteId) {
+      return loadedRecordClient;
+    }
+
+    const code = safeTrim(form.memberCode);
+    const ruc = normalizeDocumentText(form.customerRuc);
+    const name = safeTrim(form.customerName);
+    const matches = (predicate: (opt: (typeof clientOptions)[number]) => boolean) =>
+      clientOptions.find(predicate)?.client ?? null;
+
+    const byCode = code
+      ? matches((opt) => opt.code === code)
+      : null;
+    const byRuc = ruc
+      ? matches((opt) => normalizeDocumentText(opt.client.ruc) === ruc)
+      : null;
+    const byName = name && name.toUpperCase() !== "VARIOS"
+      ? matches((opt) => normalizeLabelText(opt.label) === normalizeLabelText(name))
+      : null;
+    return (
+      byCode ??
+      byRuc ??
+      byName ??
       (formMatchesClient(appliedClientRef.current)
         ? appliedClientRef.current
-        : null),
-    [
-      clientOptions,
-      form.customerDoc,
-      form.customerName,
-      form.customerRuc,
-      form.memberCode,
-      formMatchesClient,
-    ],
-  );
+        : null)
+    );
+  }, [
+    clientOptions,
+    form.customerName,
+    form.customerRuc,
+    form.memberCode,
+    formMatchesClient,
+    isExistingRoute,
+    loadedRecordClient,
+    loadedRecordId,
+    routeNoteId,
+  ]);
   const canEditCapturedClient =
     isCapturedSale &&
     !isReadOnly &&
@@ -1728,26 +1744,37 @@ export default function HtmlCaptureSalePage() {
     );
   const findClientFromForm = useCallback(
     (source: Client[] = useClientsStore.getState().clients) => {
+      if (isExistingRoute && loadedRecordId === routeNoteId) {
+        return loadedRecordClient;
+      }
+
       const code = safeTrim(form.memberCode);
       const name = safeTrim(form.customerName);
-      const dni = normalizeDocumentText(form.customerDoc);
       const ruc = normalizeDocumentText(form.customerRuc);
 
-      return (
-        source.find((client) => {
-          const clientName = safeTrim(client.nombreRazon);
-          return (
-            (code && getClientCode(client) === code) ||
-            (ruc && normalizeDocumentText(client.ruc) === ruc) ||
-            (dni && normalizeDocumentText(client.dni) === dni) ||
-            (name &&
-              name.toUpperCase() !== "VARIOS" &&
-              normalizeLabelText(clientName) === normalizeLabelText(name))
-          );
-        }) ?? null
-      );
+      const byCode = code
+        ? source.find((client) => getClientCode(client) === code)
+        : null;
+      const byRuc = ruc
+        ? source.find((client) => normalizeDocumentText(client.ruc) === ruc)
+        : null;
+      const byName = name && name.toUpperCase() !== "VARIOS"
+        ? source.find(
+            (client) =>
+              normalizeLabelText(client.nombreRazon) === normalizeLabelText(name),
+          )
+        : null;
+      return byCode ?? byRuc ?? byName ?? null;
     },
-    [form.customerDoc, form.customerName, form.customerRuc, form.memberCode],
+    [
+      form.customerName,
+      form.customerRuc,
+      form.memberCode,
+      isExistingRoute,
+      loadedRecordClient,
+      loadedRecordId,
+      routeNoteId,
+    ],
   );
 
   useEffect(() => {
@@ -3071,6 +3098,27 @@ export default function HtmlCaptureSalePage() {
 
     setIsResendingOse(true);
     try {
+      if (form.docTypeCode === "01") {
+        const customerRuc = normalizeDocumentText(form.customerRuc);
+        if (customerRuc.length !== 11) {
+          toast.error("Factura requiere RUC de 11 digitos.");
+          return;
+        }
+        if (!isValidPeruRuc(customerRuc)) {
+          toast.error("Factura requiere un RUC valido.");
+          return;
+        }
+
+        const lookup = await consultarDocumentoCliente("ruc", customerRuc);
+        if (!lookup.ok || !lookup.client.nombreRazon) {
+          toast.error(
+            (lookup.ok ? "" : lookup.message) ||
+              "El RUC del cliente no es valido o esta inactivo, por favor verificar.",
+          );
+          return;
+        }
+      }
+
       const response = await apiRequest<Record<string, unknown>, unknown, null>(
         {
           url: buildApiUrl(`/Nota/documentos/${docuId}/reenviar-ose`),
@@ -3374,7 +3422,11 @@ export default function HtmlCaptureSalePage() {
           }
           setViewSunatStatus((current) =>
             current
-              ? { ...current, estadoSunat: "ANULADO", docuEstado: "ANULADO" }
+              ? {
+                  ...current,
+                  estadoSunat: form.docTypeCode === "03" ? "BAJA" : "ANULADO",
+                  docuEstado: "ANULADO",
+                }
               : current,
           );
           setCanVoidByDeadline(false);
@@ -4827,6 +4879,9 @@ export default function HtmlCaptureSalePage() {
                 preserveMissingClientData={isCapturedSale}
                 onClientSelected={applyClient}
                 onSearchClients={(search) => void searchClients(search)}
+                onSearchRucs={(search) =>
+                  void searchClients(search, "ACTIVO", 20, true)
+                }
                 allowEmailEdit={isExistingRoute}
                 onSendEmail={
                   isExistingRoute ? () => void sendTicketEmail() : undefined

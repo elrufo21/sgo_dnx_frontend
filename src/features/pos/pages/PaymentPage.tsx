@@ -3766,11 +3766,6 @@ const PaymentPage = () => {
 
     if (!isEditing && docTypeCode === "03" && boletaPorLoteFromSession) {
       const todayIso = getLocalDateISO(new Date());
-      const tipoProcesoRaw = Number(entornoFromSession || DEFAULT_TIPO_PROCESO);
-      const tipoProceso =
-        Number.isFinite(tipoProcesoRaw) && tipoProcesoRaw > 0
-          ? Math.floor(tipoProcesoRaw)
-          : DEFAULT_TIPO_PROCESO;
 
       try {
         const nextSequence = await fetchNextBoletaSummarySequence(companyId);
@@ -3877,11 +3872,6 @@ const PaymentPage = () => {
               SECUENCIA: String(nextSequence),
               FECHA_REFERENCIA: referenceDateIso,
               FECHA_DOCUMENTO: todayIso,
-              TIPO_PROCESO: tipoProceso,
-              CONTRA_FIRMA: safeTrim(claveCertificadoFromSession),
-              USUARIO_SOL_EMPRESA: safeTrim(usuarioSolFromSession),
-              PASS_SOL_EMPRESA: safeTrim(claveSolFromSession),
-              RUTA_PFX: safeTrim(certificadoBase64FromSession),
               COMPANIA_ID: companyId,
               detalle: detailRows,
               RANGO_NUMEROS: rangoNumeros,
@@ -3918,16 +3908,13 @@ const PaymentPage = () => {
                 ) || 0;
               const consultResponse = await consultBoletaSummary({
                 RESUMEN_ID: resumenId,
+                COMPANIA_ID: companyId,
                 TICKET: summaryTicket,
                 CODIGO_SUNAT: "",
                 MENSAJE_SUNAT: "",
                 ESTADO: "P",
                 SECUENCIA: String(nextSequence),
-                RUC: safeTrim(companyRucFromSession),
-                USUARIO_SOL_EMPRESA: safeTrim(usuarioSolFromSession),
-                PASS_SOL_EMPRESA: safeTrim(claveSolFromSession),
                 TIPO_DOCUMENTO: "RC",
-                TIPO_PROCESO: tipoProceso,
                 INTENTOS: 0,
               });
               const consultCode = safeTrim(consultResponse.cod_sunat);
