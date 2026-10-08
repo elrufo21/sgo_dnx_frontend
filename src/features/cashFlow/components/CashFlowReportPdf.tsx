@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "bold",
   },
-  meta: { fontSize: 8.5 },
+  meta: { fontSize: 8.5, marginTop: 5 },
   section: { marginTop: 10 },
   sectionTitle: { fontSize: 10, fontWeight: "bold", marginBottom: 4 },
   table: { borderWidth: 0.8, borderColor: "#111" },
@@ -257,7 +257,7 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
           </Text>
         </View>
         <Text style={styles.meta}>Ventas: {props.encargado || "-"}</Text>
-        <Text style={[styles.meta, { marginTop: 3 }]}>
+        <Text style={[styles.meta, { marginTop: 5 }]}>
           Admin: {props.usuario || "-"}
         </Text>
 

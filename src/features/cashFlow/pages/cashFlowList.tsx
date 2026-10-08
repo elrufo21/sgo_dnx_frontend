@@ -1,4 +1,5 @@
 import DataTable from "@/components/DataTable";
+import { formatDateTime } from "@/shared/helpers/formatDate";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
@@ -14,16 +15,16 @@ import { PlusIcon, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
-const formatDate = (value: string) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-PE");
-};
 const formatAmount = (value: number) =>
   value.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+const formatDate = (value: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-PE");
+};
 
 const getCurrentMonthRange = () => {
   const today = new Date();
@@ -94,7 +95,7 @@ const CashFlowList = () => {
     }),
     columnHelper.accessor("fechaApertura", {
       header: "Fecha Apertura",
-      cell: (info) => formatDate(info.getValue()),
+      cell: (info) => formatDateTime(info.getValue()) || "-",
     }),
     columnHelper.accessor("fechaCierre", {
       header: "Fecha Cierre",

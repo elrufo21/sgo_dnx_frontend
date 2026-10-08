@@ -120,6 +120,7 @@ type Correlative = {
 } | null;
 type ViewSunatStatus = {
   docuId: number;
+  notaEstado: string;
   estadoSunat: string;
   docuEstado: string;
   notaDocu: string;
@@ -1072,6 +1073,7 @@ export default function HtmlCaptureSalePage() {
                 nota.docuId ??
                 nota.DocuId,
             ) || 0,
+          notaEstado: safeTrim(nota.notaEstado ?? nota.NotaEstado),
           estadoSunat: safeTrim(nota.estadoSunat ?? nota.EstadoSunat),
           docuEstado: safeTrim(nota.docuEstado ?? nota.DocuEstado),
           notaDocu: safeTrim(nota.notaDocu ?? nota.NotaDocu),
@@ -3722,6 +3724,7 @@ export default function HtmlCaptureSalePage() {
       if (rejectedInvoice) {
         setViewSunatStatus({
           docuId: 0,
+          notaEstado: "RECHAZADO",
           estadoSunat: "RECHAZADO",
           docuEstado: "RECHAZADO",
           notaDocu: doc.docu,
@@ -4405,9 +4408,11 @@ export default function HtmlCaptureSalePage() {
     );
   const isAnnulledViewedNote =
     isReadOnly &&
-    [viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some(
-      (value) => safeTrim(value).toUpperCase() === "ANULADO",
-    );
+    [
+      viewSunatStatus?.notaEstado,
+      viewSunatStatus?.estadoSunat,
+      viewSunatStatus?.docuEstado,
+    ].some((value) => ["ANULADO", "BAJA"].includes(safeTrim(value).toUpperCase()));
   const isBlockedViewedNote = isRejectedInvoiceView || isAnnulledViewedNote;
   const isPendingInvoiceDispatch =
     isFromInvoiceDispatch &&
@@ -4417,6 +4422,8 @@ export default function HtmlCaptureSalePage() {
     );
   const canVoidViewedNote =
     isExistingRoute &&
+    !isLoadingRecord &&
+    viewSunatStatus !== null &&
     ["01", "03", "101"].includes(form.docTypeCode) &&
     Boolean(lastTicket) &&
     !isPaidPagoVarios &&
@@ -4424,8 +4431,12 @@ export default function HtmlCaptureSalePage() {
     (form.condition === "PAGO/VARIOS" ||
       form.docTypeCode === "101" ||
       (isFromOrderNotesView && canVoidByDeadline)) &&
-    ![viewSunatStatus?.estadoSunat, viewSunatStatus?.docuEstado].some((value) =>
-      ["ANULADO", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
+    ![
+      viewSunatStatus?.notaEstado,
+      viewSunatStatus?.estadoSunat,
+      viewSunatStatus?.docuEstado,
+    ].some((value) =>
+      ["ANULADO", "BAJA", "RECHAZADO"].includes(safeTrim(value).toUpperCase()),
     );
   const viewedEmissionDateTimeLabel =
     formatDateTime(viewedEmissionDateTime || form.emissionDate) || "-";

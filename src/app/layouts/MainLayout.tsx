@@ -42,6 +42,24 @@ import { hasPermission } from "@/shared/security/permissions";
 const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
 const PASSWORD_POLICY_MESSAGE =
   "La contrasena debe tener minimo 6 caracteres, una mayuscula, una minuscula y un numero";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const parseDateOnly = (value: string) => {
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+    ? date
+    : null;
+};
+
+const dateDayNumber = (date: Date) =>
+  Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 
 type NavLinkItem = {
   label: string;
@@ -92,11 +110,92 @@ export default function MainLayout() {
   const updateUser = useUsersStore((state) => state.updateUser);
 
   const passwordDialogOpenedRef = useRef(false);
+  const renewalNoticeOpenedRef = useRef("");
   const resolvingUserRef = useRef(false);
   const userLoadErrorNotifiedRef = useRef(false);
   useEffect(() => {
     void fetchCajaConfig();
   }, [fetchCajaConfig]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!user.renovacionesCargadas) {
+      toast.error(
+        "No se cargaron las fechas de renovación. Inicia sesión nuevamente.",
+      );
+      logout();
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    const today = new Date();
+    const todayNumber = dateDayNumber(today);
+    const renewals = [
+      ["OSE", user.renovacionOse],
+      ["Firma digital", user.renovacionFirma],
+      ["Hosting SOME", user.renovacionSome],
+    ] as const;
+    if (
+      renewals.some(([, raw]) => raw.trim() !== "" && !parseDateOnly(raw))
+    ) {
+      toast.error(
+        "No se pudieron leer las fechas de renovación. Inicia sesión nuevamente.",
+      );
+      logout();
+      navigate("/login", { replace: true });
+      return;
+    }
+    const expiring = renewals.flatMap(([label, raw]) => {
+      const date = parseDateOnly(raw);
+      if (!date) return [];
+      const days = Math.round((dateDayNumber(date) - todayNumber) / DAY_MS);
+      return days <= 7 ? [{ label, date, days }] : [];
+    });
+    if (!expiring.length) return;
+
+    const noticeKey = `${user.id}:${user.renovacionOse}:${user.renovacionFirma}:${user.renovacionSome}`;
+    if (renewalNoticeOpenedRef.current === noticeKey) return;
+    renewalNoticeOpenedRef.current = noticeKey;
+
+    const mustLogout = expiring.some(({ days }) => days <= 0);
+    openDialog({
+      title: "Aviso de renovación",
+      content: (
+        <div className="space-y-3 text-sm text-slate-700">
+          <p>Revisa las fechas de vencimiento de las licencias:</p>
+          <ul className="list-disc space-y-1 pl-5">
+            {expiring.map(({ label, date, days }) => (
+              <li key={label}>
+                <span className="font-semibold">{label}:</span>{" "}
+                {date.toLocaleDateString("es-PE")} —{" "}
+                {days < 0
+                  ? `vencida hace ${Math.abs(days)} día${Math.abs(days) === 1 ? "" : "s"}`
+                  : days === 0
+                    ? "vence hoy"
+                    : `vence en ${days} día${days === 1 ? "" : "s"}`}
+              </li>
+            ))}
+          </ul>
+          {mustLogout && (
+            <p className="font-semibold text-red-700">
+              Hay una licencia vencida o que vence hoy. Al aceptar se cerrará la
+              sesión.
+            </p>
+          )}
+        </div>
+      ),
+      confirmText: "Aceptar",
+      hideCancelButton: true,
+      disableBackdropClose: true,
+      disableClose: true,
+      onConfirm: () => {
+        if (mustLogout) {
+          logout();
+          navigate("/login", { replace: true });
+        }
+      },
+    });
+  }, [logout, navigate, openDialog, user]);
 
   const authSessionUserIdentity = useMemo(() => {
     const toPositiveNumber = (value: unknown) => {

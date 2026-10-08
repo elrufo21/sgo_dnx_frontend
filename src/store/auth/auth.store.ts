@@ -27,6 +27,10 @@ export interface AuthUser {
   maxDiscount: number;
   boletaPorLote: boolean;
   flagCaptura: boolean;
+  renovacionOse: string;
+  renovacionFirma: string;
+  renovacionSome: string;
+  renovacionesCargadas: boolean;
   isAdministrator: boolean;
   permissions: string[];
 }
@@ -85,6 +89,10 @@ interface LoginResponse {
   DescuentoMax?: string | number | null;
   BoletaPorLote?: string | number | boolean | null;
   FlagCaptura?: string | number | boolean | null;
+  RenovacionOSE?: string | null;
+  RenovacionFirma?: string | null;
+  RenovacionSome?: string | null;
+  RenovacionesCargadas?: string | number | boolean | null;
   Administrador?: string | number | boolean | null;
   Permisos?: string[] | null;
   Token?: string | null;
@@ -287,6 +295,18 @@ const normalizeAuthUser = (user: AuthUser): AuthUser => ({
   ),
   flagCaptura: normalizeBooleanFlag(
     (user as AuthUser & { flagCaptura?: unknown }).flagCaptura,
+  ),
+  renovacionOse: normalizeText(
+    (user as AuthUser & { renovacionOse?: unknown }).renovacionOse,
+  ),
+  renovacionFirma: normalizeText(
+    (user as AuthUser & { renovacionFirma?: unknown }).renovacionFirma,
+  ),
+  renovacionSome: normalizeText(
+    (user as AuthUser & { renovacionSome?: unknown }).renovacionSome,
+  ),
+  renovacionesCargadas: normalizeBooleanFlag(
+    (user as AuthUser & { renovacionesCargadas?: unknown }).renovacionesCargadas,
   ),
   isAdministrator: normalizeBooleanFlag(
     (user as AuthUser & { isAdministrator?: unknown }).isAdministrator,
@@ -491,6 +511,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
           ),
           boletaPorLote,
           flagCaptura,
+          renovacionOse: normalizeText(readLoginValue(parsed, "RenovacionOSE", "renovacionOSE")),
+          renovacionFirma: normalizeText(readLoginValue(parsed, "RenovacionFirma", "renovacionFirma")),
+          renovacionSome: normalizeText(readLoginValue(parsed, "RenovacionSome", "renovacionSome")),
+          renovacionesCargadas: normalizeBooleanFlag(
+            readLoginValue(parsed, "RenovacionesCargadas", "renovacionesCargadas"),
+          ),
           isAdministrator: normalizeBooleanFlag(
             readLoginValue(parsed, "Administrador", "administrador"),
           ),

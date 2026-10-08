@@ -195,6 +195,7 @@ export default function CashFlowForm({
   const { fetchMovements, fetchObsTotal, updateManualIngresos, loading: movementsLoading } =
     useCashFlowMovementsWebStore();
   const containerRef = useRef(null);
+  const initialLoadCashFlowId = useRef<number | null>(null);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
   const [activeTab, setActiveTab] = useState<"caja" | "productos">("caja");
   const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
@@ -262,8 +263,8 @@ export default function CashFlowForm({
   });
 
   useEffect(() => {
-    if (!users.length) void fetchUsers();
-  }, [fetchUsers, users.length]);
+    if (!cajaId && !users.length) void fetchUsers();
+  }, [cajaId, fetchUsers, users.length]);
 
   const isViewing = Number.isInteger(viewedCashId) && viewedCashId > 0;
   const reloadCashFlow = useCallback(async () => {
@@ -306,8 +307,10 @@ export default function CashFlowForm({
   }, [fetchMovements, getCashFlowDetail, isViewing, viewedCashId]);
 
   useEffect(() => {
+    if (!isViewing || initialLoadCashFlowId.current === viewedCashId) return;
+    initialLoadCashFlowId.current = viewedCashId;
     void reloadCashFlow();
-  }, [reloadCashFlow]);
+  }, [isViewing, reloadCashFlow, viewedCashId]);
 
   useEffect(() => {
     setIsEditing(!isViewing);
@@ -620,11 +623,7 @@ export default function CashFlowForm({
   };
 
   const alternarEdicion = () => {
-    if (isEditing) {
-      setIsEditing(false);
-      void reloadCashFlow();
-      return;
-    }
+    if (isEditing) return;
     setIsEditing(true);
   };
 
@@ -636,6 +635,16 @@ export default function CashFlowForm({
 
   const guardarCaja = async () => {
     if (!isViewing) return abrirCaja();
+    if (
+      formData.estado === "CERRADA" &&
+      isClosing &&
+      Math.round(diferencial * 100) !== 0 &&
+      !formData.observaciones.trim()
+    ) {
+      toast.error("Ingresa una observación para justificar la diferencia.");
+      return;
+    }
+
     const result = await updateManualIngresos(
       viewedCashId,
       formData.ingresos
@@ -734,10 +743,12 @@ export default function CashFlowForm({
             <button
               type="button"
               onClick={alternarEdicion}
-              disabled={loading || readOnly}
-              title={isEditing ? "Bloquear y descartar cambios" : "Editar caja"}
+              disabled={loading || readOnly || isEditing}
+              title={isEditing ? "Guarda para finalizar la edición" : "Editar caja"}
               aria-label={
-                isEditing ? "Bloquear formulario" : "Editar formulario"
+                isEditing
+                  ? "Edición activa; guarda para bloquear"
+                  : "Editar formulario"
               }
               className="inline-flex items-center rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
             >
@@ -763,20 +774,20 @@ export default function CashFlowForm({
           <button
             type="button"
             onClick={() => void imprimirCaja()}
-            disabled={!activeCash || !isClosed || isPrinting}
+            disabled={!activeCash || !isClosed || isEditing || isPrinting}
             className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
-            title={isClosed ? "Generar informe PDF" : "Disponible al cerrar la caja"}
-            aria-label={isClosed ? "Generar informe PDF" : "Impresión disponible al cerrar la caja"}
+            title={isEditing ? "Bloquea la edición para generar el informe PDF" : isClosed ? "Generar informe PDF" : "Disponible al cerrar la caja"}
+            aria-label="Generar informe PDF"
           >
             <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
           <button
             type="button"
             onClick={() => void enviarCorreoCaja()}
-            disabled={!activeCash || !isClosed || isSendingEmail}
+            disabled={!activeCash || !isClosed || isEditing || isSendingEmail}
             className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
-            title={isClosed ? "Enviar informe PDF por correo" : "Disponible al cerrar la caja"}
-            aria-label={isClosed ? "Enviar informe PDF por correo" : "Envío disponible al cerrar la caja"}
+            title={isEditing ? "Bloquea la edición para enviar el informe PDF" : isClosed ? "Enviar informe PDF por correo" : "Disponible al cerrar la caja"}
+            aria-label="Enviar informe PDF por correo"
           >
             <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
