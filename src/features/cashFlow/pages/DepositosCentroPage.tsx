@@ -10,15 +10,7 @@ import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  Eye,
-  ImagePlus,
-  Plus,
-  Save,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Eye, ImagePlus, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Deposito = {
@@ -60,7 +52,7 @@ const EMPTY_FORM: FormValues = {
 const datePart = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 const today = new Date();
-const MOVEMENTS = ["DEPOSITO", "EFECTIVO", "TARJETA", "YAPE"];
+const MOVEMENTS = ["DEPOSITO", "TARJETA"];
 const ENTITIES = ["BCP", "BBVA CONTINENTAL", "INTERBANK", "YAPE"];
 const money = (value: number) =>
   Number(value || 0).toLocaleString("es-PE", {
@@ -72,6 +64,11 @@ const formatDate = (value: string) => new Date(value).toLocaleString("es-PE");
 function DepositoDeletePasswordDialogContent() {
   const setDialogData = useDialogStore((state) => state.setData);
   const methods = useForm<DeletePasswordForm>({ defaultValues: { clave: "" } });
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => methods.setFocus("clave"), 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [methods.setFocus]);
 
   return (
     <HookForm
@@ -87,7 +84,6 @@ function DepositoDeletePasswordDialogContent() {
         label="Tu contraseña"
         type="password"
         autoComplete="current-password"
-        autoFocus
         rules={{ required: "Ingresa tu contraseña." }}
         onChange={(event) => setDialogData({ clave: event.target.value })}
       />

@@ -10,4 +10,6 @@ El número de operación acepta solo dígitos, tanto al escribir como al pegar t
 
 Eliminar un depósito pide la contraseña del usuario que inició sesión. La API la valida contra esa misma cuenta antes de eliminar el registro y su imagen.
 
+Al abrir la confirmación de eliminación, el foco se coloca automáticamente en el campo **Tu contraseña**.
+
 El botón **Nuevo** usa el color rojo principal del módulo y limpia el formulario para registrar otro ingreso.

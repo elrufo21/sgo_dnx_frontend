@@ -10,7 +10,13 @@ Las ventas OBS no se agregan directamente como ingreso de caja: son la fuente de
 
 El listado de control de flujo de caja presenta la fecha de apertura como `DD/MM/YYYY HH:mm:ss`, usando el horario de 24 horas. La columna **Diferencia** se calcula como efectivo contado (`CajaTotal`) menos efectivo esperado (`CajaIngresos`), igual que el diferencial del detalle.
 
+Al crear una caja, el cursor queda inicialmente en **Sencillo**. Si se intenta cerrar con una diferencia sin observación, el formulario muestra el aviso y enfoca **Observaciones** para ingresar la justificación.
+
 Al cambiar una caja abierta a **CERRADA** y guardar, si el diferencial entre el efectivo contado y los ingresos es distinto de cero en precisión de centavos, se exige una observación que explique la diferencia. Sin diferencia, la observación sigue siendo opcional. La validación ocurre antes de guardar los ingresos manuales o cerrar la caja.
+
+Antes de abrir, cerrar o reabrir una caja, la web verifica que exista el conteo general de efectivo del día anterior. Si el día anterior fue domingo, revisa el viernes anterior. Si no hay conteo, permite la operación cuando esa fecha figura como feriado; en caso contrario, informa que falta registrar el conteo.
+
+Después de cerrar correctamente la caja desde el formulario, se genera y abre automáticamente el mismo PDF disponible en **Generar informe PDF**. Si el navegador bloquea la pestaña nueva, el PDF se descarga.
 
 ## Informes
 

@@ -1,10 +1,10 @@
-# Feriados: procedimiento unificado
+# Feriados en la web
 
-El módulo Feriados usa `dbo.usp_Feriado` para todas sus operaciones.
+El módulo web usa `dbo.usp_FeriadoWEB`. El procedimiento original `dbo.usp_Feriado` se conserva para el escritorio.
 
-- `LISTAR` devuelve una fila por feriado con el formato `id|fecha|motivo`.
-- `CREAR|yyyy-MM-dd|motivo` registra un feriado.
-- `ACTUALIZAR|id|yyyy-MM-dd|motivo` modifica un feriado.
-- `ELIMINAR|id` lo elimina.
+- `LISTAR` y `ELIMINAR|id` delegan al procedimiento original.
+- `CREAR|yyyy-MM-dd|motivo` registra un feriado; se permiten motivos repetidos.
+- `ACTUALIZAR|id|yyyy-MM-dd|motivo` modifica un feriado; se permiten motivos repetidos.
+- La fecha debe ser única. El motivo sigue siendo obligatorio y admite hasta 250 caracteres.
 
-La API conserva sus rutas actuales y transforma las respuestas `OK|...` y `ERROR|...` para el formulario y listado web.
+Ejecutar `sgo_dnx_backend/scripts/sql/20261009_feriado_motivo_repetido_web.sql` después de los procedimientos base. La API conserva sus rutas actuales y transforma las respuestas `OK|...` y `ERROR|...` para el formulario y listado web.

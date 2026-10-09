@@ -431,7 +431,7 @@ export default function CashFlowForm({
       maximumFractionDigits: 2,
     });
 
-  const generarPdfCaja = async () => {
+  const generarPdfCaja = async (fechaCierre = formData.fechaCierre) => {
     if (!activeCash) throw new Error("No se pudo cargar la caja.");
 
     const products = await fetchProducts(activeCash.id);
@@ -441,7 +441,7 @@ export default function CashFlowForm({
         encargado={activeCash.encargado}
         usuario={activeCash.usuario}
         fechaApertura={formData.fechaApertura}
-        fechaCierre={formData.fechaCierre}
+        fechaCierre={fechaCierre}
         sistemaObs={Number(formData.sistemaObs || 0)}
         gastos={formData.gastos}
         ingresos={ingresosCalculados}
@@ -457,17 +457,17 @@ export default function CashFlowForm({
     ).toBlob();
   };
 
-  const imprimirCaja = async () => {
-    if (!activeCash || isPrinting) return;
-    if (!isClosed) {
-      toast.error("El informe PDF solo se puede imprimir cuando la caja está cerrada.");
+  const abrirPdfCaja = async (
+    reportWindow: Window | null,
+    fechaCierre?: string,
+  ) => {
+    if (!activeCash || isPrinting) {
+      reportWindow?.close();
       return;
     }
-
-    const reportWindow = window.open("", "_blank");
     setIsPrinting(true);
     try {
-      const blob = await generarPdfCaja();
+      const blob = await generarPdfCaja(fechaCierre);
       const url = URL.createObjectURL(blob);
 
       if (reportWindow) {
@@ -485,6 +485,16 @@ export default function CashFlowForm({
     } finally {
       setIsPrinting(false);
     }
+  };
+
+  const imprimirCaja = async () => {
+    if (!activeCash || isPrinting) return;
+    if (!isClosed) {
+      toast.error("El informe PDF solo se puede imprimir cuando la caja está cerrada.");
+      return;
+    }
+
+    await abrirPdfCaja(window.open("", "_blank"));
   };
 
   const enviarCorreoCaja = async () => {
@@ -565,13 +575,18 @@ export default function CashFlowForm({
     navigate(`/cash_flow_control${location.search}`);
   };
 
-  const cerrarCaja = async () => {
+  const cerrarCaja = async (
+    reportWindow: Window | null = null,
+    abrirInforme = false,
+  ) => {
     if (!activeCash) {
+      reportWindow?.close();
       toast.error("No se pudo cargar la caja para cerrarla.");
       return;
     }
     const usuarioId = Number(sessionUser?.id);
     if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
+      reportWindow?.close();
       toast.error("No se pudo identificar al usuario de la sesión.");
       return;
     }
@@ -586,6 +601,7 @@ export default function CashFlowForm({
       })),
     });
     if (!result.ok) {
+      reportWindow?.close();
       toast.error(result.mensaje);
       return;
     }
@@ -594,6 +610,9 @@ export default function CashFlowForm({
       `Caja cerrada. Diferencia: S/ ${result.diferencia.toFixed(2)}`,
     );
     setIsEditing(false);
+    if (abrirInforme) {
+      await abrirPdfCaja(reportWindow, new Date().toISOString());
+    }
     await reloadCashFlow();
   };
 
@@ -641,10 +660,15 @@ export default function CashFlowForm({
       Math.round(diferencial * 100) !== 0 &&
       !formData.observaciones.trim()
     ) {
+      containerRef.current
+        ?.querySelector<HTMLTextAreaElement>('textarea[name="observaciones"]')
+        ?.focus();
       toast.error("Ingresa una observación para justificar la diferencia.");
       return;
     }
 
+    const closing = formData.estado === "CERRADA" && isClosing;
+    const reportWindow = closing ? window.open("", "_blank") : null;
     const result = await updateManualIngresos(
       viewedCashId,
       formData.ingresos
@@ -652,10 +676,11 @@ export default function CashFlowForm({
         .map(({ id, importe }) => ({ id, importe })),
     );
     if (!result.ok) {
+      reportWindow?.close();
       toast.error(result.mensaje);
       return;
     }
-    if (formData.estado === "CERRADA" && isClosing) return cerrarCaja();
+    if (closing) return cerrarCaja(reportWindow, true);
     return guardarEstadoCaja();
   };
 
@@ -841,6 +866,7 @@ export default function CashFlowForm({
                         value={formData.sencillo || ""}
                         onChange={(e) => handleSencilloChange(e.target.value)}
                         readOnly={!canEdit || isClosed}
+                        autoFocus={!isViewing}
                         inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
                         labelClassName="text-xs font-semibold text-gray-700"
                         step="any"
@@ -1085,6 +1111,7 @@ export default function CashFlowForm({
                         Observaciones:
                       </span>
                       <textarea
+                        name="observaciones"
                         value={formData.observaciones}
                         onChange={(e) =>
                           setFormData((prev) => ({
