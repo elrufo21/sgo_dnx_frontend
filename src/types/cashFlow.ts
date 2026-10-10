@@ -53,4 +53,5 @@ export interface UpdateCashFlowState {
   estado: string;
   montoInicial?: number;
   observacion?: string;
+  monedas?: CashCount[];
 }

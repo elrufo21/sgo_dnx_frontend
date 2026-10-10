@@ -29,11 +29,18 @@ export const formatDate = (value?: string | number | Date | null) => {
 
 export const formatDateTime = (value?: string | number | Date | null) => {
   if (!value) return "";
-  if (
-    typeof value === "string" &&
-    /^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2}:\d{2})?$/.test(value.trim())
-  ) {
-    return value.trim();
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const legacyDateTime = trimmed.match(
+      /^(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}):(\d{2})\s+(\d{2})$/,
+    );
+    if (legacyDateTime) {
+      const [, date, hours, minutes, seconds] = legacyDateTime;
+      return `${date} ${pad(Number(hours))}:${minutes}:${seconds}`;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2}:\d{2})?$/.test(trimmed)) {
+      return trimmed;
+    }
   }
 
   const date = parseDate(value);

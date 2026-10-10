@@ -107,6 +107,15 @@ export async function apiRequest<
     return result;
   } catch (err) {
     console.error("⚠️ Error del api", err);
+    if (
+      axios.isAxiosError(err) &&
+      err.response?.data &&
+      typeof err.response.data === "object" &&
+      "codigo" in err.response.data &&
+      err.response.data.codigo === "ASISTENCIA_REQUERIDA"
+    ) {
+      return err.response.data as TResponse;
+    }
     if (fallback !== undefined) {
       return fallback as TFallback;
     }

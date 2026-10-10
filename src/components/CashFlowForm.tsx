@@ -17,6 +17,7 @@ import {
 } from "@/shared/helpers/focusNextInput";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { CASH_DENOMINATIONS } from "@/shared/constants/cashDenominations";
+import { formatDateTime } from "@/shared/helpers/formatDate";
 
 // Mock components para demostración
 const HookFormInput = ({
@@ -613,7 +614,7 @@ export default function CashFlowForm({
     if (abrirInforme) {
       await abrirPdfCaja(reportWindow, new Date().toISOString());
     }
-    await reloadCashFlow();
+    navigate(`/cash_flow_control/create${location.search}`, { replace: true });
   };
 
   const guardarEstadoCaja = async (estado = formData.estado) => {
@@ -626,6 +627,10 @@ export default function CashFlowForm({
       estado,
       montoInicial: Number(formData.sencillo || 0),
       observacion: formData.observaciones,
+      monedas: formData.conteoMonedas.map((item) => ({
+        denominacion: item.denominacion,
+        cantidad: Number(item.cantidad || 0),
+      })),
     });
     if (!result.ok) {
       toast.error(result.mensaje);
@@ -647,7 +652,7 @@ export default function CashFlowForm({
   };
 
   const actualizarSistemaObs = async () => {
-    if (!isViewing || !canEdit || isClosed) return;
+    if (!isViewing || !canEdit) return;
     const sistemaObs = await fetchObsTotal(viewedCashId);
     setFormData((prev) => ({ ...prev, sistemaObs }));
   };
@@ -703,16 +708,6 @@ export default function CashFlowForm({
         toast.success(result.mensaje);
         navigate(`/cash_flow_control${location.search}`, { replace: true });
       },
-    });
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "Pendiente";
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return dateString;
-    return date.toLocaleString("es-PE", {
-      dateStyle: "short",
-      timeStyle: "short",
     });
   };
 
@@ -865,7 +860,7 @@ export default function CashFlowForm({
                         type="number"
                         value={formData.sencillo || ""}
                         onChange={(e) => handleSencilloChange(e.target.value)}
-                        readOnly={!canEdit || isClosed}
+                        readOnly={!canEdit}
                         autoFocus={!isViewing}
                         inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
                         labelClassName="text-xs font-semibold text-gray-700"
@@ -877,7 +872,19 @@ export default function CashFlowForm({
                         name="estado"
                         label="Estado"
                         value={formData.estado}
-                        onChange={(e) => cambiarEstadoCaja(e.target.value)}
+                        onChange={(e) => {
+                          const estado = e.target.value;
+                          cambiarEstadoCaja(estado);
+                          if (estado === "CERRADA") {
+                            window.requestAnimationFrame(() =>
+                              containerRef.current
+                                ?.querySelector<HTMLTextAreaElement>(
+                                  'textarea[name="observaciones"]',
+                                )
+                                ?.focus(),
+                            );
+                          }
+                        }}
                         options={[
                           { value: "ACTIVO", label: "ACTIVO" },
                           { value: "CERRADA", label: "CERRADA" },
@@ -899,7 +906,7 @@ export default function CashFlowForm({
                       <HookFormInput
                         name="fechaApertura"
                         label="Apertura"
-                        value={formatDate(formData.fechaApertura)}
+                        value={formatDateTime(formData.fechaApertura)}
                         onChange={() => {}}
                         readOnly
                         inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
@@ -910,7 +917,7 @@ export default function CashFlowForm({
                       <HookFormInput
                         name="fechaCierre"
                         label="Cierre"
-                        value={formatDate(formData.fechaCierre)}
+                        value={formatDateTime(formData.fechaCierre) || "Pendiente"}
                         onChange={() => {}}
                         readOnly
                         inputClassName="text-xs py-1.5 px-2 w-full border border-gray-200 rounded-md"
@@ -958,7 +965,7 @@ export default function CashFlowForm({
                                     }
                                     data-auto-next="true"
                                     className="w-full min-w-0 px-1 py-0.5 border border-gray-200 rounded text-center focus:border-slate-500 focus:outline-none text-xs"
-                                    disabled={!isClosing || loading || !canEdit}
+                                    disabled={!canEdit || loading}
                                   />
                                 </td>
                                 <td className="py-0.5 px-2 text-right text-gray-700 text-xs w-1/3">
@@ -1046,12 +1053,8 @@ export default function CashFlowForm({
                                       event.target.value,
                                     )
                                   }
-                                  disabled={!canEdit || isClosed || loading}
-                                  data-auto-next={
-                                    !canEdit || isClosed || loading
-                                      ? undefined
-                                      : "true"
-                                  }
+                                  disabled={!canEdit || loading}
+                                  data-auto-next={!canEdit || loading ? undefined : "true"}
                                   className="w-24 rounded border border-gray-200 px-1 py-0.5 text-right text-xs focus:border-slate-500 focus:outline-none disabled:bg-transparent disabled:border-transparent"
                                 />
                               ) : (
@@ -1119,10 +1122,8 @@ export default function CashFlowForm({
                             observaciones: e.target.value,
                           }))
                         }
-                        readOnly={!canEdit || isClosed}
-                        data-auto-next={
-                          !canEdit || isClosed ? undefined : "true"
-                        }
+                        readOnly={!canEdit}
+                        data-auto-next={!canEdit ? undefined : "true"}
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-slate-500 focus:outline-none w-full"
                         rows={2}
                         placeholder="Escriba sus observaciones..."
@@ -1137,7 +1138,7 @@ export default function CashFlowForm({
                       <button
                         type="button"
                         onClick={() => void actualizarSistemaObs()}
-                        disabled={!isViewing || !canEdit || isClosed || movementsLoading}
+                        disabled={!isViewing || !canEdit || movementsLoading}
                         title="Actualizar total desde OBS"
                         className="inline-flex items-center gap-1 font-semibold text-gray-700 hover:text-slate-950 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-60"
                       >

@@ -1,5 +1,7 @@
 import CashFlowForm from "@/components/CashFlowForm";
+import { useParams } from "react-router";
 
 export default function CashFlowCreate() {
-  return <CashFlowForm />;
+  const { cajaId } = useParams();
+  return <CashFlowForm key={cajaId ?? "new"} />;
 }

@@ -20,12 +20,6 @@ const formatAmount = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-const formatDate = (value: string) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("es-PE");
-};
-
 const getCurrentMonthRange = () => {
   const today = new Date();
   return {
@@ -99,7 +93,7 @@ const CashFlowList = () => {
     }),
     columnHelper.accessor("fechaCierre", {
       header: "Fecha Cierre",
-      cell: (info) => formatDate(info.getValue()),
+      cell: (info) => formatDateTime(info.getValue()) || "-",
     }),
     columnHelper.accessor("montoInicial", {
       header: "Monto inic.",
