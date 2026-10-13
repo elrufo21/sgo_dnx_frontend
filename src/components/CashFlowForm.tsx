@@ -204,6 +204,7 @@ export default function CashFlowForm({
   const isSavingRef = useRef(false);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
   const [activeTab, setActiveTab] = useState<"caja" | "productos" | "ticket">("caja");
+  const [ticketAfterClose, setTicketAfterClose] = useState(false);
   const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
   const [loadedCashFlowId, setLoadedCashFlowId] = useState<number | null>(null);
   const [ticketProducts, setTicketProducts] = useState<CashFlowProductWeb[]>([]);
@@ -328,20 +329,32 @@ export default function CashFlowForm({
 
   useEffect(() => {
     setIsEditing(!isViewing);
-  }, [isViewing]);
+    setTicketAfterClose(false);
+    setActiveTab("caja");
+  }, [isViewing, viewedCashId]);
 
   const isClosed =
     activeCash?.estado.trim().toUpperCase().startsWith("CERR") ?? false;
   const isClosing = isViewing && !isClosed;
   const showTicketTab =
-    isViewing && isClosed && !isEditing && loadedCashFlowId === viewedCashId;
-  const visibleTab = showTicketTab ? "ticket" : activeTab === "ticket" ? "caja" : activeTab;
+    isViewing &&
+    isClosed &&
+    !isEditing &&
+    loadedCashFlowId === viewedCashId;
+  const showOnlyTicketTab = showTicketTab && ticketAfterClose;
+  const visibleTab =
+    showOnlyTicketTab
+      ? "ticket"
+      : activeTab === "ticket" && !showTicketTab
+        ? "caja"
+        : activeTab;
+  const isTicketVisible = showTicketTab && visibleTab === "ticket";
   const canEdit =
     !readOnly &&
     (!isViewing || (isEditing && loadedCashFlowId === viewedCashId));
 
   useEffect(() => {
-    if (!showTicketTab || !activeCash) {
+    if (!isTicketVisible || !activeCash) {
       setTicketProducts([]);
       setTicketAttendance([]);
       setTicketUncapturedSales([]);
@@ -370,7 +383,7 @@ export default function CashFlowForm({
           setTicketProducts([]);
           setTicketAttendance([]);
           setTicketUncapturedSales([]);
-          const message = "No se pudieron cargar los datos del ticket.";
+          const message = "No se pudieron cargar los datos del reporte.";
           setTicketDataError(message);
           toast.error(message);
         }
@@ -382,7 +395,7 @@ export default function CashFlowForm({
     return () => {
       cancelled = true;
     };
-  }, [activeCash?.id, fetchProducts, formData.fechaApertura, formData.fechaCierre, showTicketTab]);
+  }, [activeCash?.id, fetchProducts, formData.fechaApertura, formData.fechaCierre, isTicketVisible]);
 
   const handleCantidadChange = (index, valor) => {
     const cantidad = valor === "" ? "" : parseInt(valor, 10) || 0;
@@ -674,6 +687,7 @@ export default function CashFlowForm({
     );
     setIsEditing(false);
     await reloadCashFlow();
+    setTicketAfterClose(true);
     setActiveTab("ticket");
   };
 
@@ -700,9 +714,6 @@ export default function CashFlowForm({
     toast.success("Caja actualizada correctamente.");
     setIsEditing(false);
     await reloadCashFlow();
-    if (estado.trim().toUpperCase().startsWith("CERR")) {
-      setActiveTab("ticket");
-    }
   };
 
   const cambiarEstadoCaja = (estado: string) => {
@@ -720,6 +731,7 @@ export default function CashFlowForm({
         return;
       }
     }
+    setTicketAfterClose(false);
     setIsEditing(true);
   };
 
@@ -804,7 +816,7 @@ export default function CashFlowForm({
           />
 
           <div role="tablist" className="flex rounded bg-black/10 p-0.5 text-xs">
-            {showTicketTab ? (
+            {showOnlyTicketTab ? (
               <button
                 type="button"
                 role="tab"
@@ -812,7 +824,7 @@ export default function CashFlowForm({
                 onClick={() => setActiveTab("ticket")}
                 className="rounded bg-white px-2 py-1 font-semibold text-[#B23636]"
               >
-                Ticket
+                Reporte
               </button>
             ) : (
               <>
@@ -834,6 +846,17 @@ export default function CashFlowForm({
                 >
                   Productos
                 </button>
+                {showTicketTab && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={visibleTab === "ticket"}
+                    onClick={() => setActiveTab("ticket")}
+                    className={`rounded px-2 py-1 font-semibold ${visibleTab === "ticket" ? "bg-white text-[#B23636]" : "text-white"}`}
+                  >
+                    Reporte
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -909,7 +932,7 @@ export default function CashFlowForm({
           {visibleTab === "ticket" && activeCash ? (
             <div className="h-[min(72vh,760px)] min-h-[420px] overflow-hidden rounded border border-slate-200 bg-white">
               {ticketProductsLoading ? (
-                <p className="p-4 text-sm text-slate-600">Preparando ticket...</p>
+                <p className="p-4 text-sm text-slate-600">Preparando reporte...</p>
               ) : ticketDataError ? (
                 <p className="p-4 text-sm text-red-700">{ticketDataError}</p>
               ) : (

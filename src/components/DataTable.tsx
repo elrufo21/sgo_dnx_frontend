@@ -47,6 +47,7 @@ interface DataTableProps<T extends RowData> {
   toolbarLeading?: ReactNode;
   renderFilters?: ReactNode;
   toolbarAction?: ReactNode;
+  toolbarLayout?: "default" | "filters-top";
   isLoading?: boolean;
   emptyMessage?: string;
   searchPlaceholder?: string;
@@ -144,6 +145,7 @@ export default function DataTable<T extends RowData>({
   toolbarLeading,
   renderFilters,
   toolbarAction,
+  toolbarLayout = "default",
   isLoading = false,
   emptyMessage = "No hay datos para mostrar.",
   searchPlaceholder = "Buscar en la tabla...",
@@ -492,48 +494,62 @@ export default function DataTable<T extends RowData>({
     }
   }, [pageSize, pageSizeStorageKey, persistPageSize]);
 
+  const searchControl = showSearch ? (
+    <div className="relative w-full lg:w-[26rem] xl:w-[34rem]">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <input
+        ref={searchRef}
+        autoFocus
+        placeholder={searchPlaceholder}
+        data-no-uppercase="true"
+        className="h-11 w-full rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-9 text-sm text-slate-800 outline-none transition focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"
+        value={globalFilter}
+        onChange={(e) => handleGlobalFilterChange(e.target.value)}
+        onInput={handleSearchInput}
+      />
+      {showSearchClear && globalFilter ? (
+        <button
+          type="button"
+          onClick={() => handleGlobalFilterChange("")}
+          className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+          aria-label="Limpiar búsqueda"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : null}
+    </div>
+  ) : null;
+
   return (
     <section className={`w-full rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.45)] ${fillAvailableHeight ? "flex h-full min-h-0 flex-col" : ""}`}>
       <div className="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-            {toolbarLeading ? (
-              <div className="shrink-0">{toolbarLeading}</div>
-            ) : null}
-            {showSearch ? (
-              <div className="relative w-full lg:w-[26rem] xl:w-[34rem]">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  ref={searchRef}
-                  autoFocus
-                  placeholder={searchPlaceholder}
-                  data-no-uppercase="true"
-                  className="h-11 w-full rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-9 text-sm text-slate-800 outline-none transition focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20"
-                  value={globalFilter}
-                  onChange={(e) => handleGlobalFilterChange(e.target.value)}
-                  onInput={handleSearchInput}
-                />
-                {showSearchClear && globalFilter ? (
-                  <button
-                    type="button"
-                    onClick={() => handleGlobalFilterChange("")}
-                    className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                    aria-label="Limpiar búsqueda"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+        {toolbarLayout === "filters-top" ? (
+          <div className="flex flex-col gap-3">
+            {toolbarLeading ? <div className="w-full">{toolbarLeading}</div> : null}
+            <div className="flex w-full flex-wrap items-center justify-between gap-3">
+              {searchControl}
+              {toolbarAction ? <div className="shrink-0">{toolbarAction}</div> : null}
+            </div>
+            {renderFilters ? <div>{renderFilters}</div> : null}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 flex-col gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                {toolbarLeading ? (
+                  <div className="shrink-0">{toolbarLeading}</div>
+                ) : null}
+                {searchControl}
+                {toolbarAction ? (
+                  <div className="shrink-0">{toolbarAction}</div>
                 ) : null}
               </div>
-            ) : null}
-            {toolbarAction ? (
-              <div className="shrink-0">{toolbarAction}</div>
-            ) : null}
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2 xl:justify-end">
+              {renderFilters ? <div className="">{renderFilters}</div> : null}
+            </div>
           </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2 xl:justify-end">
-            {renderFilters ? <div className="">{renderFilters}</div> : null}
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="space-y-3 px-3 py-3 md:hidden">

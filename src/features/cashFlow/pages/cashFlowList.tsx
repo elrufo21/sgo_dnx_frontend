@@ -37,6 +37,7 @@ const CashFlowList = () => {
   const initialFilters = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [fechaInicio, setFechaInicio] = useState(() => initialFilters.get("fechaInicio") || defaultRange.fechaInicio);
   const [fechaFin, setFechaFin] = useState(() => initialFilters.get("fechaFin") || defaultRange.fechaFin);
+  const [requestedRange, setRequestedRange] = useState(() => ({ fechaInicio, fechaFin }));
   const [search, setSearch] = useState(() => initialFilters.get("buscar") || "");
 
   useEffect(() => {
@@ -50,21 +51,21 @@ const CashFlowList = () => {
       navigate(`${location.pathname}?${nextSearch}`, { replace: true });
   }, [fechaFin, fechaInicio, location.pathname, location.search, navigate, search]);
 
-  const buscar = useCallback(() => {
-    if (!fechaInicio || !fechaFin) {
+  const buscar = useCallback((nextFechaInicio = fechaInicio, nextFechaFin = fechaFin) => {
+    if (!nextFechaInicio || !nextFechaFin) {
       toast.error("Selecciona fecha inicio y fecha fin.");
       return;
     }
-    if (fechaInicio > fechaFin) {
+    if (nextFechaInicio > nextFechaFin) {
       toast.error("La fecha inicio no puede ser mayor que la fecha fin.");
       return;
     }
-    void fetchFlows({ fechaInicio, fechaFin });
-  }, [fechaFin, fechaInicio, fetchFlows]);
+    setRequestedRange({ fechaInicio: nextFechaInicio, fechaFin: nextFechaFin });
+  }, [fechaFin, fechaInicio]);
 
   useEffect(() => {
-    buscar();
-  }, [buscar]);
+    void fetchFlows(requestedRange);
+  }, [fetchFlows, requestedRange]);
 
   const columns = [
     columnHelper.display({
@@ -179,9 +180,11 @@ const CashFlowList = () => {
                 <DatePicker
                   format="DD/MM/YY"
                   value={fechaFin ? dayjs(fechaFin) : null}
-                  onChange={(value: Dayjs | null) =>
-                    setFechaFin(value?.format("YYYY-MM-DD") ?? "")
-                  }
+                  onChange={(value: Dayjs | null) => {
+                    const nextFechaFin = value?.format("YYYY-MM-DD") ?? "";
+                    setFechaFin(nextFechaFin);
+                    buscar(fechaInicio, nextFechaFin);
+                  }}
                   slotProps={{
                     textField: {
                       size: "small",

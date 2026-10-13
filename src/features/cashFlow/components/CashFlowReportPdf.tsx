@@ -238,6 +238,8 @@ const BillCoinTotals = ({
 
 export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
   const products = props.products ?? [];
+  const asistencias = props.asistencias ?? [];
+  const ventasNoCapturadas = props.ventasNoCapturadas ?? [];
   const totalProductos = products.reduce(
     (sum, product) => sum + Number(product.importe || 0),
     0,
@@ -338,89 +340,78 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.table}>
-            <DataRow
-              cells={["SALIDAS", "TOTAL"]}
-              widths={[75, 25]}
-              header
-              headerColor="#fff200"
-            />
-            {gastos.length ? (
-              gastos.map((item, index) => (
+        {gastos.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.table}>
+              <DataRow
+                cells={["SALIDAS", "TOTAL"]}
+                widths={[75, 25]}
+                header
+                headerColor="#fff200"
+              />
+              {gastos.map((item, index) => (
                 <DataRow
                   key={`${item.descripcion}-${index}`}
                   cells={[item.descripcion, money(item.importe)]}
                   widths={[75, 25]}
                 />
-              ))
-            ) : (
-              <DataRow
-                cells={["Sin salidas registradas", money(0)]}
-                widths={[75, 25]}
-              />
-            )}
-            <TotalRow total={totalSalidas} />
+              ))}
+              <TotalRow total={totalSalidas} />
+            </View>
           </View>
-        </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            VENTAS QUE NO SE CAPTURARON AL FACTURADOR: [ {dateOnly(props.fechaCierre || props.fechaApertura)} - {dateOnly(props.fechaCierre || props.fechaApertura)} ]
-          </Text>
-          <View style={styles.table}>
-            <DataRow
-              cells={["Transacción", "Código", "Cliente", "Importe"]}
-              widths={[29, 19, 37, 15]}
-              alignments={["left", "left", "left", "right"]}
-              header
-            />
-            {props.ventasNoCapturadas?.length ? (
-              props.ventasNoCapturadas.map((item, index) => (
+        {ventasNoCapturadas.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              VENTAS QUE NO SE CAPTURARON AL FACTURADOR: [ {dateOnly(props.fechaCierre || props.fechaApertura)} - {dateOnly(props.fechaCierre || props.fechaApertura)} ]
+            </Text>
+            <View style={styles.table}>
+              <DataRow
+                cells={["Transacción", "Código", "Cliente", "Importe"]}
+                widths={[29, 19, 37, 15]}
+                alignments={["left", "left", "left", "right"]}
+                header
+              />
+              {ventasNoCapturadas.map((item, index) => (
                 <DataRow
                   key={`${item.transaccion}-${item.codigo}-${index}`}
                   cells={[item.transaccion, item.codigo, item.cliente, money(item.importe)]}
                   widths={[29, 19, 37, 15]}
                   alignments={["left", "left", "left", "right"]}
                 />
-              ))
-            ) : (
-              <DataRow
-                cells={["Sin ventas pendientes", "", "", ""]}
-                widths={[29, 19, 37, 15]}
-                alignments={["left", "left", "left", "right"]}
-              />
-            )}
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            REPORTE DE ASISTENCIA DEL DÍA: [ {dateOnly(props.fechaCierre || props.fechaApertura)} - {dateOnly(props.fechaCierre || props.fechaApertura)} ]
-          </Text>
-          <View style={styles.table}>
-            <DataRow
-              cells={[
-                "Nombres",
-                "Ingreso",
-                "Refrigerio",
-                "Retorno.Refr",
-                "Asistencia",
-                "CANT.TDZ",
-              ]}
-              widths={[32, 13, 15, 15, 15, 10]}
-              alignments={[
-                "left",
-                "center",
-                "center",
-                "center",
-                "center",
-                "center",
-              ]}
-              header
-            />
-            {props.asistencias?.length ? (
-              props.asistencias.map((item) => (
+        {asistencias.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              REPORTE DE ASISTENCIA DEL DÍA: [ {dateOnly(props.fechaCierre || props.fechaApertura)} - {dateOnly(props.fechaCierre || props.fechaApertura)} ]
+            </Text>
+            <View style={styles.table}>
+              <DataRow
+                cells={[
+                  "Nombres",
+                  "Ingreso",
+                  "Refrigerio",
+                  "Retorno.Refr",
+                  "Asistencia",
+                  "CANT.TDZ",
+                ]}
+                widths={[32, 13, 15, 15, 15, 10]}
+                alignments={[
+                  "left",
+                  "center",
+                  "center",
+                  "center",
+                  "center",
+                  "center",
+                ]}
+                header
+              />
+              {asistencias.map((item) => (
                 <DataRow
                   key={item.id}
                   cells={[
@@ -441,36 +432,16 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
                     "center",
                   ]}
                 />
-              ))
-            ) : (
-              <DataRow
-                cells={[
-                  "Sin asistencias registradas para este día.",
-                  "",
-                  "",
-                  "",
-                  "",
-                  "",
-                ]}
-                widths={[32, 13, 15, 15, 15, 10]}
-                alignments={[
-                  "left",
-                  "center",
-                  "center",
-                  "center",
-                  "center",
-                  "center",
-                ]}
-              />
-            )}
+              ))}
+            </View>
           </View>
-        </View>
+        )}
         <View style={styles.observations}>
           <Text>OBSERVACIONES: {props.observaciones || ""}</Text>
         </View>
       </Page>
 
-      {props.products !== undefined && (
+      {props.products !== undefined && products.length > 0 && (
         <Page size="A4" style={styles.page}>
           <Header
             title="Centro de Servicios - Resumen de Venta (Producto)"
@@ -483,27 +454,19 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
               alignments={["left", "left", "center", "right"]}
               header
             />
-            {products.length ? (
-              products.map((product) => (
-                <DataRow
-                  key={`${product.codigo}-${product.descripcion}`}
-                  cells={[
-                    product.codigo,
-                    product.descripcion,
-                    money(product.cantidad),
-                    money(product.importe),
-                  ]}
-                  widths={[18, 50, 14, 18]}
-                  alignments={["left", "left"]}
-                />
-              ))
-            ) : (
+            {products.map((product) => (
               <DataRow
-                cells={["-", "Sin productos para esta caja", "0.00", "0.00"]}
+                key={`${product.codigo}-${product.descripcion}`}
+                cells={[
+                  product.codigo,
+                  product.descripcion,
+                  money(product.cantidad),
+                  money(product.importe),
+                ]}
                 widths={[18, 50, 14, 18]}
                 alignments={["left", "left"]}
               />
-            )}
+            ))}
           </View>
           <View style={styles.productTotal}>
             <Text>items: {products.length}</Text>

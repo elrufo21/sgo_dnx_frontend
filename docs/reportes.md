@@ -22,3 +22,7 @@ En el reporte de ventas se ingresa un año y se alterna entre columnas y líneas
 - `GET /api/v1/SalesReport/products/monthly?year=YYYY&productId=ID` obtiene los totales mensuales con parámetros SQL y el permiso `VENTAS.VER`.
 
 El reporte de productos no depende de los procedimientos históricos `uspResumenDetalle` o `uspResumenDetalleZ`; esos objetos no están conectados en el flujo de procedimientos desplegados por la web.
+
+## Reporte de asistencia Web
+
+La ruta `/reports/attendance` consulta automáticamente al ingresar el reporte general desde el primer día del mes hasta la fecha actual. Permite consultar asistencias por rango de fechas y por personal o como reporte general. Personal y Reporte General se ubican a la izquierda de la primera fila, con las fechas a la derecha; la segunda fila coloca la búsqueda a la izquierda y las acciones a la derecha. El botón Buscar aplica los filtros manualmente; además, cambiar la fecha fin o seleccionar personal consulta el reporte automáticamente con los filtros actuales. Las consultas se conservan frescas durante cinco minutos y no se repiten al volver a la pestaña del navegador. La búsqueda de la tabla filtra por fecha, nombre y estado de asistencia; no incluye el ID interno del personal. El botón Imprimir genera un PDF A4 horizontal, con filtros, total de registros, cabecera de tabla repetida y número de página, y lo abre en otra pestaña.

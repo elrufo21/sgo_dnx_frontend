@@ -24,6 +24,7 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 - En el resumen OBS/IOC, los importes se actualizan con la búsqueda activa: **Subtotal** incluye todas las filas, **Anulados** suma solo las anuladas y **Total** las excluye.
 - Está limitado a la pestaña actual y se valida contra la empresa y el usuario que lo generaron.
 - Las ventas libres guardan en la misma sesión sus datos de formulario, productos, cantidades, precios y tipo de venta. Se restauran al volver a la pantalla y se eliminan en las mismas acciones que una captura.
+- Al agregar el primer producto de una venta manual, se pregunta el motivo OBS antes de agregarlo. **Aceptar** registra el producto y guarda el motivo; **Ignorar** cierra el aviso sin agregar el producto y permite volver a intentar.
 - Solo hay un borrador de captura o de venta libre activo por tipo; una nueva captura descarta el borrador de venta libre.
 - Los documentos guardados con `conceptoOBS = VENTA` se muestran como **Cashbill** al volver a abrirlos.
 - El ticket impreso replica el escritorio: una transacción que contiene `RS` se rotula como **IOC**; otra transacción como **CASH BILL**; sin transacción, como **LIBRE**.

@@ -433,6 +433,118 @@ const asRecord = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+type ExistingSaleData = {
+  nota: Record<string, unknown> | null;
+  detalles: unknown;
+  archivos: Record<string, unknown> | null;
+};
+const inFlightExistingSaleRequests = new Map<string, Promise<ExistingSaleData>>();
+const inFlightVoidValidations = new Map<string, Promise<AnulacionValidationResponse | null>>();
+const inFlightPagoVariosRequests = new Map<string, Promise<PagoVariosResponse>>();
+const fetchExistingSaleData = (notaId: number, userKey: string) => {
+  const requestKey = `${userKey}:${notaId}`;
+  const pending = inFlightExistingSaleRequests.get(requestKey);
+  if (pending) return pending;
+
+  const request = Promise.all([
+    apiRequest<Record<string, unknown>, unknown, null>({
+      url: buildApiUrl(`/Nota/${notaId}`),
+      method: "GET",
+      fallback: null,
+    }),
+    apiRequest<unknown, unknown, null>({
+      url: buildApiUrl(`/Nota/${notaId}/detalles`),
+      method: "GET",
+      fallback: null,
+    }),
+    apiRequest<Record<string, unknown>, unknown, null>({
+      url: buildApiUrl(`/Nota/${notaId}/archivos-cpe`),
+      method: "GET",
+      fallback: null,
+    }),
+  ]).then(([nota, detalles, archivos]) => ({
+    nota: asRecord(nota),
+    detalles,
+    archivos: asRecord(archivos),
+  }));
+
+  inFlightExistingSaleRequests.set(requestKey, request);
+  void request.then(
+    () => {
+      if (inFlightExistingSaleRequests.get(requestKey) === request) {
+        inFlightExistingSaleRequests.delete(requestKey);
+      }
+    },
+    () => {
+      if (inFlightExistingSaleRequests.get(requestKey) === request) {
+        inFlightExistingSaleRequests.delete(requestKey);
+      }
+    },
+  );
+  return request;
+};
+const validateVoidByDeadline = (
+  docuId: number,
+  documentNumber: string,
+) => {
+  const requestKey = `${docuId}:${documentNumber}`;
+  const pending = inFlightVoidValidations.get(requestKey);
+  if (pending) return pending;
+
+  const request = apiRequest<AnulacionValidationResponse, unknown, null>({
+    url: buildApiUrl("/Nota/anular/validar"),
+    method: "POST",
+    data: {
+      DOCU_ID: docuId,
+      NRO_DOCUMENTO_MODIFICA: documentNumber,
+    },
+    fallback: null,
+  });
+  inFlightVoidValidations.set(requestKey, request);
+  void request.then(
+    () => {
+      if (inFlightVoidValidations.get(requestKey) === request) {
+        inFlightVoidValidations.delete(requestKey);
+      }
+    },
+    () => {
+      if (inFlightVoidValidations.get(requestKey) === request) {
+        inFlightVoidValidations.delete(requestKey);
+      }
+    },
+  );
+  return request;
+};
+const fetchPagoVariosForUser = (userId: number, username: string) => {
+  const requestKey = `${userId}:${username}`;
+  const pending = inFlightPagoVariosRequests.get(requestKey);
+  if (pending) return pending;
+
+  const request = apiRequest<PagoVariosResponse>({
+    url: buildApiUrl(
+      `/Nota/pago-varios?${new URLSearchParams({
+        usuarioId: String(userId),
+        usuario: username,
+      }).toString()}`,
+    ),
+    method: "GET",
+    fallback: { ok: false, items: [] },
+  });
+  inFlightPagoVariosRequests.set(requestKey, request);
+  void request.then(
+    () => {
+      if (inFlightPagoVariosRequests.get(requestKey) === request) {
+        inFlightPagoVariosRequests.delete(requestKey);
+      }
+    },
+    () => {
+      if (inFlightPagoVariosRequests.get(requestKey) === request) {
+        inFlightPagoVariosRequests.delete(requestKey);
+      }
+    },
+  );
+  return request;
+};
 const asRecordList = (value: unknown) => {
   if (Array.isArray(value)) return value.map(asRecord).filter(Boolean);
   const record = asRecord(value);
@@ -832,6 +944,7 @@ export default function HtmlCaptureSalePage() {
     const recordLoadVersion = ++recordLoadVersionRef.current;
     setHasReenviadoOse(false);
     if (isNewRoute) {
+      setViewSunatStatus(null);
       draftPersistenceEnabledRef.current = true;
       setLoadedRecordId(null);
       setLoadedRecordClient(null);
@@ -842,33 +955,46 @@ export default function HtmlCaptureSalePage() {
 
     draftPersistenceEnabledRef.current = false;
     resetDraft();
-    if (!isExistingRoute) return;
+    if (!isExistingRoute) {
+      setViewSunatStatus(null);
+      return;
+    }
+    setViewSunatStatus(null);
     let active = true;
     const loadRecord = async () => {
       setLoadedRecordId(null);
       setLoadedRecordClient(null);
       setViewedEmissionDateTime("");
       try {
-        const [notaResult, detailsResult] = await Promise.all([
-          apiRequest<Record<string, unknown>, unknown, null>({
-            url: buildApiUrl(`/Nota/${routeNoteId}`),
-            method: "GET",
-            fallback: null,
-          }),
-          apiRequest<unknown, unknown, null>({
-            url: buildApiUrl(`/Nota/${routeNoteId}/detalles`),
-            method: "GET",
-            fallback: null,
-          }),
-        ]);
-        const nota = asRecord(notaResult);
+        const { nota, detalles: detailsResult, archivos } =
+          await fetchExistingSaleData(
+            routeNoteId,
+            String(session.userId || session.username),
+          );
         if (!nota) throw new Error("Registro no encontrado.");
+
+        if (!active || recordLoadVersion !== recordLoadVersionRef.current)
+          return;
 
         const clientId = Number(nota.clienteId ?? nota.ClienteId ?? 0);
         const client = clientId ? await fetchClientById(clientId) : null;
         if (!active || recordLoadVersion !== recordLoadVersionRef.current)
           return;
         setLoadedRecordClient(client);
+        setViewSunatStatus({
+          docuId: Number(
+            archivos?.docuId ??
+              archivos?.DocuId ??
+              nota.docuId ??
+              nota.DocuId,
+          ) || 0,
+          notaEstado: safeTrim(nota.notaEstado ?? nota.NotaEstado),
+          estadoSunat: safeTrim(nota.estadoSunat ?? nota.EstadoSunat),
+          docuEstado: safeTrim(nota.docuEstado ?? nota.DocuEstado),
+          notaDocu: safeTrim(nota.notaDocu ?? nota.NotaDocu),
+          xmlUrl: safeTrim(archivos?.xmlUrl ?? archivos?.XmlUrl),
+          cdrUrl: safeTrim(archivos?.cdrUrl ?? archivos?.CdrUrl),
+        });
 
         const docu = safeTrim(nota.notaDocu ?? nota.NotaDocu).toUpperCase();
         const docTypeCode: SaleForm["docTypeCode"] = docu.includes("FACTURA")
@@ -1045,52 +1171,6 @@ export default function HtmlCaptureSalePage() {
   ]);
 
   useEffect(() => {
-    if (!isExistingRoute) {
-      setViewSunatStatus(null);
-      return;
-    }
-
-    let active = true;
-    Promise.all([
-      apiRequest<Record<string, unknown>, unknown, null>({
-        url: buildApiUrl(`/Nota/${routeNoteId}`),
-        method: "GET",
-        fallback: null,
-      }),
-      apiRequest<Record<string, unknown>, unknown, null>({
-        url: buildApiUrl(`/Nota/${routeNoteId}/archivos-cpe`),
-        method: "GET",
-        fallback: null,
-      }),
-    ])
-      .then(([nota, archivos]) => {
-        if (!active || !nota) return;
-        setViewSunatStatus({
-          docuId:
-            Number(
-              archivos?.docuId ??
-                archivos?.DocuId ??
-                nota.docuId ??
-                nota.DocuId,
-            ) || 0,
-          notaEstado: safeTrim(nota.notaEstado ?? nota.NotaEstado),
-          estadoSunat: safeTrim(nota.estadoSunat ?? nota.EstadoSunat),
-          docuEstado: safeTrim(nota.docuEstado ?? nota.DocuEstado),
-          notaDocu: safeTrim(nota.notaDocu ?? nota.NotaDocu),
-          xmlUrl: safeTrim(archivos?.xmlUrl ?? archivos?.XmlUrl),
-          cdrUrl: safeTrim(archivos?.cdrUrl ?? archivos?.CdrUrl),
-        });
-      })
-      .catch(() => {
-        if (active) setViewSunatStatus(null);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [isExistingRoute, routeNoteId]);
-
-  useEffect(() => {
     const docuId = viewSunatStatus?.docuId ?? 0;
     if (
       !isFromOrderNotesView ||
@@ -1103,15 +1183,7 @@ export default function HtmlCaptureSalePage() {
 
     let active = true;
     setCanVoidByDeadline(false);
-    apiRequest<AnulacionValidationResponse, unknown, null>({
-      url: buildApiUrl("/Nota/anular/validar"),
-      method: "POST",
-      data: {
-        DOCU_ID: docuId,
-        NRO_DOCUMENTO_MODIFICA: lastTicket?.documentNumber,
-      },
-      fallback: null,
-    })
+    validateVoidByDeadline(docuId, lastTicket?.documentNumber ?? "")
       .then((response) => {
         if (active) {
           setCanVoidByDeadline(
@@ -1134,8 +1206,9 @@ export default function HtmlCaptureSalePage() {
   ]);
 
   useEffect(() => {
+    if (isReadOnly) return;
     if (!products.length) void fetchProducts("");
-  }, [fetchProducts, products.length]);
+  }, [fetchProducts, isReadOnly, products.length]);
 
   useEffect(() => {
     let active = true;
@@ -1267,16 +1340,10 @@ export default function HtmlCaptureSalePage() {
 
     setIsPagoVariosLoading(true);
     try {
-      const response = (await apiRequest<PagoVariosResponse>({
-        url: buildApiUrl(
-          `/Nota/pago-varios?${new URLSearchParams({
-            usuarioId: String(session.userId),
-            usuario: session.username,
-          }).toString()}`,
-        ),
-        method: "GET",
-        fallback: { ok: false, items: [] },
-      })) as PagoVariosResponse;
+      const response = await fetchPagoVariosForUser(
+        session.userId,
+        session.username,
+      );
       const items = Array.isArray(response?.items) ? response.items : [];
       setPagoVariosItems(items);
       setPagoVariosSelectedIds([]);
@@ -1637,10 +1704,10 @@ export default function HtmlCaptureSalePage() {
   };
 
   useEffect(() => {
-    if (!clients.length) {
+    if (!isReadOnly && !clients.length) {
       void fetchClients("");
     }
-  }, [clients.length, fetchClients]);
+  }, [clients.length, fetchClients, isReadOnly]);
 
   const productByCode = useMemo(() => {
     const map = new Map<string, Product>();
@@ -1781,7 +1848,7 @@ export default function HtmlCaptureSalePage() {
 
   useEffect(() => {
     const clientId = Number(selectedClient?.id ?? 0);
-    if (!clientId) {
+    if (isReadOnly || !clientId) {
       setMonthlyPvs(0);
       return;
     }
@@ -1797,7 +1864,7 @@ export default function HtmlCaptureSalePage() {
     return () => {
       active = false;
     };
-  }, [fetchClientMonthlyPvs, selectedClient?.id]);
+  }, [fetchClientMonthlyPvs, isReadOnly, selectedClient?.id]);
 
   const applyClient = useCallback(
     (
@@ -1999,20 +2066,23 @@ export default function HtmlCaptureSalePage() {
     }
 
     const shouldAskFreeSaleReason = !freeSaleReasonAsked && rows.length === 0;
-    setRows((current) => {
-      const existing = current.findIndex((row) => row.code === product.codigo);
-      if (existing < 0) return [...current, productToRow(product, 1)];
-      return current.map((row, index) =>
-        index === existing
-          ? { ...row, quantity: safeRowNumber(row.quantity) + 1 }
-          : row,
-      );
-    });
-    setManualProductSearch("");
-    setManualProductSearchFocused(false);
-    setLastTicket(null);
+    const addProductToSale = () => {
+      setRows((current) => {
+        const existing = current.findIndex((row) => row.code === product.codigo);
+        if (existing < 0) return [...current, productToRow(product, 1)];
+        return current.map((row, index) =>
+          index === existing
+            ? { ...row, quantity: safeRowNumber(row.quantity) + 1 }
+            : row,
+        );
+      });
+      setManualProductSearch("");
+      setManualProductSearchFocused(false);
+      setLastTicket(null);
+    };
+
     if (shouldAskFreeSaleReason) {
-      setFreeSaleReasonAsked(true);
+      const previousSaleType = manualSaleType;
       openDialog({
         title: "",
         content: (
@@ -2044,10 +2114,18 @@ export default function HtmlCaptureSalePage() {
         ),
         confirmText: "Aceptar",
         cancelText: "Ignorar",
-        onConfirm: () => true,
+        onConfirm: () => {
+          setFreeSaleReasonAsked(true);
+          addProductToSale();
+          return true;
+        },
+        onCancel: () => setManualSaleType(previousSaleType),
         maxWidth: "xs",
       });
+      return;
     }
+
+    addProductToSale();
   };
 
   const handleManualProductKeyDown = (

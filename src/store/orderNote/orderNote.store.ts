@@ -29,6 +29,19 @@ interface OrderNoteState {
   ) => Promise<boolean>;
 }
 
+const inFlightNotesRequests = new Map<string, Promise<void>>();
+const getNotesRequestUserKey = () => {
+  if (typeof window === "undefined") return "server";
+  try {
+    const session = JSON.parse(
+      window.localStorage.getItem("sgo.auth.session") ?? "null",
+    ) as { userId?: unknown; id?: unknown; username?: unknown } | null;
+    return String(session?.userId ?? session?.id ?? session?.username ?? "anonymous");
+  } catch {
+    return "anonymous";
+  }
+};
+
 const toPositiveInt = (value: unknown, fallback: number): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0
@@ -489,34 +502,48 @@ export const useOrderNoteStore = create<OrderNoteState>((set) => ({
   loading: false,
   viewedOrderNoteId: null,
   setViewedOrderNoteId: (noteId) => set({ viewedOrderNoteId: noteId }),
-  fetchNotes: async (params) => {
+  fetchNotes: (params) => {
     const today = getLocalDateISO();
     const fechaInicio = String(params?.fechaInicio ?? "").trim() || today;
     const fechaFin = String(params?.fechaFin ?? "").trim() || today;
+    const requestKey = `${getNotesRequestUserKey()}|${fechaInicio}|${fechaFin}`;
+    const pendingRequest = inFlightNotesRequests.get(requestKey);
+    if (pendingRequest) return pendingRequest;
 
     const query = new URLSearchParams();
     query.set("fechaInicio", fechaInicio);
     query.set("fechaFin", fechaFin);
 
     set({ loading: true });
-    try {
-      const response = await apiRequest<unknown>({
-        url: `${API_BASE_URL}/Nota/lista-cadena?${query.toString()}`,
-        method: "GET",
-        fallback: [],
-      });
+    const request = (async () => {
+      try {
+        const response = await apiRequest<unknown>({
+          url: `${API_BASE_URL}/Nota/lista-cadena?${query.toString()}`,
+          method: "GET",
+        });
+        if (
+          response &&
+          typeof response === "object" &&
+          "isAxiosError" in response
+        ) {
+          return;
+        }
 
-      const { rows, total } = parseOrderNotesResponse(response);
-
-      set({
-        notes: rows,
-        totalNotes: total,
-        loading: false,
-      });
-    } catch (error) {
-      console.error("Error al listar notas de pedido", error);
-      set({ loading: false });
-    }
+        const { rows, total } = parseOrderNotesResponse(response);
+        set({ notes: rows, totalNotes: total });
+      } catch (error) {
+        console.error("Error al listar notas de pedido", error);
+      } finally {
+        set({ loading: false });
+      }
+    })();
+    inFlightNotesRequests.set(requestKey, request);
+    void request.then(() => {
+      if (inFlightNotesRequests.get(requestKey) === request) {
+        inFlightNotesRequests.delete(requestKey);
+      }
+    });
+    return request;
   },
   fetchNoteDetail: async (noteId) => {
     const parsedId = toPositiveInt(noteId, 0);

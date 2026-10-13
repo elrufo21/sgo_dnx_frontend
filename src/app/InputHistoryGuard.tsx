@@ -26,6 +26,7 @@ const PASSWORD_HINTS = [
   "newpassword",
 ];
 const SEARCH_HINTS = ["search", "buscar", "busqueda", "filtro", "filter"];
+const sanitizeTextInput = (value: string) => value.replace(/['\[\];|¬]|}}/g, "");
 
 const normalizeHint = (value: string) =>
   value
@@ -121,7 +122,7 @@ const enforceUppercaseValue = (field: FormFieldElement) => {
   const selectionStart = field.selectionStart;
   const selectionEnd = field.selectionEnd;
 
-  field.value = upperValue;
+  setNativeValue(field, upperValue);
 
   if (selectionStart === null || selectionEnd === null) return;
   try {
@@ -129,6 +130,37 @@ const enforceUppercaseValue = (field: FormFieldElement) => {
   } catch {
     // ignore selection errors in unsupported input types
   }
+};
+
+const setNativeValue = (field: FormFieldElement, value: string) => {
+  const prototype =
+    field instanceof HTMLInputElement
+      ? HTMLInputElement.prototype
+      : HTMLTextAreaElement.prototype;
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+  if (setter) setter.call(field, value);
+  else field.value = value;
+};
+
+const sanitizeTextField = (field: HTMLInputElement) => {
+  const value = field.value;
+  const sanitizedValue = sanitizeTextInput(value);
+  if (sanitizedValue === value) return;
+
+  const selectionStart = field.selectionStart;
+  const selectionEnd = field.selectionEnd;
+  setNativeValue(field, sanitizedValue);
+
+  if (selectionStart === null || selectionEnd === null) return;
+  const start = Math.min(
+    sanitizeTextInput(value.slice(0, selectionStart)).length,
+    sanitizedValue.length,
+  );
+  const end = Math.min(
+    sanitizeTextInput(value.slice(0, selectionEnd)).length,
+    sanitizedValue.length,
+  );
+  field.setSelectionRange(start, end);
 };
 
 const applyUppercaseBehavior = (field: FormFieldElement) => {
@@ -325,6 +357,14 @@ export function InputHistoryGuard() {
         )
       ) {
         return;
+      }
+
+      if (
+        target instanceof HTMLInputElement &&
+        target.type.toLowerCase() === "text" &&
+        !(event instanceof InputEvent && event.isComposing)
+      ) {
+        sanitizeTextField(target);
       }
 
       if (isHistoryGuardDisabled(target) || isInsideDialog(target)) return;
