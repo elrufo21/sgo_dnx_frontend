@@ -10,6 +10,8 @@ El botón para generar el PDF permanece deshabilitado hasta que la caja tenga es
 
 El módulo independiente **Generar informe de caja final** aparece en el sidebar únicamente cuando `Compania.FlagCaja` es `1`; con valor `0` no se muestra. No abre, cierra ni edita cajas. Tiene su propio formulario: fecha, cajeros consolidados, conteo por denominación, pestañas de ingresos/salidas, Sistema OBS, observaciones, diferencial y listado de informes registrados. Solo consolida las cajas que ya están cerradas para la fecha seleccionada. El conteo comparte las once denominaciones base de Control de flujo de caja, por lo que siempre se muestra aunque no exista un conteo previo en la fecha.
 
+Al guardar o actualizar el informe final se abre un cuadro que indica **«Solo el administrador puede cerrar la caja final»** y solicita la clave de administrador. El backend valida que la clave corresponda a un usuario con `Administrador = 1` antes de insertar o actualizar el registro.
+
 Desde el listado, el botón **Ver** abre un informe guardado en modo lectura con el arqueo, ingresos, salidas y observaciones originales.
 
 El listado permite buscar informes por **Fecha Inicio** y **Fecha Fin**. Por defecto muestra el mes en curso hasta la fecha actual; ambos límites son obligatorios y la fecha inicial no puede ser posterior a la final.
@@ -26,4 +28,4 @@ Los ingresos adicionales guardados se distinguen de los seis conceptos base y vu
 
 El botón junto a **Sistema (OBS)** actualiza únicamente ese total para la fecha del informe, sin borrar el conteo ni los movimientos que se estén editando.
 
-En modo lectura se habilitan **PDF** y **Enviar correo**. El PDF reutiliza el formato de cierre de caja sin la página de productos, porque el informe final no registra productos propios.
+En modo lectura se habilitan **PDF** y **Enviar correo**. El PDF reutiliza el formato de cierre de caja sin la página de productos, porque el informe final no registra productos propios. Ambos PDF incluyen las ventas de `uspCruzeOBS` para la fecha consultada (transacción, código, cliente e importe) y el reporte de asistencia del día, con nombre, ingreso, salida a refrigerio, retorno, estado de asistencia y cantidad de tardanzas. El procedimiento identifica las ventas por `NotaPedido.CajaId IS NULL`.

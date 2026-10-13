@@ -40,6 +40,7 @@ export interface ActiveCashFlow {
   monedas: CashCount[];
   estado: string;
   fechaCierre: string;
+  usuarioId: number;
 }
 
 export interface CloseCashFlow {

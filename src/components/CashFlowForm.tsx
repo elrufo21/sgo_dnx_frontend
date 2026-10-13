@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
-import { pdf } from "@react-pdf/renderer";
+import { pdf, PDFViewer } from "@react-pdf/renderer";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
+import { fetchUncapturedObsSales, type UncapturedObsSale } from "@/features/cashFlow/api/uncapturedObsSales";
+import { attendanceDate, fetchAttendanceReport, type AttendanceReportRow } from "@/features/reports/api/attendanceReport";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useCashFlowProductsWebStore } from "@/store/cashFlowProductsWeb/cashFlowProductsWeb.store";
+import type { CashFlowProductWeb } from "@/store/cashFlowProductsWeb/cashFlowProductsWeb.store";
 import { useCashFlowMovementsWebStore } from "@/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store";
 import { useDialogStore } from "@/store/app/dialog.store";
 import type { ActiveCashFlow } from "@/types/cashFlow";
@@ -187,6 +190,7 @@ export default function CashFlowForm({
     closeCashFlow,
     updateCashFlowState,
     sendCashFlowReportEmail,
+    getActiveCashFlow,
     getCashFlowDetail,
     deleteCashFlow,
     loading,
@@ -197,11 +201,19 @@ export default function CashFlowForm({
     useCashFlowMovementsWebStore();
   const containerRef = useRef(null);
   const initialLoadCashFlowId = useRef<number | null>(null);
+  const isSavingRef = useRef(false);
   const [tipoMovimiento, setTipoMovimiento] = useState("ingresos");
-  const [activeTab, setActiveTab] = useState<"caja" | "productos">("caja");
+  const [activeTab, setActiveTab] = useState<"caja" | "productos" | "ticket">("caja");
   const [activeCash, setActiveCash] = useState<ActiveCashFlow | null>(null);
+  const [loadedCashFlowId, setLoadedCashFlowId] = useState<number | null>(null);
+  const [ticketProducts, setTicketProducts] = useState<CashFlowProductWeb[]>([]);
+  const [ticketAttendance, setTicketAttendance] = useState<AttendanceReportRow[]>([]);
+  const [ticketUncapturedSales, setTicketUncapturedSales] = useState<UncapturedObsSale[]>([]);
+  const [ticketProductsLoading, setTicketProductsLoading] = useState(false);
+  const [ticketDataError, setTicketDataError] = useState("");
   const [isPrinting, setIsPrinting] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [responsableId, setResponsableId] = useState<number | null>(null);
   const viewedCashId = Number(cajaId);
   const [isEditing, setIsEditing] = useState(
@@ -305,6 +317,7 @@ export default function CashFlowForm({
         deposito: caja.ventasDeposito,
       },
     }));
+    setLoadedCashFlowId(viewedCashId);
   }, [fetchMovements, getCashFlowDetail, isViewing, viewedCashId]);
 
   useEffect(() => {
@@ -320,7 +333,56 @@ export default function CashFlowForm({
   const isClosed =
     activeCash?.estado.trim().toUpperCase().startsWith("CERR") ?? false;
   const isClosing = isViewing && !isClosed;
-  const canEdit = !readOnly && (!isViewing || isEditing);
+  const showTicketTab =
+    isViewing && isClosed && !isEditing && loadedCashFlowId === viewedCashId;
+  const visibleTab = showTicketTab ? "ticket" : activeTab === "ticket" ? "caja" : activeTab;
+  const canEdit =
+    !readOnly &&
+    (!isViewing || (isEditing && loadedCashFlowId === viewedCashId));
+
+  useEffect(() => {
+    if (!showTicketTab || !activeCash) {
+      setTicketProducts([]);
+      setTicketAttendance([]);
+      setTicketUncapturedSales([]);
+      setTicketProductsLoading(false);
+      setTicketDataError("");
+      return;
+    }
+
+    let cancelled = false;
+    setTicketProductsLoading(true);
+    setTicketDataError("");
+    void Promise.all([
+      fetchProducts(activeCash.id),
+      fetchAttendanceReport(attendanceDate(formData.fechaCierre || formData.fechaApertura)),
+      fetchUncapturedObsSales(attendanceDate(formData.fechaCierre || formData.fechaApertura)),
+    ])
+      .then(([products, asistencias, ventasNoCapturadas]) => {
+        if (!cancelled) {
+          setTicketProducts(products);
+          setTicketAttendance(asistencias);
+          setTicketUncapturedSales(ventasNoCapturadas);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTicketProducts([]);
+          setTicketAttendance([]);
+          setTicketUncapturedSales([]);
+          const message = "No se pudieron cargar los datos del ticket.";
+          setTicketDataError(message);
+          toast.error(message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setTicketProductsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCash?.id, fetchProducts, formData.fechaApertura, formData.fechaCierre, showTicketTab]);
 
   const handleCantidadChange = (index, valor) => {
     const cantidad = valor === "" ? "" : parseInt(valor, 10) || 0;
@@ -435,7 +497,11 @@ export default function CashFlowForm({
   const generarPdfCaja = async (fechaCierre = formData.fechaCierre) => {
     if (!activeCash) throw new Error("No se pudo cargar la caja.");
 
-    const products = await fetchProducts(activeCash.id);
+    const [products, asistencias, ventasNoCapturadas] = await Promise.all([
+      fetchProducts(activeCash.id),
+      fetchAttendanceReport(attendanceDate(fechaCierre || formData.fechaApertura)),
+      fetchUncapturedObsSales(attendanceDate(fechaCierre || formData.fechaApertura)),
+    ]);
     return pdf(
       <CashFlowReportPdf
         cajaId={activeCash.id}
@@ -454,6 +520,8 @@ export default function CashFlowForm({
         diferencial={diferencial}
         observaciones={formData.observaciones}
         products={products}
+        asistencias={asistencias}
+        ventasNoCapturadas={ventasNoCapturadas}
       />,
     ).toBlob();
   };
@@ -576,18 +644,13 @@ export default function CashFlowForm({
     navigate(`/cash_flow_control${location.search}`);
   };
 
-  const cerrarCaja = async (
-    reportWindow: Window | null = null,
-    abrirInforme = false,
-  ) => {
+  const cerrarCaja = async () => {
     if (!activeCash) {
-      reportWindow?.close();
       toast.error("No se pudo cargar la caja para cerrarla.");
       return;
     }
     const usuarioId = Number(sessionUser?.id);
     if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
-      reportWindow?.close();
       toast.error("No se pudo identificar al usuario de la sesión.");
       return;
     }
@@ -602,7 +665,6 @@ export default function CashFlowForm({
       })),
     });
     if (!result.ok) {
-      reportWindow?.close();
       toast.error(result.mensaje);
       return;
     }
@@ -611,10 +673,8 @@ export default function CashFlowForm({
       `Caja cerrada. Diferencia: S/ ${result.diferencia.toFixed(2)}`,
     );
     setIsEditing(false);
-    if (abrirInforme) {
-      await abrirPdfCaja(reportWindow, new Date().toISOString());
-    }
-    navigate(`/cash_flow_control/create${location.search}`, { replace: true });
+    await reloadCashFlow();
+    setActiveTab("ticket");
   };
 
   const guardarEstadoCaja = async (estado = formData.estado) => {
@@ -640,14 +700,26 @@ export default function CashFlowForm({
     toast.success("Caja actualizada correctamente.");
     setIsEditing(false);
     await reloadCashFlow();
+    if (estado.trim().toUpperCase().startsWith("CERR")) {
+      setActiveTab("ticket");
+    }
   };
 
   const cambiarEstadoCaja = (estado: string) => {
     setFormData((prev) => ({ ...prev, estado }));
   };
 
-  const alternarEdicion = () => {
+  const alternarEdicion = async () => {
     if (isEditing) return;
+    if (isClosed && activeCash?.usuarioId) {
+      const cajaActiva = await getActiveCashFlow(activeCash.usuarioId);
+      if (cajaActiva && cajaActiva.id !== viewedCashId) {
+        toast.error(
+          "Hay una caja aperturada. Ciérrala antes de modificar una caja cerrada.",
+        );
+        return;
+      }
+    }
     setIsEditing(true);
   };
 
@@ -658,35 +730,42 @@ export default function CashFlowForm({
   };
 
   const guardarCaja = async () => {
-    if (!isViewing) return abrirCaja();
-    if (
-      formData.estado === "CERRADA" &&
-      isClosing &&
-      Math.round(diferencial * 100) !== 0 &&
-      !formData.observaciones.trim()
-    ) {
-      containerRef.current
-        ?.querySelector<HTMLTextAreaElement>('textarea[name="observaciones"]')
-        ?.focus();
-      toast.error("Ingresa una observación para justificar la diferencia.");
-      return;
-    }
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    setIsSaving(true);
 
-    const closing = formData.estado === "CERRADA" && isClosing;
-    const reportWindow = closing ? window.open("", "_blank") : null;
-    const result = await updateManualIngresos(
-      viewedCashId,
-      formData.ingresos
-        .filter((item) => INGRESOS_SINCRONIZADOS.has(item.descripcion))
-        .map(({ id, importe }) => ({ id, importe })),
-    );
-    if (!result.ok) {
-      reportWindow?.close();
-      toast.error(result.mensaje);
-      return;
+    try {
+      if (!isViewing) return await abrirCaja();
+      if (
+        formData.estado === "CERRADA" &&
+        isClosing &&
+        Math.round(diferencial * 100) !== 0 &&
+        !formData.observaciones.trim()
+      ) {
+        containerRef.current
+          ?.querySelector<HTMLTextAreaElement>('textarea[name="observaciones"]')
+          ?.focus();
+        toast.error("Ingresa una observación para justificar la diferencia.");
+        return;
+      }
+
+      const closing = formData.estado === "CERRADA" && isClosing;
+      const result = await updateManualIngresos(
+        viewedCashId,
+        formData.ingresos
+          .filter((item) => INGRESOS_SINCRONIZADOS.has(item.descripcion))
+          .map(({ id, importe }) => ({ id, importe })),
+      );
+      if (!result.ok) {
+        toast.error(result.mensaje);
+        return;
+      }
+      if (closing) return await cerrarCaja();
+      return await guardarEstadoCaja();
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
-    if (closing) return cerrarCaja(reportWindow, true);
-    return guardarEstadoCaja();
   };
 
   const eliminarCaja = () => {
@@ -724,45 +803,56 @@ export default function CashFlowForm({
             className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white hover:bg-white/20 transition-colors"
           />
 
-          <div
-            role="tablist"
-            className="flex rounded bg-black/10 p-0.5 text-xs"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "caja"}
-              onClick={() => setActiveTab("caja")}
-              className={`rounded px-2 py-1 font-semibold ${activeTab === "caja" ? "bg-white text-[#B23636]" : "text-white"}`}
-            >
-              Caja
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "productos"}
-              onClick={() => setActiveTab("productos")}
-              className={`rounded px-2 py-1 font-semibold ${activeTab === "productos" ? "bg-white text-[#B23636]" : "text-white"}`}
-            >
-              Productos
-            </button>
+          <div role="tablist" className="flex rounded bg-black/10 p-0.5 text-xs">
+            {showTicketTab ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={visibleTab === "ticket"}
+                onClick={() => setActiveTab("ticket")}
+                className="rounded bg-white px-2 py-1 font-semibold text-[#B23636]"
+              >
+                Ticket
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={visibleTab === "caja"}
+                  onClick={() => setActiveTab("caja")}
+                  className={`rounded px-2 py-1 font-semibold ${visibleTab === "caja" ? "bg-white text-[#B23636]" : "text-white"}`}
+                >
+                  Caja
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={visibleTab === "productos"}
+                  onClick={() => setActiveTab("productos")}
+                  className={`rounded px-2 py-1 font-semibold ${visibleTab === "productos" ? "bg-white text-[#B23636]" : "text-white"}`}
+                >
+                  Productos
+                </button>
+              </>
+            )}
           </div>
         </div>
         <div className="flex gap-1 sm:gap-2">
           <button
             type="button"
             onClick={() => void guardarCaja()}
-            disabled={loading || !canEdit}
+            disabled={loading || !canEdit || isSaving}
             className="inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
             title={isViewing ? "Guardar" : "Guardar"}
           >
             <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>{isViewing ? "Guardar" : "Guardar"}</span>
+            <span>{isSaving ? "Guardando..." : "Guardar"}</span>
           </button>
           {isViewing && (
             <button
               type="button"
-              onClick={alternarEdicion}
+              onClick={() => void alternarEdicion()}
               disabled={loading || readOnly || isEditing}
               title={isEditing ? "Guarda para finalizar la edición" : "Editar caja"}
               aria-label={
@@ -816,7 +906,38 @@ export default function CashFlowForm({
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-2 sm:p-3">
-          {activeTab === "caja" ? (
+          {visibleTab === "ticket" && activeCash ? (
+            <div className="h-[min(72vh,760px)] min-h-[420px] overflow-hidden rounded border border-slate-200 bg-white">
+              {ticketProductsLoading ? (
+                <p className="p-4 text-sm text-slate-600">Preparando ticket...</p>
+              ) : ticketDataError ? (
+                <p className="p-4 text-sm text-red-700">{ticketDataError}</p>
+              ) : (
+                <PDFViewer style={{ width: "100%", height: "100%" }}>
+                  <CashFlowReportPdf
+                    cajaId={activeCash.id}
+                    encargado={activeCash.encargado}
+                    usuario={activeCash.usuario}
+                    fechaApertura={formData.fechaApertura}
+                    fechaCierre={formData.fechaCierre}
+                    sistemaObs={Number(formData.sistemaObs || 0)}
+                    gastos={formData.gastos}
+                    ingresos={ingresosCalculados}
+                    conteoMonedas={formData.conteoMonedas}
+                    totalEfectivo={totalEfectivo}
+                    totalBilletes={totalBilletes}
+                    totalSencillo={totalSencillo}
+                    totalIngresos={totalIngresos}
+                    diferencial={diferencial}
+                    observaciones={formData.observaciones}
+                    products={ticketProducts}
+                    asistencias={ticketAttendance}
+                    ventasNoCapturadas={ticketUncapturedSales}
+                  />
+                </PDFViewer>
+              )}
+            </div>
+          ) : visibleTab === "caja" ? (
             <div className="space-y-3">
               <div className="bg-white rounded border border-gray-200 p-2 mb-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 mb-3">
@@ -1116,12 +1237,21 @@ export default function CashFlowForm({
                       <textarea
                         name="observaciones"
                         value={formData.observaciones}
-                        onChange={(e) =>
+                        onChange={(event) => {
+                          const observaciones = event.currentTarget.value;
                           setFormData((prev) => ({
                             ...prev,
-                            observaciones: e.target.value,
-                          }))
-                        }
+                            observaciones,
+                          }));
+                        }}
+                        onBlur={(event) => {
+                          const observaciones = event.currentTarget.value;
+                          setFormData((prev) =>
+                            prev.observaciones === observaciones
+                              ? prev
+                              : { ...prev, observaciones },
+                          );
+                        }}
                         readOnly={!canEdit}
                         data-auto-next={!canEdit ? undefined : "true"}
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-slate-500 focus:outline-none w-full"

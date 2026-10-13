@@ -61,6 +61,7 @@ const mapActiveCashFlow = (value: unknown): ActiveCashFlow | null => {
     efectivoEsperado: asNumber(row.efectivoEsperado, row.EfectivoEsperado),
     estado: asString(row.estado, row.Estado) || "ACTIVO",
     fechaCierre: asString(row.fechaCierre, row.FechaCierre),
+    usuarioId: asNumber(row.usuarioId, row.UsuarioId),
     monedas: monedas.map((item) => {
       const moneda = asRecord(item);
       return {

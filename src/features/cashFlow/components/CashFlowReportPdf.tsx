@@ -1,6 +1,8 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { CashFlowProductWeb } from "@/store/cashFlowProductsWeb/cashFlowProductsWeb.store";
 import type { CashFlowMovementWeb } from "@/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store";
+import type { AttendanceReportRow } from "@/features/reports/api/attendanceReport";
+import type { UncapturedObsSale } from "@/features/cashFlow/api/uncapturedObsSales";
 
 type CashCount = { cantidad: number | ""; denominacion: number };
 type CashReportMovement = Pick<CashFlowMovementWeb, "descripcion" | "importe">;
@@ -22,6 +24,8 @@ export type CashFlowReportPdfProps = {
   diferencial: number;
   observaciones: string;
   products?: CashFlowProductWeb[];
+  asistencias?: AttendanceReportRow[];
+  ventasNoCapturadas?: UncapturedObsSale[];
   documentTitle?: string;
 };
 
@@ -360,6 +364,107 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            VENTAS QUE NO SE CAPTURARON AL FACTURADOR: [ {dateOnly(props.fechaCierre || props.fechaApertura)} - {dateOnly(props.fechaCierre || props.fechaApertura)} ]
+          </Text>
+          <View style={styles.table}>
+            <DataRow
+              cells={["Transacción", "Código", "Cliente", "Importe"]}
+              widths={[29, 19, 37, 15]}
+              alignments={["left", "left", "left", "right"]}
+              header
+            />
+            {props.ventasNoCapturadas?.length ? (
+              props.ventasNoCapturadas.map((item, index) => (
+                <DataRow
+                  key={`${item.transaccion}-${item.codigo}-${index}`}
+                  cells={[item.transaccion, item.codigo, item.cliente, money(item.importe)]}
+                  widths={[29, 19, 37, 15]}
+                  alignments={["left", "left", "left", "right"]}
+                />
+              ))
+            ) : (
+              <DataRow
+                cells={["Sin ventas pendientes", "", "", ""]}
+                widths={[29, 19, 37, 15]}
+                alignments={["left", "left", "left", "right"]}
+              />
+            )}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            REPORTE DE ASISTENCIA DEL DÍA: [ {dateOnly(props.fechaCierre || props.fechaApertura)} - {dateOnly(props.fechaCierre || props.fechaApertura)} ]
+          </Text>
+          <View style={styles.table}>
+            <DataRow
+              cells={[
+                "Nombres",
+                "Ingreso",
+                "Refrigerio",
+                "Retorno.Refr",
+                "Asistencia",
+                "CANT.TDZ",
+              ]}
+              widths={[32, 13, 15, 15, 15, 10]}
+              alignments={[
+                "left",
+                "center",
+                "center",
+                "center",
+                "center",
+                "center",
+              ]}
+              header
+            />
+            {props.asistencias?.length ? (
+              props.asistencias.map((item) => (
+                <DataRow
+                  key={item.id}
+                  cells={[
+                    item.nombres,
+                    item.horaIngreso || "",
+                    item.salidaRefrigerio || "",
+                    item.retornoRefrigerio || "",
+                    item.estadoAsistencia || "",
+                    String(item.cantidadTardanzas ?? 0),
+                  ]}
+                  widths={[32, 13, 15, 15, 15, 10]}
+                  alignments={[
+                    "left",
+                    "center",
+                    "center",
+                    "center",
+                    "center",
+                    "center",
+                  ]}
+                />
+              ))
+            ) : (
+              <DataRow
+                cells={[
+                  "Sin asistencias registradas para este día.",
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                ]}
+                widths={[32, 13, 15, 15, 15, 10]}
+                alignments={[
+                  "left",
+                  "center",
+                  "center",
+                  "center",
+                  "center",
+                  "center",
+                ]}
+              />
+            )}
+          </View>
+        </View>
         <View style={styles.observations}>
           <Text>OBSERVACIONES: {props.observaciones || ""}</Text>
         </View>

@@ -1,10 +1,15 @@
 import DataTable from "@/components/DataTable";
+import { HookForm } from "@/components/forms/HookForm";
+import { HookFormInput } from "@/components/forms/HookFormInput";
 import NavigableNumberInput from "@/components/inputs/NavigableNumberInput";
 import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
+import { fetchUncapturedObsSales } from "@/features/cashFlow/api/uncapturedObsSales";
+import { fetchAttendanceReport } from "@/features/reports/api/attendanceReport";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
+import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { CASH_DENOMINATIONS } from "@/shared/constants/cashDenominations";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -15,6 +20,7 @@ import { pdf } from "@react-pdf/renderer";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
+import { useForm } from "react-hook-form";
 import {
   FilePlus2,
   Lock,
@@ -62,6 +68,36 @@ type SavedReport = {
   observaciones: string;
 };
 type ReportDetail = Pick<Preparation, "monedas" | "ingresos" | "gastos">;
+type AdminKeyForm = { clave: string };
+
+function AdminKeyDialogContent() {
+  const setDialogData = useDialogStore((state) => state.setData);
+  const methods = useForm<AdminKeyForm>({ defaultValues: { clave: "" } });
+
+  return (
+    <HookForm
+      methods={methods}
+      onSubmit={({ clave }) => setDialogData({ clave })}
+      className="space-y-3"
+    >
+      <p className="text-sm text-slate-600">
+        Solo el administrador puede cerrar la caja final.
+      </p>
+      <HookFormInput<AdminKeyForm>
+        name="clave"
+        label="Clave de administrador"
+        type="password"
+        autoComplete="current-password"
+        autoFocus
+        rules={{
+          required: "Solo el administrador puede cerrar la caja final.",
+        }}
+        onChange={(event) => setDialogData({ clave: event.target.value })}
+      />
+    </HookForm>
+  );
+}
+
 const today = () => getLocalDateISO();
 const money = (value: number) => `${Number(value || 0).toFixed(2)}`;
 const BASE_INCOMES = new Set([
@@ -86,6 +122,7 @@ const completeCoins = (monedas: Coin[] = []) =>
 
 export default function CashFinalReportPage() {
   const user = useAuthStore((state) => state.user);
+  const openDialog = useDialogStore((state) => state.openDialog);
   const [view, setView] = useState<"new" | "list" | "detail">("new");
   const [fecha, setFecha] = useState(today);
   const [fechaInicio, setFechaInicio] = useState(() =>
@@ -326,19 +363,23 @@ export default function CashFinalReportPage() {
       ),
     );
 
-  const save = async () => {
-    if (!preparation || !user) return;
+  const save = async (clave: string): Promise<boolean> => {
+    if (!preparation || !user) return false;
+    if (!clave) {
+      toast.error("Solo el administrador puede cerrar la caja final.");
+      return false;
+    }
     if (!preparation.totalObsDisponible) {
       toast.error("No se pudo obtener el monto total del OBS para esta fecha.");
-      return;
+      return false;
     }
     if (totals.difference !== 0 && !observaciones.trim()) {
       toast.error("Ingresa una observación para justificar la diferencia.");
-      return;
+      return false;
     }
     setSaving(true);
     try {
-      const response = await apiRequest<{ ok?: boolean; mensaje?: string }>({
+      const response = await apiRequest<unknown>({
         url:
           editing && reportId
             ? `${API_BASE_URL}/CierreCajaFinal/${reportId}`
@@ -346,6 +387,7 @@ export default function CashFinalReportPage() {
         method: editing && reportId ? "PUT" : "POST",
         data: {
           fecha,
+          claveAdministrador: clave,
           usuarioId: Number(user.id),
           usuario: user.displayName || user.username,
           cajeros: preparation.cajeros,
@@ -371,23 +413,52 @@ export default function CashFinalReportPage() {
           gastos: allExpenseRows,
           monedas: coins,
         },
-        fallback: { ok: false, mensaje: "No se pudo registrar el informe." },
       });
-      const result = response as { ok?: boolean; mensaje?: string };
+      const result = response as {
+        ok?: boolean;
+        mensaje?: string;
+        response?: { data?: { mensaje?: string } };
+      };
       if (!result?.ok)
-        throw new Error(result?.mensaje || "No se pudo registrar el informe.");
+        throw new Error(
+          result?.mensaje ||
+            result?.response?.data?.mensaje ||
+            "No se pudo registrar el informe.",
+        );
       toast.success(result.mensaje || "Informe final registrado.");
       setEditing(false);
       setView("list");
+      return true;
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
           : "No se pudo registrar el informe.",
       );
+      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  const requestSave = () => {
+    if (!preparation || !user) return;
+    if (!preparation.totalObsDisponible) {
+      toast.error("No se pudo obtener el monto total del OBS para esta fecha.");
+      return;
+    }
+    if (totals.difference !== 0 && !observaciones.trim()) {
+      toast.error("Ingresa una observación para justificar la diferencia.");
+      return;
+    }
+
+    openDialog({
+      title: "Validación de administrador",
+      content: <AdminKeyDialogContent />,
+      confirmText: editing ? "Actualizar informe" : "Cerrar caja final",
+      onConfirm: (data) =>
+        save((data as AdminKeyForm | null)?.clave?.trim() ?? ""),
+    });
   };
 
   const viewReport = async (report: SavedReport) => {
@@ -511,6 +582,10 @@ export default function CashFinalReportPage() {
   const generatePdf = async () => {
     if (!preparation || !reportId)
       throw new Error("No se pudo identificar el informe.");
+    const [asistencias, ventasNoCapturadas] = await Promise.all([
+      fetchAttendanceReport(fecha),
+      fetchUncapturedObsSales(fecha),
+    ]);
     return pdf(
       <CashFlowReportPdf
         cajaId={reportId}
@@ -528,6 +603,8 @@ export default function CashFinalReportPage() {
         totalIngresos={totals.expected}
         diferencial={totals.difference}
         observaciones={observaciones}
+        asistencias={asistencias}
+        ventasNoCapturadas={ventasNoCapturadas}
         documentTitle={`Informe final de caja ${reportId}`}
       />,
     ).toBlob();
@@ -667,7 +744,7 @@ export default function CashFinalReportPage() {
               !preparation.totalObsDisponible ||
               (view === "new" && preparation.existe)
             }
-            onClick={() => void save()}
+            onClick={requestSave}
             className="inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-700 disabled:opacity-50"
           >
             <Save size={15} />

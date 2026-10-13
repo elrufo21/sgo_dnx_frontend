@@ -18,6 +18,7 @@ import {
   Truck,
   BarChart3,
   PackageSearch,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   useCallback,
@@ -644,6 +645,7 @@ export default function MainLayout() {
       children: [
         { label: "Reporte de ventas", to: "/reports/sales", icon: <BarChart3 size={18} /> },
         { label: "Reporte de productos", to: "/reports/products", icon: <PackageSearch size={18} /> },
+        { label: "Reporte de asistencia Web", to: "/reports/attendance", icon: <ClipboardCheck size={18} /> },
       ],
     };
     const items: NavItem[] = [
@@ -718,6 +720,7 @@ export default function MainLayout() {
       "/reports": "VENTAS.VER",
       "/reports/sales": "VENTAS.VER",
       "/reports/products": "VENTAS.VER",
+      "/reports/attendance": "VENTAS.VER",
       "/sales/obs_capture": "VENTAS.OBS",
       "/cash_flow_control": "CAJA.CONTROL",
       "/cash-final-report": "CAJA.INFORME_FINAL",
@@ -768,6 +771,7 @@ export default function MainLayout() {
     const overrides = [
       { path: "/reports/sales", title: "Reporte de ventas" },
       { path: "/reports/products", title: "Reporte de productos" },
+      { path: "/reports/attendance", title: "Reporte de asistencia Web" },
       { path: "/sales/order_notes", title: "Nota Pedido" },
     ];
     const override = overrides.find(
