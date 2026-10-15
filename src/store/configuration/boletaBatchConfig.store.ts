@@ -7,13 +7,14 @@ interface BoletaBatchConfigState {
   boletaPorLote: boolean;
   flagCaptura: boolean;
   flagCaja: boolean;
+  flagAsistencia: boolean;
   correosAdmin: string;
   diasMaxDep: number;
   loading: boolean;
   saving: boolean;
   fetchConfig: () => Promise<void>;
   saveConfig: (boletaPorLote: boolean, flagCaptura: boolean) => Promise<boolean>;
-  saveCajaConfig: (flagCaja: boolean, correosAdmin: string, diasMaxDep: number) => Promise<boolean>;
+  saveCajaConfig: (flagCaja: boolean, correosAdmin: string, diasMaxDep: number, flagAsistencia: boolean) => Promise<boolean>;
 }
 
 const AUTH_STORAGE_KEY = "sgo.auth.session";
@@ -32,11 +33,11 @@ const toNonNegativeInt = (value: unknown, fallback = 7) => {
   return Number.isFinite(numeric) && numeric >= 0 ? Math.min(3650, Math.floor(numeric)) : fallback;
 };
 
-const normalizeBooleanFlag = (value: unknown): boolean => {
+const normalizeBooleanFlag = (value: unknown, fallback = false): boolean => {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return Number.isFinite(value) && value !== 0;
   const normalized = normalizeText(value).toLowerCase();
-  if (!normalized) return false;
+  if (!normalized) return fallback;
   return (
     normalized === "1" ||
     normalized === "true" ||
@@ -249,6 +250,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
     boletaPorLote: false,
     flagCaptura: false,
     flagCaja: false,
+    flagAsistencia: true,
     correosAdmin: "",
     diasMaxDep: 7,
     loading: false,
@@ -276,6 +278,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
               resolveFlagCapturaFromSession(),
           ),
           flagCaja: normalizeBooleanFlag(company?.flagCaja ?? company?.FlagCaja),
+          flagAsistencia: normalizeBooleanFlag(company?.flagAsistencia ?? company?.FlagAsistencia, true),
           correosAdmin: normalizeText(company?.correosAdmin ?? company?.CorreosAdmin),
           diasMaxDep: toNonNegativeInt(company?.diasMaxDep ?? company?.DiasMaxDep),
           loading: false,
@@ -331,14 +334,14 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
       }
     },
 
-    saveCajaConfig: async (flagCaja, correosAdmin, diasMaxDep) => {
+    saveCajaConfig: async (flagCaja, correosAdmin, diasMaxDep, flagAsistencia) => {
       const companyId = resolveCompanyId();
       set({ saving: true });
       try {
         const response = await apiRequest<unknown>({
           url: buildApiUrl(`/Compania/${companyId}/caja-configuracion`),
           method: "PATCH",
-          data: { flagCaja, correosAdmin: correosAdmin.trim(), diasMaxDep },
+          data: { flagCaja, correosAdmin: correosAdmin.trim(), diasMaxDep, flagAsistencia },
           fallback: null,
         });
 
@@ -350,6 +353,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
         const record = asRecord(response);
         set({
           flagCaja: normalizeBooleanFlag(record?.flagCaja ?? record?.FlagCaja ?? flagCaja),
+          flagAsistencia: normalizeBooleanFlag(record?.flagAsistencia ?? record?.FlagAsistencia ?? flagAsistencia, true),
           correosAdmin: normalizeText(record?.correosAdmin ?? record?.CorreosAdmin ?? correosAdmin),
           diasMaxDep: toNonNegativeInt(record?.diasMaxDep ?? record?.DiasMaxDep ?? diasMaxDep),
           saving: false,
