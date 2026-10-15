@@ -78,6 +78,7 @@ interface CashFlowState {
   fetchFlows: (range?: { fechaInicio: string; fechaFin: string }) => Promise<void>;
   openCashFlow: (flow: OpenCashFlow) => Promise<{ ok: boolean; mensaje: string }>;
   getActiveCashFlow: (usuarioId: number) => Promise<ActiveCashFlow | null>;
+  hasAnyActiveCashFlow: () => Promise<boolean | null>;
   getCashFlowDetail: (cajaId: number) => Promise<ActiveCashFlow | null>;
   deleteCashFlow: (cajaId: number) => Promise<{ ok: boolean; mensaje: string }>;
   closeCashFlow: (cajaId: number, flow: CloseCashFlow) => Promise<{ ok: boolean; mensaje: string; diferencia: number }>;
@@ -132,6 +133,19 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
       fallback: null,
     });
     return mapActiveCashFlow(response);
+  },
+
+  hasAnyActiveCashFlow: async () => {
+    const response = await apiRequest<unknown>({
+      url: `${API_BASE_URL}/CashFlow/active/exists`,
+      method: "GET",
+      fallback: null,
+    });
+    if (!response || typeof response !== "object") return null;
+    const result = asRecord(response);
+    if (typeof result.existe === "boolean") return result.existe;
+    if (typeof result.exists === "boolean") return result.exists;
+    return null;
   },
 
   getCashFlowDetail: async (cajaId) => {

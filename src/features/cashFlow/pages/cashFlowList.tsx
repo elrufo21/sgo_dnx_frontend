@@ -202,7 +202,7 @@ const CashFlowList = () => {
               </label>
               <button
                 type="button"
-                onClick={buscar}
+                onClick={() => buscar()}
                 disabled={loading}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
                 aria-label="Buscar por fecha"

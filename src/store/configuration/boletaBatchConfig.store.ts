@@ -7,6 +7,7 @@ interface BoletaBatchConfigState {
   boletaPorLote: boolean;
   flagCaptura: boolean;
   flagCaja: boolean;
+  hayCajasAbiertas: boolean | null;
   flagAsistencia: boolean;
   correosAdmin: string;
   diasMaxDep: number;
@@ -250,6 +251,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
     boletaPorLote: false,
     flagCaptura: false,
     flagCaja: false,
+    hayCajasAbiertas: null,
     flagAsistencia: true,
     correosAdmin: "",
     diasMaxDep: 7,
@@ -260,12 +262,23 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
       set({ loading: true });
       try {
         const companyId = resolveCompanyId();
-        const response = await apiRequest<unknown>({
-          url: buildApiUrl("/Compania/list?page=1&pageSize=100"),
-          method: "GET",
-          fallback: null,
-        });
+        const [response, estadoCajas] = await Promise.all([
+          apiRequest<unknown>({
+            url: buildApiUrl("/Compania/list?page=1&pageSize=100"),
+            method: "GET",
+            fallback: null,
+          }),
+          apiRequest<unknown>({
+            url: buildApiUrl(`/Compania/${companyId}/caja-configuracion/estado`),
+            method: "GET",
+            fallback: null,
+          }),
+        ]);
         const company = findCompanyConfig(response, companyId);
+        const estadoRecord = asRecord(estadoCajas);
+        const hayCajasAbiertas = typeof estadoRecord?.hayCajasAbiertas === "boolean"
+          ? estadoRecord.hayCajasAbiertas
+          : null;
         set({
           boletaPorLote: normalizeBooleanFlag(
             company?.boletaPorLote ??
@@ -278,6 +291,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
               resolveFlagCapturaFromSession(),
           ),
           flagCaja: normalizeBooleanFlag(company?.flagCaja ?? company?.FlagCaja),
+          hayCajasAbiertas,
           flagAsistencia: normalizeBooleanFlag(company?.flagAsistencia ?? company?.FlagAsistencia, true),
           correosAdmin: normalizeText(company?.correosAdmin ?? company?.CorreosAdmin),
           diasMaxDep: toNonNegativeInt(company?.diasMaxDep ?? company?.DiasMaxDep),
@@ -347,6 +361,13 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
 
         if (!resolveResponseOk(response)) {
           set({ saving: false });
+          const estadoCajas = await apiRequest<unknown>({
+            url: buildApiUrl(`/Compania/${companyId}/caja-configuracion/estado`),
+            method: "GET",
+            fallback: null,
+          });
+          const estadoRecord = asRecord(estadoCajas);
+          set({ hayCajasAbiertas: typeof estadoRecord?.hayCajasAbiertas === "boolean" ? estadoRecord.hayCajasAbiertas : null });
           return false;
         }
 

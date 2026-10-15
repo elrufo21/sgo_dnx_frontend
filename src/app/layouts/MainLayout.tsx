@@ -91,6 +91,7 @@ export default function MainLayout() {
       "/cash_flow_control",
       "/cash-final-report",
       "/petty-cash-movements",
+      "/sales/obs_capture",
       "/depositos-centro",
     ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
     setOpenMenuGroup(inCash ? "caja" : pathname.startsWith("/reports") ? "reportes" : null);
@@ -631,6 +632,12 @@ export default function MainLayout() {
           state: { resetSearchFilter: true },
         },
         {
+          label: "Extraer Ventas OBS",
+          to: "/sales/obs_capture",
+          icon: <TableProperties size={18} />,
+          state: { resetSearchFilter: true },
+        },
+        {
           label: "Depósitos centros",
           to: "/depositos-centro",
           icon: <Landmark size={18} />,
@@ -669,12 +676,6 @@ export default function MainLayout() {
       },
       reportes,
       caja,
-      {
-        label: "Extraer Ventas OBS",
-        to: "/sales/obs_capture",
-        icon: <TableProperties size={18} />,
-        state: { resetSearchFilter: true },
-      },
       {
         label: "Compras",
         to: "/shopping",

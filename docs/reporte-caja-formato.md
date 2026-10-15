@@ -8,6 +8,8 @@ El conteo centra los valores de la columna **Efectivo**, deja vacíos los valore
 
 El botón para generar el PDF permanece deshabilitado hasta que la caja tenga estado **CERRADA**. La propia acción también valida ese estado para impedir la generación de un reporte con información parcial.
 
+La descarga iniciada desde el formulario y el PDF adjunto por correo usan `DD-MM-AAAA_HH-mm-ss_ID_<CajaId>.pdf`, construido con la fecha y hora de cierre y el identificador de la caja. Los controles nativos del visor PDF se ocultan. Para descargar con ese nombre, se usa el botón **Descargar informe PDF** del formulario.
+
 En el PDF de caja, los bloques de salidas, ventas no capturadas al facturador, asistencias y productos solo se muestran cuando tienen filas. Si no hay datos, se ocultan tanto el título como la tabla y no se imprime una fila de texto indicando que está vacío. El resumen fijo de caja e ingresos permanece visible.
 
 El módulo independiente **Generar informe de caja final** aparece en el sidebar únicamente cuando `Compania.FlagCaja` es `1`; con valor `0` no se muestra. No abre, cierra ni edita cajas. Tiene su propio formulario: fecha, cajeros consolidados, conteo por denominación, pestañas de ingresos/salidas, Sistema OBS, observaciones, diferencial y listado de informes registrados. Solo consolida las cajas que ya están cerradas para la fecha seleccionada. El conteo comparte las once denominaciones base de Control de flujo de caja, por lo que siempre se muestra aunque no exista un conteo previo en la fecha.

@@ -136,7 +136,7 @@ export default function ObsCashierCapturePage() {
   }, []);
 
   const load = useCallback(
-    () => fetchRows(fechaInicio, fechaFin, saleType),
+    (force = false) => fetchRows(fechaInicio, fechaFin, saleType, force),
     [fechaFin, fechaInicio, fetchRows, saleType],
   );
 
@@ -288,7 +288,7 @@ export default function ObsCashierCapturePage() {
             </label>
             <button
               type="button"
-              onClick={() => void load()}
+              onClick={() => void load(true)}
               disabled={loading || saving}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50"
               aria-label="Buscar"
@@ -300,7 +300,7 @@ export default function ObsCashierCapturePage() {
         toolbarAction={
           <button
             type="button"
-            onClick={() => void load()}
+            onClick={() => void load(true)}
             disabled={loading || saving}
             className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >

@@ -5,7 +5,7 @@ import { Mail, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 export default function CashSettingsPage() {
-  const { flagCaja, flagAsistencia, correosAdmin, diasMaxDep, loading, saving, fetchConfig, saveCajaConfig } =
+  const { flagCaja, flagAsistencia, correosAdmin, diasMaxDep, hayCajasAbiertas, loading, saving, fetchConfig, saveCajaConfig } =
     useBoletaBatchConfigStore();
   const [draft, setDraft] = useState<{ flagCaja: boolean; flagAsistencia: boolean; correosAdmin: string; diasMaxDep: number } | null>(null);
   const nextFlagCaja = draft?.flagCaja ?? flagCaja;
@@ -13,6 +13,7 @@ export default function CashSettingsPage() {
   const nextCorreosAdmin = draft?.correosAdmin ?? correosAdmin;
   const nextDiasMaxDep = draft?.diasMaxDep ?? diasMaxDep;
   const hasChanges = nextFlagCaja !== flagCaja || nextFlagAsistencia !== flagAsistencia || nextCorreosAdmin !== correosAdmin || nextDiasMaxDep !== diasMaxDep;
+  const edicionBloqueada = hayCajasAbiertas !== false;
 
   useEffect(() => {
     void fetchConfig();
@@ -26,7 +27,12 @@ export default function CashSettingsPage() {
   const handleSave = useCallback(async () => {
     const ok = await saveCajaConfig(nextFlagCaja, nextCorreosAdmin, nextDiasMaxDep, nextFlagAsistencia);
     if (!ok) {
-      toast.error("No se pudo guardar la configuración de caja.");
+      const hayCajasAbiertasAhora = useBoletaBatchConfigStore.getState().hayCajasAbiertas;
+      toast.error(
+        hayCajasAbiertasAhora
+          ? "Cierra todas las cajas aperturadas antes de modificar la configuración."
+          : "No se pudo guardar la configuración de caja.",
+      );
       return;
     }
     setDraft(null);
@@ -61,6 +67,17 @@ export default function CashSettingsPage() {
         </div>
       </div>
 
+      {hayCajasAbiertas === true && (
+        <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Hay al menos una caja aperturada. Cierra todas las cajas para modificar esta configuración.
+        </div>
+      )}
+      {hayCajasAbiertas === null && !loading && (
+        <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          No se pudo confirmar el estado de las cajas. Actualiza la información antes de modificar la configuración.
+        </div>
+      )}
+
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex items-start gap-3 rounded-lg border border-[#B23636]/20 bg-[#B23636]/5 px-4 py-3">
           <Mail className="mt-0.5 h-5 w-5 shrink-0 text-[#B23636]" />
@@ -73,7 +90,7 @@ export default function CashSettingsPage() {
               <span className="block text-sm font-medium text-slate-800">Permitir múltiples cajas abiertas</span>
               <span className="mt-1 block text-xs text-slate-600">Desactivado: solo una caja abierta. Activado: se permiten varias cajas abiertas.</span>
             </span>
-            <input type="checkbox" className="h-5 w-5 accent-[#B23636]" checked={nextFlagCaja} onChange={(event) => setDraft({ flagCaja: event.target.checked, flagAsistencia: nextFlagAsistencia, correosAdmin: nextCorreosAdmin, diasMaxDep: nextDiasMaxDep })} />
+            <input type="checkbox" className="h-5 w-5 accent-[#B23636]" checked={nextFlagCaja} disabled={edicionBloqueada || loading || saving} onChange={(event) => setDraft({ flagCaja: event.target.checked, flagAsistencia: nextFlagAsistencia, correosAdmin: nextCorreosAdmin, diasMaxDep: nextDiasMaxDep })} />
           </label>
 
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4">
@@ -81,24 +98,24 @@ export default function CashSettingsPage() {
               <span className="block text-sm font-medium text-slate-800">Exigir asistencia</span>
               <span className="mt-1 block text-xs text-slate-600">Activado: ventas web y operaciones de caja requieren asistencia del día. Desactivado: esas operaciones no se bloquean por asistencia.</span>
             </span>
-            <input type="checkbox" className="h-5 w-5 accent-[#B23636]" checked={nextFlagAsistencia} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, flagAsistencia: event.target.checked, correosAdmin: nextCorreosAdmin, diasMaxDep: nextDiasMaxDep })} />
+            <input type="checkbox" className="h-5 w-5 accent-[#B23636]" checked={nextFlagAsistencia} disabled={edicionBloqueada || loading || saving} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, flagAsistencia: event.target.checked, correosAdmin: nextCorreosAdmin, diasMaxDep: nextDiasMaxDep })} />
           </label>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700" htmlFor="correos-admin-caja">Destinatarios del cierre de caja</label>
-            <input id="correos-admin-caja" type="text" value={nextCorreosAdmin} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, flagAsistencia: nextFlagAsistencia, correosAdmin: event.target.value, diasMaxDep: nextDiasMaxDep })} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20" placeholder="correo@empresa.com; otro@empresa.com" />
+            <input id="correos-admin-caja" type="text" value={nextCorreosAdmin} disabled={edicionBloqueada || loading || saving} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, flagAsistencia: nextFlagAsistencia, correosAdmin: event.target.value, diasMaxDep: nextDiasMaxDep })} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20 disabled:cursor-not-allowed disabled:bg-slate-100" placeholder="correo@empresa.com; otro@empresa.com" />
             <p className="text-xs text-slate-500">Separa varios correos con coma o punto y coma. Al registrarlos aparecerá el botón para enviar el PDF del cierre.</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700" htmlFor="dias-max-deposito">Días para validar depósitos principales</label>
-            <input id="dias-max-deposito" type="number" min={0} max={3650} step={1} value={nextDiasMaxDep} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, flagAsistencia: nextFlagAsistencia, correosAdmin: nextCorreosAdmin, diasMaxDep: Math.max(0, Math.min(3650, Number(event.target.value) || 0)) })} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20" />
+            <input id="dias-max-deposito" type="number" min={0} max={3650} step={1} value={nextDiasMaxDep} disabled={edicionBloqueada || loading || saving} onChange={(event) => setDraft({ flagCaja: nextFlagCaja, flagAsistencia: nextFlagAsistencia, correosAdmin: nextCorreosAdmin, diasMaxDep: Math.max(0, Math.min(3650, Number(event.target.value) || 0)) })} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#B23636] focus:ring-2 focus:ring-[#B23636]/20 disabled:cursor-not-allowed disabled:bg-slate-100" />
             <p className="text-xs text-slate-500">La validación cuenta movimientos de depósito en el rango desde hoy menos estos días hasta hoy, incluidos todos sus estados.</p>
           </div>
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button type="button" onClick={handleSave} disabled={loading || saving || !hasChanges} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#B23636] px-4 text-sm font-semibold text-white hover:bg-[#9f2e2e] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={handleSave} disabled={loading || saving || edicionBloqueada || !hasChanges} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#B23636] px-4 text-sm font-semibold text-white hover:bg-[#9f2e2e] disabled:cursor-not-allowed disabled:opacity-60">
             <Save className="h-4 w-4" />
             {saving ? "Guardando..." : "Guardar configuración"}
           </button>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
+import { Download, Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
 import { pdf, PDFViewer } from "@react-pdf/renderer";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
@@ -190,7 +190,7 @@ export default function CashFlowForm({
     closeCashFlow,
     updateCashFlowState,
     sendCashFlowReportEmail,
-    getActiveCashFlow,
+    hasAnyActiveCashFlow,
     getCashFlowDetail,
     deleteCashFlow,
     loading,
@@ -507,6 +507,14 @@ export default function CashFlowForm({
       maximumFractionDigits: 2,
     });
 
+  const nombreArchivoCaja = (fechaCierre = formData.fechaCierre) => {
+    const fechaHora = formatDateTime(fechaCierre)
+      .replaceAll("/", "-")
+      .replaceAll(":", "-")
+      .replace(/\s+/g, "_");
+    return `${fechaHora || "cierre"}_ID_${activeCash?.id ?? viewedCashId}`;
+  };
+
   const generarPdfCaja = async (fechaCierre = formData.fechaCierre) => {
     if (!activeCash) throw new Error("No se pudo cargar la caja.");
 
@@ -535,6 +543,7 @@ export default function CashFlowForm({
         products={products}
         asistencias={asistencias}
         ventasNoCapturadas={ventasNoCapturadas}
+        documentTitle={nombreArchivoCaja(fechaCierre)}
       />,
     ).toBlob();
   };
@@ -553,11 +562,11 @@ export default function CashFlowForm({
       const url = URL.createObjectURL(blob);
 
       if (reportWindow) {
-        reportWindow.location.href = url;
+        reportWindow.location.href = `${url}#toolbar=0`;
       } else {
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Cierre_ID_${activeCash.id}.pdf`;
+        link.download = `${nombreArchivoCaja(fechaCierre)}.pdf`;
         link.click();
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -590,16 +599,13 @@ export default function CashFlowForm({
     try {
       const blob = await generarPdfCaja();
       const fecha = formData.fechaApertura || formData.fechaCierre;
-      const fechaArchivo = fecha
-        ? new Date(fecha).toLocaleDateString("en-GB").replaceAll("/", "-")
-        : "cierre";
       const data = new FormData();
       data.append("cajaId", String(activeCash.id));
       data.append("fechaReporte", fecha);
       data.append("diferencial", String(diferencial));
       data.append(
         "pdf",
-        new File([blob], `${fechaArchivo}_Cierre_ID_${activeCash.id}.pdf`, {
+        new File([blob], `${nombreArchivoCaja()}.pdf`, {
           type: "application/pdf",
         }),
       );
@@ -714,6 +720,13 @@ export default function CashFlowForm({
     toast.success("Caja actualizada correctamente.");
     setIsEditing(false);
     await reloadCashFlow();
+    if (estado.trim().toUpperCase().startsWith("CERR")) {
+      setTicketAfterClose(true);
+      setActiveTab("ticket");
+    } else {
+      setTicketAfterClose(false);
+      setActiveTab("caja");
+    }
   };
 
   const cambiarEstadoCaja = (estado: string) => {
@@ -722,9 +735,13 @@ export default function CashFlowForm({
 
   const alternarEdicion = async () => {
     if (isEditing) return;
-    if (isClosed && activeCash?.usuarioId) {
-      const cajaActiva = await getActiveCashFlow(activeCash.usuarioId);
-      if (cajaActiva && cajaActiva.id !== viewedCashId) {
+    if (isClosed) {
+      const existeCajaActiva = await hasAnyActiveCashFlow();
+      if (existeCajaActiva === null) {
+        toast.error("No se pudo verificar si hay una caja aperturada. Intenta nuevamente.");
+        return;
+      }
+      if (existeCajaActiva) {
         toast.error(
           "Hay una caja aperturada. Ciérrala antes de modificar una caja cerrada.",
         );
@@ -736,7 +753,7 @@ export default function CashFlowForm({
   };
 
   const actualizarSistemaObs = async () => {
-    if (!isViewing || !canEdit) return;
+    if (!isViewing || !canEdit || isClosed) return;
     const sistemaObs = await fetchObsTotal(viewedCashId);
     setFormData((prev) => ({ ...prev, sistemaObs }));
   };
@@ -916,6 +933,16 @@ export default function CashFlowForm({
           </button>
           <button
             type="button"
+            onClick={() => void abrirPdfCaja(null)}
+            disabled={!activeCash || !isClosed || isEditing || isPrinting}
+            className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
+            title={isEditing ? "Bloquea la edición para descargar el informe PDF" : isClosed ? "Descargar informe PDF con nombre de cierre e ID" : "Disponible al cerrar la caja"}
+            aria-label="Descargar informe PDF"
+          >
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+          <button
+            type="button"
             onClick={() => void enviarCorreoCaja()}
             disabled={!activeCash || !isClosed || isEditing || isSendingEmail}
             className="rounded p-1 text-red-100 hover:bg-red-700 hover:text-white disabled:opacity-50"
@@ -936,7 +963,7 @@ export default function CashFlowForm({
               ) : ticketDataError ? (
                 <p className="p-4 text-sm text-red-700">{ticketDataError}</p>
               ) : (
-                <PDFViewer style={{ width: "100%", height: "100%" }}>
+                <PDFViewer showToolbar={false} style={{ width: "100%", height: "100%" }}>
                   <CashFlowReportPdf
                     cajaId={activeCash.id}
                     encargado={activeCash.encargado}
@@ -956,6 +983,7 @@ export default function CashFlowForm({
                     products={ticketProducts}
                     asistencias={ticketAttendance}
                     ventasNoCapturadas={ticketUncapturedSales}
+                    documentTitle={nombreArchivoCaja()}
                   />
                 </PDFViewer>
               )}
@@ -1291,8 +1319,8 @@ export default function CashFlowForm({
                       <button
                         type="button"
                         onClick={() => void actualizarSistemaObs()}
-                        disabled={!isViewing || !canEdit || movementsLoading}
-                        title="Actualizar total desde OBS"
+                        disabled={!isViewing || !canEdit || isClosed || movementsLoading}
+                        title={isClosed ? "No disponible con caja cerrada" : "Actualizar total desde OBS"}
                         className="inline-flex items-center gap-1 font-semibold text-gray-700 hover:text-slate-950 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-60"
                       >
                         Sistema (OBS): <RefreshCw className={`h-3.5 w-3.5 ${movementsLoading ? "animate-spin" : ""}`} />
