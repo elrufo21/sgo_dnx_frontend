@@ -551,6 +551,7 @@ export default function CashFlowForm({
   const abrirPdfCaja = async (
     reportWindow: Window | null,
     fechaCierre?: string,
+    printAfterLoad = false,
   ) => {
     if (!activeCash || isPrinting) {
       reportWindow?.close();
@@ -561,7 +562,27 @@ export default function CashFlowForm({
       const blob = await generarPdfCaja(fechaCierre);
       const url = URL.createObjectURL(blob);
 
-      if (reportWindow) {
+      if (printAfterLoad) {
+        const printFrame = document.createElement("iframe");
+        printFrame.style.position = "fixed";
+        printFrame.style.width = "1px";
+        printFrame.style.height = "1px";
+        printFrame.style.opacity = "0";
+        printFrame.style.pointerEvents = "none";
+        printFrame.onload = () => {
+          const printWindow = printFrame.contentWindow;
+          if (!printWindow) return;
+          printWindow.addEventListener(
+            "afterprint",
+            () => printFrame.remove(),
+            { once: true },
+          );
+          printWindow.focus();
+          printWindow.print();
+        };
+        printFrame.src = `${url}#toolbar=0`;
+        document.body.append(printFrame);
+      } else if (reportWindow) {
         reportWindow.location.href = `${url}#toolbar=0`;
       } else {
         const link = document.createElement("a");
@@ -585,7 +606,7 @@ export default function CashFlowForm({
       return;
     }
 
-    await abrirPdfCaja(window.open("", "_blank"));
+    await abrirPdfCaja(null, undefined, true);
   };
 
   const enviarCorreoCaja = async () => {

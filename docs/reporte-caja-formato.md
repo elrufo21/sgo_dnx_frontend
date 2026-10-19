@@ -8,6 +8,8 @@ El conteo centra los valores de la columna **Efectivo**, deja vacíos los valore
 
 El botón para generar el PDF permanece deshabilitado hasta que la caja tenga estado **CERRADA**. La propia acción también valida ese estado para impedir la generación de un reporte con información parcial.
 
+Al pulsar **Imprimir**, el formulario carga el PDF en un marco oculto y, cuando termina de cargar, invoca el diálogo de impresión de Chrome sin abrir otra pestaña. El botón **Descargar informe PDF** sigue descargando el archivo con el nombre de cierre e ID.
+
 La descarga iniciada desde el formulario y el PDF adjunto por correo usan `DD-MM-AAAA_HH-mm-ss_ID_<CajaId>.pdf`, construido con la fecha y hora de cierre y el identificador de la caja. Los controles nativos del visor PDF se ocultan. Para descargar con ese nombre, se usa el botón **Descargar informe PDF** del formulario.
 
 En el PDF de caja, los bloques de salidas, ventas no capturadas al facturador, asistencias y productos solo se muestran cuando tienen filas. Si no hay datos, se ocultan tanto el título como la tabla y no se imprime una fila de texto indicando que está vacío. El resumen fijo de caja e ingresos permanece visible.

@@ -280,7 +280,8 @@ export default function BoletasSummaryPage() {
   }, [requestSentSummaries]);
 
   const handleSendSummary = useCallback(async () => {
-    if (!filteredRows.length) {
+    const rowsToSend = documents;
+    if (!rowsToSend.length) {
       toast.info(
         isCancelledMode
           ? "No hay boletas anuladas para enviar baja."
@@ -288,6 +289,7 @@ export default function BoletasSummaryPage() {
       );
       return;
     }
+    const sendTotals = calculateBoletaTotals(rowsToSend);
 
     const nextSequence = await fetchNextSummarySequence();
     if (!nextSequence) {
@@ -324,19 +326,19 @@ export default function BoletasSummaryPage() {
     const serieResumen = todayIso.replaceAll("-", "");
     const referenceDateIso =
       toDateOnly(referenceDate) ||
-      toDateOnly(filteredRows[0]?.fechaEmision ?? "") ||
+      toDateOnly(rowsToSend[0]?.fechaEmision ?? "") ||
       todayIso;
 
-    const firstSerieNumero = safeTrim(filteredRows[0]?.serieNumero);
+    const firstSerieNumero = safeTrim(rowsToSend[0]?.serieNumero);
     const lastSerieNumero = safeTrim(
-      filteredRows[filteredRows.length - 1]?.serieNumero,
+      rowsToSend[rowsToSend.length - 1]?.serieNumero,
     );
     const rangoNumeros =
       firstSerieNumero && lastSerieNumero
         ? `${normalizeSerieNumero(firstSerieNumero)} al ${normalizeSerieNumero(lastSerieNumero)}`
         : "";
 
-    const detalleResumen = filteredRows.map((row, index) => {
+    const detalleResumen = rowsToSend.map((row, index) => {
       const dni = safeTrim(row.clienteDni);
       return {
         item: index + 1,
@@ -365,7 +367,7 @@ export default function BoletasSummaryPage() {
       };
     });
 
-    const detalleBaja = filteredRows.map((row, index) => ({
+    const detalleBaja = rowsToSend.map((row, index) => ({
       item: index + 1,
       tipoComprobante: "03",
       nroComprobante: safeTrim(row.serieNumero),
@@ -409,20 +411,20 @@ export default function BoletasSummaryPage() {
           ...payloadBase,
           CODIGO: "RA",
           detalle: detalleBaja,
-          SUBTOTAL: Number(totals.subTotal.toFixed(2)),
-          IGV: Number(totals.igv.toFixed(2)),
-          ICBPER: Number(totals.icbper.toFixed(2)),
-          TOTAL: Number(totals.total.toFixed(2)),
+          SUBTOTAL: Number(sendTotals.subTotal.toFixed(2)),
+          IGV: Number(sendTotals.igv.toFixed(2)),
+          ICBPER: Number(sendTotals.icbper.toFixed(2)),
+          TOTAL: Number(sendTotals.total.toFixed(2)),
         } as BoletaSummarySendBajaPayload)
       : await sendSummary({
           ...payloadBase,
           CODIGO: "RC",
           detalle: detalleResumen,
           RANGO_NUMEROS: rangoNumeros,
-          SUBTOTAL: Number(totals.subTotal.toFixed(2)),
-          IGV: Number(totals.igv.toFixed(2)),
-          ICBPER: Number(totals.icbper.toFixed(2)),
-          TOTAL: Number(totals.total.toFixed(2)),
+          SUBTOTAL: Number(sendTotals.subTotal.toFixed(2)),
+          IGV: Number(sendTotals.igv.toFixed(2)),
+          ICBPER: Number(sendTotals.icbper.toFixed(2)),
+          TOTAL: Number(sendTotals.total.toFixed(2)),
         } as BoletaSummarySendPayload);
     const hasAcceptedFlag = response.aceptado !== null;
     const isSuccess = hasAcceptedFlag
@@ -484,16 +486,12 @@ export default function BoletasSummaryPage() {
   }, [
     fetchDocuments,
     fetchNextSummarySequence,
-    filteredRows,
+    documents,
     isCancelledMode,
     referenceDate,
     sendSummaryBaja,
     sendSummary,
     fetchSentSummaries,
-    totals.icbper,
-    totals.igv,
-    totals.subTotal,
-    totals.total,
   ]);
 
   const handleExportSentExcel = useCallback(async () => {
