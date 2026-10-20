@@ -2,7 +2,10 @@ import DataTable from "@/components/DataTable";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import NavigableNumberInput from "@/components/inputs/NavigableNumberInput";
-import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
+import {
+  CashFlowReportPdf,
+  type CashProductReportRow,
+} from "@/features/cashFlow/components/CashFlowReportPdf";
 import { fetchUncapturedObsSales } from "@/features/cashFlow/api/uncapturedObsSales";
 import { fetchAttendanceReport } from "@/features/reports/api/attendanceReport";
 import { API_BASE_URL } from "@/config";
@@ -48,6 +51,7 @@ type Coin = { denominacion: number; cantidad: number; id?: number };
 type Preparation = {
   fecha: string;
   cajeros: string;
+  productos: CashProductReportRow[];
   totalObs: number;
   totalObsDisponible: boolean;
   sencillo: number;
@@ -152,6 +156,7 @@ export default function CashFinalReportPage() {
   const [reports, setReports] = useState<SavedReport[]>([]);
   const preparationRequest = useRef(0);
   const columnHelper = createColumnHelper<SavedReport>();
+  const productColumnHelper = createColumnHelper<CashProductReportRow>();
 
   const load = async (date: string) => {
     const requestId = ++preparationRequest.current;
@@ -464,12 +469,21 @@ export default function CashFinalReportPage() {
   const viewReport = async (report: SavedReport) => {
     setLoading(true);
     try {
-      const response = await apiRequest<ReportDetail>({
-        url: `${API_BASE_URL}/CierreCajaFinal/${report.id}`,
-        fallback: null,
-      });
+      const [response, preparationResponse] = await Promise.all([
+        apiRequest<ReportDetail>({
+          url: `${API_BASE_URL}/CierreCajaFinal/${report.id}`,
+          fallback: null,
+        }),
+        apiRequest<Preparation>({
+          url: `${API_BASE_URL}/CierreCajaFinal/preparacion?fecha=${report.fecha}`,
+          fallback: null,
+        }),
+      ]);
+      const productPreparation = preparationResponse as Preparation | null;
       if (!response || typeof response !== "object" || !("monedas" in response))
         throw new Error("No se pudo cargar el informe.");
+      if (!productPreparation || !Array.isArray(productPreparation.productos))
+        throw new Error("No se pudo cargar el resumen de productos vendidos.");
       const detail = response as ReportDetail;
       setFecha(report.fecha);
       setOpenedReport(report);
@@ -479,6 +493,7 @@ export default function CashFinalReportPage() {
       setPreparation({
         fecha: report.fecha,
         cajeros: report.cajeros,
+        productos: productPreparation.productos,
         totalObs: report.totalObs,
         totalObsDisponible: true,
         sencillo:
@@ -559,6 +574,23 @@ export default function CashFinalReportPage() {
     }),
     columnHelper.accessor("usuario", { header: "Registró" }),
   ] as unknown as ColumnDef<SavedReport, unknown>[];
+  const productColumns = [
+    productColumnHelper.accessor("codigo", { header: "Código" }),
+    productColumnHelper.accessor("descripcion", { header: "Descripción" }),
+    productColumnHelper.accessor("cantidad", {
+      header: "Cantidad",
+      cell: (info) => money(info.getValue()),
+    }),
+    productColumnHelper.accessor("importe", {
+      header: "Importe S/.",
+      cell: (info) => money(info.getValue()),
+      meta: { align: "right" },
+    }),
+  ] as ColumnDef<CashProductReportRow, unknown>[];
+  const totalProductos = (preparation?.productos ?? []).reduce(
+    (total, product) => total + Number(product.importe || 0),
+    0,
+  );
 
   const panelRows = tab === "income"
     ? [
@@ -593,6 +625,7 @@ export default function CashFinalReportPage() {
         usuario={reportUser}
         fechaApertura={fecha}
         fechaCierre={fecha}
+        products={preparation.productos}
         sistemaObs={preparation.totalObs}
         gastos={allExpenseRows}
         ingresos={totals.incomes}
@@ -640,6 +673,7 @@ export default function CashFinalReportPage() {
       data.append("conteoId", String(reportId));
       data.append("fechaReporte", fecha);
       data.append("diferencial", String(totals.difference));
+      data.append("observacion", observaciones.trim());
       data.append(
         "pdf",
         new File([await generatePdf()], `Informe_final_caja_${reportId}.pdf`, {
@@ -865,6 +899,33 @@ export default function CashFinalReportPage() {
                   </div>
                 </div>
               </div>
+
+              <section className="rounded border border-gray-200 bg-white p-2">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-slate-800">
+                    Productos vendidos del día
+                  </h2>
+                  <span className="text-xs font-semibold text-slate-700">
+                    Total: S/ {money(totalProductos)}
+                  </span>
+                </div>
+                <DataTable
+                  columns={productColumns}
+                  data={preparation?.productos ?? []}
+                  emptyMessage="No hay productos vendidos para esta fecha."
+                  searchPlaceholder="Buscar producto..."
+                  filterKeys={["codigo", "descripcion"]}
+                  initialPageSize={10}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                  tableMaxHeight="40vh"
+                  persistPageSize={false}
+                  footerContent={
+                    <div className="flex justify-end font-semibold">
+                      Total productos vendidos: S/ {money(totalProductos)}
+                    </div>
+                  }
+                />
+              </section>
 
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div className="rounded border border-gray-200 bg-white p-2">

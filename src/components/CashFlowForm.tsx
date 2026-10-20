@@ -214,12 +214,14 @@ export default function CashFlowForm({
   const [ticketDataError, setTicketDataError] = useState("");
   const [isPrinting, setIsPrinting] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [pendingEmailCashId, setPendingEmailCashId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [responsableId, setResponsableId] = useState<number | null>(null);
   const viewedCashId = Number(cajaId);
   const [isEditing, setIsEditing] = useState(
     () => !(Number.isInteger(viewedCashId) && viewedCashId > 0),
   );
+  const closedReportSnapshot = useRef<string | null>(null);
   const sessionUserId = Number(sessionUser?.id);
   const sessionPersonalId = Number(sessionUser?.personalId);
   const normalizeIdentity = (value?: string) => value?.trim().toLowerCase() || "";
@@ -282,12 +284,12 @@ export default function CashFlowForm({
 
   const isViewing = Number.isInteger(viewedCashId) && viewedCashId > 0;
   const reloadCashFlow = useCallback(async () => {
-    if (!isViewing) return;
+    if (!isViewing) return false;
     const [caja, movements] = await Promise.all([
       getCashFlowDetail(viewedCashId),
       fetchMovements(viewedCashId),
     ]);
-    if (!caja) return;
+    if (!caja) return false;
 
     setActiveCash(caja);
     setFormData((prev) => ({
@@ -319,6 +321,7 @@ export default function CashFlowForm({
       },
     }));
     setLoadedCashFlowId(viewedCashId);
+    return true;
   }, [fetchMovements, getCashFlowDetail, isViewing, viewedCashId]);
 
   useEffect(() => {
@@ -515,6 +518,30 @@ export default function CashFlowForm({
     return `${fechaHora || "cierre"}_ID_${activeCash?.id ?? viewedCashId}`;
   };
 
+  const snapshotReporteCaja = () => JSON.stringify({
+    encargado: activeCash?.encargado,
+    usuario: activeCash?.usuario,
+    fechaApertura: formData.fechaApertura,
+    fechaCierre: formData.fechaCierre,
+    sencillo: Number(formData.sencillo || 0),
+    sistemaObs: Number(formData.sistemaObs || 0),
+    observaciones: formData.observaciones.trim(),
+    conteoMonedas: formData.conteoMonedas.map(({ denominacion, cantidad }) => [
+      denominacion,
+      Number(cantidad || 0),
+    ]),
+    ingresos: ingresosCalculados.map(({ id, descripcion, importe }) => [
+      id,
+      descripcion,
+      Number(importe || 0),
+    ]),
+    gastos: formData.gastos.map(({ id, descripcion, importe }) => [
+      id,
+      descripcion,
+      Number(importe || 0),
+    ]),
+  });
+
   const generarPdfCaja = async (fechaCierre = formData.fechaCierre) => {
     if (!activeCash) throw new Error("No se pudo cargar la caja.");
 
@@ -624,6 +651,7 @@ export default function CashFlowForm({
       data.append("cajaId", String(activeCash.id));
       data.append("fechaReporte", fecha);
       data.append("diferencial", String(diferencial));
+      data.append("observacion", formData.observaciones.trim());
       data.append(
         "pdf",
         new File([blob], `${nombreArchivoCaja()}.pdf`, {
@@ -644,6 +672,26 @@ export default function CashFlowForm({
       setIsSendingEmail(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      pendingEmailCashId === null ||
+      activeCash?.id !== pendingEmailCashId ||
+      loadedCashFlowId !== pendingEmailCashId ||
+      !isClosed ||
+      isEditing
+    ) return;
+
+    setPendingEmailCashId(null);
+    void enviarCorreoCaja();
+  }, [
+    activeCash?.id,
+    isClosed,
+    isEditing,
+    loadedCashFlowId,
+    pendingEmailCashId,
+    enviarCorreoCaja,
+  ]);
 
   const abrirCaja = async () => {
     const usuarioId = selectedResponsableId;
@@ -689,9 +737,9 @@ export default function CashFlowForm({
       toast.error("No se pudo cargar la caja para cerrarla.");
       return;
     }
-    const usuarioId = Number(sessionUser?.id);
+    const usuarioId = Number(activeCash.usuarioId);
     if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
-      toast.error("No se pudo identificar al usuario de la sesión.");
+      toast.error("No se pudo identificar al encargado de la caja.");
       return;
     }
 
@@ -713,7 +761,9 @@ export default function CashFlowForm({
       `Caja cerrada. Diferencia: S/ ${result.diferencia.toFixed(2)}`,
     );
     setIsEditing(false);
-    await reloadCashFlow();
+    const cajaRecargada = await reloadCashFlow();
+    if (cajaRecargada) setPendingEmailCashId(activeCash.id);
+    else toast.error("La caja se cerró, pero no se pudo preparar el envío automático del correo.");
     setTicketAfterClose(true);
     setActiveTab("ticket");
   };
@@ -724,6 +774,10 @@ export default function CashFlowForm({
       return;
     }
 
+    const reenviarPorCambios =
+      isClosed &&
+      closedReportSnapshot.current !== null &&
+      closedReportSnapshot.current !== snapshotReporteCaja();
     const result = await updateCashFlowState(activeCash.id, {
       estado,
       montoInicial: Number(formData.sencillo || 0),
@@ -740,14 +794,14 @@ export default function CashFlowForm({
 
     toast.success("Caja actualizada correctamente.");
     setIsEditing(false);
-    await reloadCashFlow();
-    if (estado.trim().toUpperCase().startsWith("CERR")) {
-      setTicketAfterClose(true);
-      setActiveTab("ticket");
-    } else {
-      setTicketAfterClose(false);
-      setActiveTab("caja");
+    const cajaRecargada = await reloadCashFlow();
+    closedReportSnapshot.current = null;
+    if (reenviarPorCambios && cajaRecargada && estado.trim().toUpperCase().startsWith("CERR")) {
+      await enviarCorreoCaja();
+    } else if (reenviarPorCambios && !cajaRecargada) {
+      toast.error("La caja se guardó, pero no se pudo preparar el reenvío automático del correo.");
     }
+    navigate(`/cash_flow_control/create${location.search}`);
   };
 
   const cambiarEstadoCaja = (estado: string) => {
@@ -768,6 +822,7 @@ export default function CashFlowForm({
         );
         return;
       }
+      closedReportSnapshot.current = snapshotReporteCaja();
     }
     setTicketAfterClose(false);
     setIsEditing(true);

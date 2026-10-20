@@ -75,6 +75,7 @@ const mapActiveCashFlow = (value: unknown): ActiveCashFlow | null => {
 interface CashFlowState {
   flows: CashFlow[];
   loading: boolean;
+  error: string | null;
   fetchFlows: (range?: { fechaInicio: string; fechaFin: string }) => Promise<void>;
   openCashFlow: (flow: OpenCashFlow) => Promise<{ ok: boolean; mensaje: string }>;
   getActiveCashFlow: (usuarioId: number) => Promise<ActiveCashFlow | null>;
@@ -89,8 +90,9 @@ interface CashFlowState {
 export const useCashFlowStore = create<CashFlowState>((set, get) => ({
   flows: [],
   loading: false,
+  error: null,
   fetchFlows: async (range) => {
-    set({ loading: true });
+    set({ loading: true, error: null });
     try {
       const query = range
         ? `?${new URLSearchParams(range).toString()}`
@@ -98,9 +100,13 @@ export const useCashFlowStore = create<CashFlowState>((set, get) => ({
       const response = await apiRequest<unknown[]>({
         url: `${API_BASE_URL}/CashFlow${query}`,
         method: "GET",
-        fallback: [],
+        config: { timeout: 30_000 },
       });
-      set({ flows: Array.isArray(response) ? response.map(mapCashFlow) : [] });
+      if (!Array.isArray(response))
+        throw new Error("No se recibió una lista válida de cajas.");
+      set({ flows: response.map(mapCashFlow) });
+    } catch {
+      set({ flows: [], error: "No se pudieron cargar las cajas. Intenta buscar nuevamente." });
     } finally {
       set({ loading: false });
     }

@@ -2,6 +2,8 @@
 
 El PDF de cierre de caja replica los resaltados del escritorio: fecha celeste, encabezado verde intenso para conteo e ingresos, encabezado amarillo para salidas y total amarillo en el conteo. El total de ingresos es amarillo completo; en salidas, la etiqueta es amarilla y el importe verde.
 
+En el resumen del PDF, el importe de **DIFERENCIAL** se muestra rojo cuando es negativo, azul cuando es positivo (sobrante) y negro cuando es cero.
+
 El bloque de responsable mantiene un margen de 5 puntos sobre cada línea de ventas y administrador para separarlas de la fecha y entre sí.
 
 El conteo centra los valores de la columna **Efectivo**, deja vacíos los valores cero y no permite editarlos. Los totales de billetes y monedas se muestran en una tabla de dos filas con bordes, como el escritorio. Las columnas de descripción, incluido su encabezado en el resumen de ventas, se alinean a la izquierda.

@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { BarChart3, Eye, EyeOff, Lock, User } from "lucide-react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -86,7 +86,7 @@ export function LoginPage() {
         position: "relative",
         overflow: "hidden",
         background:
-          "radial-gradient(circle at 20% 20%, #102655 0%, #081633 45%, #040d24 100%)",
+          "radial-gradient(circle at 0% 0%, rgba(190,24,93,0.28), transparent 32%), radial-gradient(circle at 100% 100%, rgba(127,29,29,0.3), transparent 34%), linear-gradient(135deg, #0b0a10, #12111b 55%, #0a0a0f)",
       }}
     >
       <Box
@@ -97,7 +97,7 @@ export function LoginPage() {
           opacity: 0.24,
           pointerEvents: "none",
           backgroundImage:
-            "linear-gradient(to right, rgba(59,130,246,0.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(59,130,246,0.14) 1px, transparent 1px)",
+            "linear-gradient(to right, rgba(244,63,94,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(244,63,94,0.1) 1px, transparent 1px)",
           backgroundSize: "34px 34px",
         }}
       />
@@ -107,28 +107,30 @@ export function LoginPage() {
         sx={{
           position: "relative",
           width: "100%",
-          maxWidth: 840,
+          maxWidth: 1020,
+          minHeight: { md: 500 },
           overflow: "hidden",
-          borderRadius: "18px",
-          border: "1px solid rgba(148,163,184,0.18)",
+          borderRadius: "24px",
+          border: "1px solid rgba(225,29,72,0.6)",
           background:
-            "linear-gradient(135deg, rgba(16,31,64,0.94), rgba(10,24,55,0.94))",
-          boxShadow: "0 16px 42px rgba(2, 6, 23, 0.42)",
+            "linear-gradient(135deg, rgba(23,19,27,0.98), rgba(13,12,19,0.98))",
+          boxShadow: "0 24px 70px rgba(2, 6, 23, 0.58)",
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+          gridTemplateColumns: { xs: "1fr", md: "1.08fr 0.92fr" },
         }}
       >
-        <Box sx={{ position: "relative", minHeight: { xs: 210, md: 420 } }}>
+        <Box sx={{ position: "relative", minHeight: { xs: 220, md: 500 } }}>
           <Box
             component="img"
             src="/logo.png"
-            alt="Marca del sistema"
+            alt="Persona revisando reportes de ventas en una laptop"
             sx={{
               position: "absolute",
               inset: 0,
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              objectPosition: "center 42%",
             }}
           />
           <Box
@@ -136,44 +138,47 @@ export function LoginPage() {
             sx={{
               position: "absolute",
               inset: 0,
+              background:
+                "linear-gradient(90deg, rgba(10,9,15,0.02) 45%, rgba(15,11,18,0.28) 100%), linear-gradient(0deg, rgba(10,9,15,0.45), transparent 45%)",
             }}
           />
         </Box>
 
         <Box
           sx={{
-            px: { xs: 2.5, sm: 3.5 },
-            py: { xs: 3, sm: 3.5 },
+            px: { xs: 2.5, sm: 5, md: 5.5 },
+            py: { xs: 3.5, sm: 5 },
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             background:
-              "linear-gradient(165deg, rgba(14,30,64,0.82), rgba(9,22,49,0.92))",
+              "linear-gradient(165deg, rgba(23,19,27,0.92), rgba(13,12,19,0.98))",
           }}
         >
-          <Box sx={{ width: "100%", maxWidth: 340 }}>
+          <Box sx={{ width: "100%", maxWidth: 390 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
               <Box
                 sx={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: "10px",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#e0f2fe",
-                  background: "linear-gradient(135deg, #3b82f6, #06b6d4)",
-                  boxShadow: "0 6px 16px rgba(14,165,233,0.35)",
+                  width: 58,
+                  height: 58,
+                  flexShrink: 0,
+                  borderRadius: "16px",
+                  color: "#fff1f2",
+                  background: "linear-gradient(135deg, #be123c, #f43f5e)",
+                  boxShadow: "0 8px 22px rgba(225,29,72,0.32)",
                 }}
               >
-                <LogIn size={16} />
+                <BarChart3 size={20} />
               </Box>
               <Box>
                 <Typography
                   component="h1"
                   sx={{
                     color: "#f8fafc",
-                    fontSize: "2.25rem",
+                    fontSize: { xs: "2rem", sm: "2.25rem" },
                     fontWeight: 700,
                     lineHeight: 1,
                   }}
@@ -182,7 +187,7 @@ export function LoginPage() {
                 </Typography>
                 <Typography
                   sx={{
-                    color: "rgba(148,163,184,0.95)",
+                    color: "rgba(203, 195, 205, 0.88)",
                     fontSize: "0.95rem",
                     mt: 0.6,
                   }}
@@ -195,7 +200,7 @@ export function LoginPage() {
             <HookForm
               methods={formMethods}
               onSubmit={handleLoginSubmit}
-              className="mt-5 space-y-3"
+              className="mt-7 space-y-3"
             >
               <Controller
                 name="username"
@@ -217,7 +222,14 @@ export function LoginPage() {
                     inputRef={field.ref}
                     error={!!fieldState.error}
                     helperText={fieldState.error?.message}
-                    InputProps={{ "data-auto-next": "true" }}
+                    InputProps={{
+                      "data-auto-next": "true",
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <User size={18} color="rgba(203,195,205,0.72)" />
+                        </InputAdornment>
+                      ),
+                    }}
                     inputProps={{
                       autoComplete: "one-time-code",
                       autoCorrect: "off",
@@ -230,23 +242,24 @@ export function LoginPage() {
                     }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
-                        height: 44,
-                        borderRadius: "10px",
-                        color: "#e2e8f0",
-                        backgroundColor: "rgba(30,41,59,0.5)",
+                        height: 54,
+                        borderRadius: "12px",
+                        color: "#f1edf2",
+                        backgroundColor: "rgba(24,22,31,0.74)",
+                        "& input": { paddingLeft: "2px" },
                         "& fieldset": {
-                          borderColor: "rgba(148,163,184,0.22)",
+                          borderColor: "rgba(203,195,205,0.2)",
                         },
                         "&:hover fieldset": {
-                          borderColor: "rgba(56,189,248,0.5)",
+                          borderColor: "rgba(244,63,94,0.58)",
                         },
                         "&.Mui-focused fieldset": {
-                          borderColor: "#38bdf8",
-                          boxShadow: "0 0 0 3px rgba(56,189,248,0.22)",
+                          borderColor: "#f43f5e",
+                          boxShadow: "0 0 0 3px rgba(244,63,94,0.2)",
                         },
                       },
                       "& .MuiOutlinedInput-input::placeholder": {
-                        color: "rgba(148,163,184,0.95)",
+                        color: "rgba(203,195,205,0.7)",
                         opacity: 1,
                       },
                       "& .MuiFormHelperText-root": {
@@ -296,7 +309,7 @@ export function LoginPage() {
                             }
                             onClick={() => setShowPassword((prev) => !prev)}
                             edge="end"
-                            sx={{ color: "rgba(148,163,184,0.95)" }}
+                            sx={{ color: "rgba(203,195,205,0.78)" }}
                           >
                             {showPassword ? (
                               <EyeOff size={18} />
@@ -304,6 +317,11 @@ export function LoginPage() {
                               <Eye size={18} />
                             )}
                           </IconButton>
+                        </InputAdornment>
+                      ),
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock size={18} color="rgba(203,195,205,0.72)" />
                         </InputAdornment>
                       ),
                     }}
@@ -322,24 +340,25 @@ export function LoginPage() {
                     }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
-                        height: 44,
-                        borderRadius: "10px",
-                        color: "#e2e8f0",
+                        height: 54,
+                        borderRadius: "12px",
+                        color: "#f1edf2",
                         marginTop: 1,
-                        backgroundColor: "rgba(30,41,59,0.5)",
+                        backgroundColor: "rgba(24,22,31,0.74)",
+                        "& input": { paddingLeft: "2px" },
                         "& fieldset": {
-                          borderColor: "rgba(148,163,184,0.22)",
+                          borderColor: "rgba(203,195,205,0.2)",
                         },
                         "&:hover fieldset": {
-                          borderColor: "rgba(56,189,248,0.5)",
+                          borderColor: "rgba(244,63,94,0.58)",
                         },
                         "&.Mui-focused fieldset": {
-                          borderColor: "#38bdf8",
-                          boxShadow: "0 0 0 3px rgba(56,189,248,0.22)",
+                          borderColor: "#f43f5e",
+                          boxShadow: "0 0 0 3px rgba(244,63,94,0.2)",
                         },
                       },
                       "& .MuiOutlinedInput-input::placeholder": {
-                        color: "rgba(148,163,184,0.95)",
+                        color: "rgba(203,195,205,0.7)",
                         opacity: 1,
                       },
                       "& .MuiFormHelperText-root": {
@@ -373,21 +392,21 @@ export function LoginPage() {
                 fullWidth
                 sx={{
                   mt: 2,
-                  height: 40,
-                  borderRadius: "10px",
+                  height: 54,
+                  borderRadius: "12px",
                   textTransform: "none",
                   fontSize: "0.95rem",
                   fontWeight: 700,
                   color: "#f8fafc",
-                  background: "linear-gradient(90deg, #3b82f6, #06b6d4)",
-                  boxShadow: "0 8px 18px rgba(14, 165, 233, 0.28)",
+                  background: "linear-gradient(100deg, #9f1239, #e11d48 58%, #ef4444)",
+                  boxShadow: "0 10px 24px rgba(190,24,93,0.3)",
                   "&:hover": {
-                    background: "linear-gradient(90deg, #2563eb, #0891b2)",
+                    background: "linear-gradient(100deg, #881337, #be123c 58%, #dc2626)",
                   },
                   "&.Mui-disabled": {
                     color: "rgba(248,250,252,0.8)",
                     background:
-                      "linear-gradient(90deg, rgba(59,130,246,0.65), rgba(6,182,212,0.65))",
+                      "linear-gradient(100deg, rgba(159,18,57,0.68), rgba(225,29,72,0.68) 58%, rgba(239,68,68,0.68))",
                   },
                 }}
               >

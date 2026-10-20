@@ -29,7 +29,7 @@ const getCurrentMonthRange = () => {
 };
 
 const CashFlowList = () => {
-  const { flows, fetchFlows, loading } = useCashFlowStore();
+  const { flows, fetchFlows, loading, error } = useCashFlowStore();
   const navigate = useNavigate();
   const location = useLocation();
   const columnHelper = createColumnHelper<CashFlow>();
@@ -138,7 +138,7 @@ const CashFlowList = () => {
         columns={columns}
         data={flows}
         isLoading={loading}
-        emptyMessage="No hay cajas registradas"
+        emptyMessage={error ?? "No hay cajas registradas"}
         searchPlaceholder="Buscar caja, encargado o estado..."
         filterKeys={["id", "encargado", "estado"]}
         globalFilterValue={search}

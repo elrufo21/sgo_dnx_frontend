@@ -197,7 +197,7 @@ const parseDelimitedDocuments = (rawValue: string): BoletaSummaryDocument[] => {
   if (!normalizedDetail || normalizedDetail === "~") return [];
 
   return normalizedDetail
-    .split("¬")
+    .split(/Â?¬/)
     .map((chunk) => chunk.trim())
     .filter(Boolean)
     .map((chunk, index) => mapDelimitedRow(chunk, index))

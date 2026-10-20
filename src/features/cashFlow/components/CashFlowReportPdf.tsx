@@ -6,6 +6,10 @@ import type { UncapturedObsSale } from "@/features/cashFlow/api/uncapturedObsSal
 
 type CashCount = { cantidad: number | ""; denominacion: number };
 type CashReportMovement = Pick<CashFlowMovementWeb, "descripcion" | "importe">;
+export type CashProductReportRow = Pick<
+  CashFlowProductWeb,
+  "codigo" | "descripcion" | "cantidad" | "importe"
+>;
 
 export type CashFlowReportPdfProps = {
   cajaId: number;
@@ -23,7 +27,7 @@ export type CashFlowReportPdfProps = {
   totalIngresos: number;
   diferencial: number;
   observaciones: string;
-  products?: CashFlowProductWeb[];
+  products?: CashProductReportRow[];
   asistencias?: AttendanceReportRow[];
   ventasNoCapturadas?: UncapturedObsSale[];
   documentTitle?: string;
@@ -284,7 +288,20 @@ export function CashFlowReportPdf(props: CashFlowReportPdfProps) {
             </View>
             <View style={[styles.summaryCell, styles.noBorder]}>
               <Text>DIFERENCIAL</Text>
-              <Text style={[styles.right, { marginTop: 3 }]}>
+              <Text
+                style={[
+                  styles.right,
+                  { marginTop: 3 },
+                  {
+                    color:
+                      props.diferencial < 0
+                        ? "#ff0000"
+                        : props.diferencial > 0
+                          ? "#0000ff"
+                          : "#000000",
+                  },
+                ]}
+              >
                 {money(props.diferencial)}
               </Text>
             </View>
