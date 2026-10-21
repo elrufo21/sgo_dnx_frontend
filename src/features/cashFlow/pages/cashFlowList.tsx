@@ -29,7 +29,7 @@ const getCurrentMonthRange = () => {
 };
 
 const CashFlowList = () => {
-  const { flows, fetchFlows, loading, error } = useCashFlowStore();
+  const { flows, totalRows, fetchFlows, loading, error } = useCashFlowStore();
   const navigate = useNavigate();
   const location = useLocation();
   const columnHelper = createColumnHelper<CashFlow>();
@@ -38,6 +38,7 @@ const CashFlowList = () => {
   const [fechaInicio, setFechaInicio] = useState(() => initialFilters.get("fechaInicio") || defaultRange.fechaInicio);
   const [fechaFin, setFechaFin] = useState(() => initialFilters.get("fechaFin") || defaultRange.fechaFin);
   const [requestedRange, setRequestedRange] = useState(() => ({ fechaInicio, fechaFin }));
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 50 });
   const [search, setSearch] = useState(() => initialFilters.get("buscar") || "");
 
   useEffect(() => {
@@ -60,12 +61,16 @@ const CashFlowList = () => {
       toast.error("La fecha inicio no puede ser mayor que la fecha fin.");
       return;
     }
+    setPagination((previous) => ({ ...previous, page: 1 }));
     setRequestedRange({ fechaInicio: nextFechaInicio, fechaFin: nextFechaFin });
   }, [fechaFin, fechaInicio]);
 
   useEffect(() => {
-    void fetchFlows(requestedRange);
-  }, [fetchFlows, requestedRange]);
+    const timer = window.setTimeout(() => {
+      void fetchFlows({ ...requestedRange, ...pagination, buscar: search });
+    }, search.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchFlows, requestedRange, pagination, search]);
 
   const columns = [
     columnHelper.display({
@@ -142,7 +147,17 @@ const CashFlowList = () => {
         searchPlaceholder="Buscar caja, encargado o estado..."
         filterKeys={["id", "encargado", "estado"]}
         globalFilterValue={search}
-        onGlobalFilterValueChange={setSearch}
+        onGlobalFilterValueChange={(value) => {
+          setSearch(value);
+          setPagination((previous) => ({ ...previous, page: 1 }));
+        }}
+        manualFiltering
+        totalRows={totalRows}
+        initialPageSize={50}
+        persistPageSize={false}
+        paginationPage={pagination.page}
+        paginationPageSize={pagination.pageSize}
+        onPaginationChange={(page, pageSize) => setPagination({ page, pageSize })}
         renderFilters={
           <LocalizationProvider
             dateAdapter={AdapterDayjs}

@@ -65,6 +65,7 @@ interface DataTableProps<T extends RowData> {
   onGlobalFilterValueChange?: (value: string) => void;
   footerContent?: ReactNode;
   totalRows?: number;
+  manualFiltering?: boolean;
   onFilteredDataChange?: (rows: T[]) => void;
   renderHeaderFilterCell?: (columnId: string) => ReactNode;
   rowClassName?: string | ((row: T) => string | undefined);
@@ -163,6 +164,7 @@ export default function DataTable<T extends RowData>({
   onGlobalFilterValueChange,
   footerContent,
   totalRows,
+  manualFiltering = false,
   onFilteredDataChange,
   renderHeaderFilterCell,
   rowClassName,
@@ -270,6 +272,7 @@ export default function DataTable<T extends RowData>({
   }, [globalFilter, globalFilterStorageKey]);
 
   const filteredData = useMemo(() => {
+    if (manualFiltering) return data;
     const terms = normalizeSearchText(globalFilter).split(" ").filter(Boolean);
     if (terms.length === 0) return data;
 
@@ -287,7 +290,7 @@ export default function DataTable<T extends RowData>({
 
       return terms.every((term) => searchableText.includes(term));
     });
-  }, [data, filterKeys, globalFilter]);
+  }, [data, filterKeys, globalFilter, manualFiltering]);
 
   useEffect(() => {
     if (!onFilteredDataChange) return;
@@ -372,7 +375,7 @@ export default function DataTable<T extends RowData>({
   }, [dialogOpen]);
 
   const localTotalCount = filteredData.length;
-  const hasLocalSearch = String(globalFilter ?? "").trim().length > 0;
+  const hasLocalSearch = !manualFiltering && String(globalFilter ?? "").trim().length > 0;
   const externalTotalCount = Number(totalRows);
   const totalCount =
     !hasLocalSearch && Number.isFinite(externalTotalCount)

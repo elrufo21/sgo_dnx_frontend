@@ -64,6 +64,7 @@ export interface ServiceInvoiceListItem {
 }
 
 export interface ServiceInvoiceFilters {
+  buscar?: string;
   estado?: string;
   fechaInicio?: string;
   fechaFin?: string;

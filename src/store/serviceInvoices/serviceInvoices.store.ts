@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { createLatestRequest } from "@/shared/helpers/latestRequest";
 import type {
   ServiceInvoiceFilters,
   ServiceInvoiceCorrelative,
@@ -13,8 +14,11 @@ import type {
   ServiceInvoiceCreditNotePayload,
 } from "@/types/serviceInvoice";
 
+const requestInvoices = createLatestRequest();
+
 interface ServiceInvoicesState {
   invoices: ServiceInvoiceListItem[];
+  totalRows: number;
   loading: boolean;
   sending: boolean;
   correlativeLoading: boolean;
@@ -266,6 +270,7 @@ const buildQuery = (filters?: ServiceInvoiceFilters) => {
   const pageSize = Number(filters?.pageSize ?? 50);
 
   if (estado) params.set("estado", estado);
+  if (filters?.buscar?.trim()) params.set("buscar", filters.buscar.trim());
   if (fechaInicio) params.set("fechaInicio", fechaInicio);
   if (fechaFin) params.set("fechaFin", fechaFin);
   if (Number.isFinite(page) && page > 0) params.set("page", String(page));
@@ -305,13 +310,6 @@ const buildServiceProductsQuery = (filters?: ServiceProductFilters) => {
   return query ? `?${query}` : "";
 };
 
-const sortInvoicesByIdDesc = (
-  invoices: ServiceInvoiceListItem[],
-): ServiceInvoiceListItem[] =>
-  [...invoices].sort(
-    (left, right) => right.compra.compraId - left.compra.compraId,
-  );
-
 const mapCorrelative = (payload: unknown): ServiceInvoiceCorrelative | null => {
   if (!payload || typeof payload !== "object") return null;
   const row = payload as Record<string, unknown>;
@@ -348,6 +346,7 @@ export const summarizeServiceInvoiceDetail = (
 
 export const useServiceInvoicesStore = create<ServiceInvoicesState>((set) => ({
   invoices: [],
+  totalRows: 0,
   loading: false,
   sending: false,
   correlativeLoading: false,
@@ -355,47 +354,30 @@ export const useServiceInvoicesStore = create<ServiceInvoicesState>((set) => ({
   serviceProductsLoading: false,
   error: null,
 
-  fetchInvoices: async (filters) => {
-    set({ loading: true, error: null });
-    try {
-      const response = await apiRequest<unknown>({
-        url: buildApiUrl(`/Nota/facturas-servicio${buildQuery(filters)}`),
-        method: "GET",
-        config: { timeout: 15000 },
-        fallback: [],
-      });
-
-      if (isAxiosLikeError(response)) {
-        const error = response as {
-          message?: string;
-          response?: { status?: number; data?: unknown };
-        };
-        const status = error.response?.status;
-        const message =
-          status === 401
-            ? "Sesion expirada o no autorizada para listar facturas de servicio."
-            : status
-              ? `El API respondio con estado ${status}.`
-              : error.message ||
-                "No hubo respuesta del API de facturas de servicio.";
-
-        set({ invoices: [], loading: false, error: message });
-        return;
+  fetchInvoices: (filters) => {
+    const url = buildApiUrl(`/Nota/facturas-servicio${buildQuery(filters)}`);
+    return requestInvoices(url, async (signal, isCurrent) => {
+      set({ loading: true, error: null });
+      try {
+        const response = await apiRequest<unknown>({
+          url, method: "GET", config: { timeout: 20_000, signal },
+        });
+        if (!isCurrent()) return;
+        if (isAxiosLikeError(response)) {
+          const error = response as { message?: string; code?: string; response?: { data?: { mensaje?: string } } };
+          if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT")
+            throw new Error("La consulta de facturas excedió el tiempo permitido. Intenta nuevamente.");
+          throw new Error(error.response?.data?.mensaje || error.message || "No hubo respuesta del API de facturas de servicio.");
+        }
+        const result = response as { items?: unknown[]; totalRows?: number } | null;
+        if (!result || !Array.isArray(result.items)) throw new Error("La API no devolvió una lista válida de facturas de servicio.");
+        set({ invoices: result.items.map(mapApiItem), totalRows: safeNumber(result.totalRows) });
+      } catch (error) {
+        if (isCurrent()) set({ invoices: [], totalRows: 0, error: error instanceof Error ? error.message : "No se pudo listar las facturas de servicio." });
+      } finally {
+        if (isCurrent()) set({ loading: false });
       }
-
-      const data = parseArrayResponse(response);
-      set({
-        invoices: sortInvoicesByIdDesc(data.map(mapApiItem)),
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      console.error("Error loading service invoices", error);
-      set({
-        loading: false,
-        error: "No se pudo listar las facturas de servicio.",
-      });
-    }
+    });
   },
 
   fetchInvoiceById: async (docuId) => {

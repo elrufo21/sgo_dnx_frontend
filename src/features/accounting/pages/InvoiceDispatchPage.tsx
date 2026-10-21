@@ -5,7 +5,7 @@ import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth/auth.store";
-import { createColumnHelper } from "@tanstack/react-table";
+import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Workbook } from "exceljs";
 import { FileSpreadsheet } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -117,8 +117,10 @@ export default function InvoiceDispatchPage() {
             url: buildApiUrl(`/Nota/facturas-servicio?${query.toString()}`),
             method: "GET",
             config: { timeout: 20000 },
-            fallback: [],
           });
+          if (!response || typeof response !== "object" || !Array.isArray((response as { items?: unknown[] }).items)) {
+            throw new Error("No se pudo cargar una página de documentos pendientes de OSE.");
+          }
           const pageRows = parseArrayResponse(response).map(mapInvoice);
           allRows.push(...pageRows);
           if (pageRows.length < PAGE_SIZE) break;
@@ -285,7 +287,7 @@ export default function InvoiceDispatchPage() {
           <span className="line-clamp-2 min-w-52">{info.getValue() || "-"}</span>
         ),
       }),
-    ],
+    ] as ColumnDef<InvoiceDispatchRow, unknown>[],
     [navigate],
   );
 

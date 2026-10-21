@@ -10,7 +10,6 @@ import dayjs, { type Dayjs } from "dayjs";
 import "dayjs/locale/es";
 import { Eye, FilePlus2, Search } from "lucide-react";
 import DataTable from "@/components/DataTable";
-import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
 import { useServiceInvoicesStore } from "@/store/serviceInvoices/serviceInvoices.store";
@@ -36,7 +35,7 @@ const annulledRowClassName =
   "bg-red-50 text-red-800 border-red-200 hover:bg-red-100/80";
 
 export default function ServiceInvoiceList() {
-  const { invoices, loading, error, fetchInvoices } = useServiceInvoicesStore();
+  const { invoices, totalRows, loading, error, fetchInvoices } = useServiceInvoicesStore();
   const initialRange = useMemo(() => {
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -48,6 +47,9 @@ export default function ServiceInvoiceList() {
     };
   }, []);
   const [estado] = useState("");
+  const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 50 });
+  const [requestedRange, setRequestedRange] = useState({ fechaInicio: initialRange.from, fechaFin: initialRange.to });
   const [fechaInicio, setFechaInicio] = useState(initialRange.from);
   const [fechaFin, setFechaFin] = useState(initialRange.to);
   const fechaInicioRef = useRef(fechaInicio);
@@ -92,20 +94,20 @@ export default function ServiceInvoiceList() {
         return false;
       }
 
-      void fetchInvoices({
-        estado: estadoFilter,
-        fechaInicio: from,
-        fechaFin: to,
-      });
+      setPagination((previous) => ({ ...previous, page: 1 }));
+      setRequestedRange({ fechaInicio: from, fechaFin: to });
       lastFetchedRangeRef.current = { from, to, estado: estadoFilter };
       return true;
     },
-    [fetchInvoices],
+    [],
   );
 
   useEffect(() => {
-    requestInvoicesByRange(fechaInicioRef.current, fechaFinRef.current);
-  }, [requestInvoicesByRange]);
+    const timer = window.setTimeout(() => {
+      void fetchInvoices({ ...requestedRange, ...pagination, estado, buscar: search });
+    }, search.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchInvoices, requestedRange, pagination, estado, search]);
 
   const handleSearch = useCallback(() => {
     requestInvoicesByRange(fechaInicio, fechaFin, estado);
@@ -216,6 +218,17 @@ export default function ServiceInvoiceList() {
         searchPlaceholder="Buscar comprobante o servicio..."
         emptyMessage="No hay facturas de servicio."
         initialPageSize={50}
+        persistPageSize={false}
+        manualFiltering
+        globalFilterValue={search}
+        onGlobalFilterValueChange={(value) => {
+          setSearch(value);
+          setPagination((previous) => ({ ...previous, page: 1 }));
+        }}
+        totalRows={totalRows}
+        paginationPage={pagination.page}
+        paginationPageSize={pagination.pageSize}
+        onPaginationChange={(page, pageSize) => setPagination({ page, pageSize })}
         rowClassName={(row) =>
           isAnnulledInvoice(row) ? annulledRowClassName : undefined
         }

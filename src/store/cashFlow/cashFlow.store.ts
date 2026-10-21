@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { createLatestRequest } from "@/shared/helpers/latestRequest";
 import type { ActiveCashFlow, CashFlow, CloseCashFlow, OpenCashFlow, UpdateCashFlowState } from "@/types/cashFlow";
 import { create } from "zustand";
 
@@ -72,11 +73,25 @@ const mapActiveCashFlow = (value: unknown): ActiveCashFlow | null => {
   };
 };
 
+export interface CashFlowFilters {
+  fechaInicio?: string;
+  fechaFin?: string;
+  page?: number;
+  pageSize?: number;
+  buscar?: string;
+}
+
+const requestFlows = createLatestRequest();
+
 interface CashFlowState {
   flows: CashFlow[];
+  totalRows: number;
+  page: number;
+  pageSize: number;
+  filters: CashFlowFilters;
   loading: boolean;
   error: string | null;
-  fetchFlows: (range?: { fechaInicio: string; fechaFin: string }) => Promise<void>;
+  fetchFlows: (filters?: CashFlowFilters) => Promise<void>;
   openCashFlow: (flow: OpenCashFlow) => Promise<{ ok: boolean; mensaje: string }>;
   getActiveCashFlow: (usuarioId: number) => Promise<ActiveCashFlow | null>;
   hasAnyActiveCashFlow: () => Promise<boolean | null>;
@@ -89,27 +104,47 @@ interface CashFlowState {
 
 export const useCashFlowStore = create<CashFlowState>((set, get) => ({
   flows: [],
+  totalRows: 0,
+  page: 1,
+  pageSize: 50,
+  filters: { page: 1, pageSize: 50 },
   loading: false,
   error: null,
-  fetchFlows: async (range) => {
-    set({ loading: true, error: null });
-    try {
-      const query = range
-        ? `?${new URLSearchParams(range).toString()}`
-        : "";
-      const response = await apiRequest<unknown[]>({
-        url: `${API_BASE_URL}/CashFlow${query}`,
-        method: "GET",
-        config: { timeout: 30_000 },
-      });
-      if (!Array.isArray(response))
-        throw new Error("No se recibió una lista válida de cajas.");
-      set({ flows: response.map(mapCashFlow) });
-    } catch {
-      set({ flows: [], error: "No se pudieron cargar las cajas. Intenta buscar nuevamente." });
-    } finally {
-      set({ loading: false });
-    }
+  fetchFlows: (filters) => {
+    const queryFilters = filters ?? get().filters;
+    const params = new URLSearchParams();
+    params.set("page", String(queryFilters.page ?? 1));
+    params.set("pageSize", String(queryFilters.pageSize ?? 50));
+    if (queryFilters.fechaInicio) params.set("fechaInicio", queryFilters.fechaInicio);
+    if (queryFilters.fechaFin) params.set("fechaFin", queryFilters.fechaFin);
+    if (queryFilters.buscar?.trim()) params.set("buscar", queryFilters.buscar.trim());
+    const url = `${API_BASE_URL}/CashFlow?${params}`;
+    return requestFlows(url, async (signal, isCurrent) => {
+      set({ loading: true, error: null, filters: queryFilters });
+      try {
+        const response = await apiRequest<unknown>({
+          url, method: "GET", config: { timeout: 20_000, signal },
+        });
+        if (!isCurrent()) return;
+        const result = asRecord(response);
+        if (!Array.isArray(result.items)) {
+          const error = asRecord(asRecord(result.response).data);
+          if (result.code === "ECONNABORTED" || result.code === "ETIMEDOUT")
+            throw new Error("La consulta de cajas excedió el tiempo permitido. Intenta nuevamente.");
+          throw new Error(asString(error.mensaje, result.message) || "No se recibió una lista válida de cajas.");
+        }
+        set({
+          flows: result.items.map(mapCashFlow),
+          totalRows: asNumber(result.totalRows),
+          page: asNumber(result.page) || 1,
+          pageSize: asNumber(result.pageSize) || 50,
+        });
+      } catch (error) {
+        if (isCurrent()) set({ flows: [], totalRows: 0, error: error instanceof Error ? error.message : "No se pudieron cargar las cajas." });
+      } finally {
+        if (isCurrent()) set({ loading: false });
+      }
+    });
   },
 
   openCashFlow: async (flow) => {
