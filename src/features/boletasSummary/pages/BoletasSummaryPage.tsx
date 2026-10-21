@@ -1125,7 +1125,7 @@ export default function BoletasSummaryPage() {
             searchPlaceholder="Buscar..."
             onFilteredDataChange={setFilteredRows}
             toolbarAction={
-              <div className="w-full lg:w-auto">
+              <div className="w-full space-y-1 lg:w-auto">
                 <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
                   <span className="text-sm font-medium text-slate-700">
                     Enviar Boletas:
@@ -1164,6 +1164,11 @@ export default function BoletasSummaryPage() {
                         : "Enviar Resumen"}
                   </button>
                 </div>
+                {sendBoletasStatus === "PENDIENTES" && (
+                  <p className="text-xs text-slate-500">
+                    Las boletas emitidas hoy se habilitan para el resumen desde mañana.
+                  </p>
+                )}
               </div>
             }
             renderFilters={

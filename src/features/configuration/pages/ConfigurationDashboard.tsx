@@ -1,4 +1,4 @@
-import { ArrowRight, FileBadge2, KeyRound, Layers3, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, FileBadge2, KeyRound, Layers3, Mail, ShieldCheck, Send, CalendarClock, Percent } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { hasPermission } from "@/shared/security/permissions";
@@ -42,6 +42,27 @@ export default function ConfigurationDashboard() {
       icon: <ShieldCheck className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/permissions",
       permission: "CONFIGURACION.PERMISOS",
+    },
+    {
+      title: "Correo emisor",
+      desc: "Configura la cuenta Gmail que envía los correos del sistema.",
+      icon: <Send className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/email-sender",
+      permission: "CONFIGURACION.PERMISOS",
+    },
+    {
+      title: "Anulaciones y descuentos",
+      desc: "Configura plazos de anulación y descuento máximo.",
+      icon: <Percent className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/ventas-operativas",
+      permission: "CONFIGURACION.VENTAS_BOLETAS",
+    },
+    {
+      title: "Renovaciones",
+      desc: "Actualiza las fechas de renovación de OSE, firma y SOME.",
+      icon: <CalendarClock className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/renovaciones",
+      permission: "CONFIGURACION.FACTURACION",
     },
   ].filter((item) => hasPermission(user, item.permission));
 

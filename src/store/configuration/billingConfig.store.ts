@@ -54,12 +54,13 @@ const resolveCompanyId = (override?: string | number) => {
 const resolveProcessType = (value: unknown): BillingProcessType => {
   const normalized = normalizeText(value).toUpperCase();
   if (normalized === "PRODUCCION" || normalized === "1") return "PRODUCCION";
+  if (normalized === "HOMOLOGACION" || normalized === "HOMOLOGACIÓN" || normalized === "2") return "HOMOLOGACION";
   if (normalized === "BETA" || normalized === "3") return "BETA";
   return "BETA";
 };
 
 const toEntornoValue = (processType: BillingProcessType): number =>
-  processType === "PRODUCCION" ? 1 : 3;
+  processType === "PRODUCCION" ? 1 : processType === "HOMOLOGACION" ? 2 : 3;
 
 const resolvePayloadItem = (payload: unknown): Record<string, unknown> | null => {
   if (!payload) return null;

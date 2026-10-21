@@ -234,7 +234,7 @@ export default function ComputerForm({
               />
               <HookFormInput<ComputerFormValues>
                 name="serieFactura"
-                label="Serie Factura"
+                label="Serie Factura *"
                 placeholder="Ej: FA05"
                 maxLength={4}
                 rules={{
@@ -255,7 +255,7 @@ export default function ComputerForm({
               />
               <HookFormInput<ComputerFormValues>
                 name="serieBoleta"
-                label="Serie Boleta"
+                label="Serie Boleta *"
                 placeholder="Ej: BA01"
                 maxLength={4}
                 rules={{
@@ -276,7 +276,7 @@ export default function ComputerForm({
               />
               <HookFormInput<ComputerFormValues>
                 name="serieNc"
-                label="Serie NC"
+                label="Serie NC *"
                 placeholder="Ej: FZ01"
                 maxLength={4}
                 rules={{
@@ -297,9 +297,14 @@ export default function ComputerForm({
               />
               <HookFormInput<ComputerFormValues>
                 name="ticketera"
-                label="Ticketera"
+                label="Ticketera (opcional)"
                 placeholder="Ej: TICKET-01"
               />
+              <p className="text-sm text-slate-500">
+                Las series y el nombre de la impresora pueden repetirse. Las
+                máquinas que comparten una serie también comparten la numeración
+                de sus comprobantes.
+              </p>
             </div>
           </div>
         </HookForm>

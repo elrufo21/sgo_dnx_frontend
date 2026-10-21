@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
+import { Download, Loader2, Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
 import { pdf, PDFViewer } from "@react-pdf/renderer";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReportPdf";
@@ -961,9 +961,14 @@ export default function CashFlowForm({
             disabled={loading || !canEdit || isSaving}
             className="inline-flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-xs font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
             title={isViewing ? "Guardar" : "Guardar"}
+            aria-busy={isSaving}
           >
-            <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>{isSaving ? "Guardando..." : "Guardar"}</span>
+            {isSaving ? (
+              <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
+            )}
+            <span aria-live="polite">{isSaving ? "Guardando..." : "Guardar"}</span>
           </button>
           {isViewing && (
             <button

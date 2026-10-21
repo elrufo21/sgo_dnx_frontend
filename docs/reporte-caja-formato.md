@@ -1,5 +1,7 @@
 # Formato del reporte de caja
 
+En el listado de **Control de flujo de caja**, las fechas de apertura y cierre recibidas como `DD/MM/AAAA H:mm:ss` se muestran como `DD/MM/AAAA HH:mm:ss`. También se admite la variante heredada que separa los segundos con un espacio. La conversión se hace en el helper compartido de fechas y conserva la hora local enviada por el backend.
+
 El PDF de cierre de caja replica los resaltados del escritorio: fecha celeste, encabezado verde intenso para conteo e ingresos, encabezado amarillo para salidas y total amarillo en el conteo. El total de ingresos es amarillo completo; en salidas, la etiqueta es amarilla y el importe verde.
 
 En el resumen del PDF, el importe de **DIFERENCIAL** se muestra rojo cuando es negativo, azul cuando es positivo (sobrante) y negro cuando es cero.

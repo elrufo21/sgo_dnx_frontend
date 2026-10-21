@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const processOptions: Array<{ value: BillingProcessType; label: string }> = [
   { value: "BETA", label: "BETA" },
+  { value: "HOMOLOGACION", label: "HOMOLOGACIÓN" },
   { value: "PRODUCCION", label: "PRODUCCIÓN" },
 ];
 

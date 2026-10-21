@@ -40,7 +40,7 @@ Los botones para imprimir el informe PDF y enviarlo por correo se habilitan solo
 
 En una caja existente, el candado permite entrar a edición una vez. Mientras el formulario está editándose, el botón queda deshabilitado; vuelve a habilitarse después de guardar correctamente.
 
-El botón Guardar se bloquea al iniciar el envío y permanece deshabilitado hasta que termina la operación. Un bloqueo inmediato también evita que dos clics rápidos envíen dos guardados.
+Al guardar una caja, el botón se deshabilita, cambia su etiqueta a **Guardando...** y muestra un spinner hasta que termina toda la operación. Un bloqueo inmediato también evita que dos clics rápidos envíen dos guardados.
 
 ## Carga del registro
 

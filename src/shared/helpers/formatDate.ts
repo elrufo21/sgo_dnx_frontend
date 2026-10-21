@@ -31,15 +31,41 @@ export const formatDateTime = (value?: string | number | Date | null) => {
   if (!value) return "";
   if (typeof value === "string") {
     const trimmed = value.trim();
-    const legacyDateTime = trimmed.match(
-      /^(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}):(\d{2})\s+(\d{2})$/,
+    const localDateTime = trimmed.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::|\s)(\d{2}))?$/,
     );
-    if (legacyDateTime) {
-      const [, date, hours, minutes, seconds] = legacyDateTime;
-      return `${date} ${pad(Number(hours))}:${minutes}:${seconds}`;
-    }
-    if (/^\d{2}\/\d{2}\/\d{4}( \d{2}:\d{2}:\d{2})?$/.test(trimmed)) {
-      return trimmed;
+    if (localDateTime) {
+      const [
+        ,
+        dayText,
+        monthText,
+        yearText,
+        hourText = "0",
+        minuteText = "0",
+        secondText = "0",
+      ] = localDateTime;
+      const day = Number(dayText);
+      const month = Number(monthText);
+      const year = Number(yearText);
+      const hour = Number(hourText);
+      const minute = Number(minuteText);
+      const second = Number(secondText);
+      const date = new Date(year, month - 1, day, hour, minute, second);
+
+      // Construct locally to preserve the time sent by SQL Server, and reject
+      // invalid calendar values instead of silently rolling them into another day.
+      if (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day &&
+        date.getHours() === hour &&
+        date.getMinutes() === minute &&
+        date.getSeconds() === second
+      ) {
+        const datePart = `${pad(day)}/${pad(month)}/${year}`;
+        if (!localDateTime[4]) return datePart;
+        return `${datePart} ${pad(hour)}:${pad(minute)}:${pad(second)}`;
+      }
     }
   }
 

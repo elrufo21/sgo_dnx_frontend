@@ -1,4 +1,4 @@
-export type BillingProcessType = "BETA" | "PRODUCCION";
+export type BillingProcessType = "BETA" | "HOMOLOGACION" | "PRODUCCION";
 
 export interface BillingConfigSummary {
   hasCertificate: boolean;
