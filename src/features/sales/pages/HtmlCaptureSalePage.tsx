@@ -3293,7 +3293,6 @@ export default function HtmlCaptureSalePage() {
       throw new Error(printMessage);
     }
 
-    toast.success("Impresión enviada.");
   };
 
   const sendTicketEmail = async () => {
@@ -4499,6 +4498,7 @@ export default function HtmlCaptureSalePage() {
       (estado) => safeTrim(estado).toUpperCase() === "PENDIENTE",
     );
   const canVoidViewedNote =
+    isFromOrderNotesView &&
     isExistingRoute &&
     !isLoadingRecord &&
     viewSunatStatus !== null &&
@@ -4508,7 +4508,7 @@ export default function HtmlCaptureSalePage() {
     !isVoidingTicket &&
     (form.condition === "PAGO/VARIOS" ||
       form.docTypeCode === "101" ||
-      (isFromOrderNotesView && canVoidByDeadline)) &&
+      canVoidByDeadline) &&
     ![
       viewSunatStatus?.notaEstado,
       viewSunatStatus?.estadoSunat,
