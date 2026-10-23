@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/auth/auth.store";
 interface BoletaBatchConfigState {
   boletaPorLote: boolean;
   flagCaptura: boolean;
+  listaProductosTabla: boolean;
   flagCaja: boolean;
   hayCajasAbiertas: boolean | null;
   flagAsistencia: boolean;
@@ -250,6 +251,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
   (set) => ({
     boletaPorLote: false,
     flagCaptura: false,
+    listaProductosTabla: false,
     flagCaja: false,
     hayCajasAbiertas: null,
     flagAsistencia: true,
@@ -291,6 +293,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
               resolveFlagCapturaFromSession(),
           ),
           flagCaja: normalizeBooleanFlag(company?.flagCaja ?? company?.FlagCaja),
+          listaProductosTabla: normalizeBooleanFlag(company?.listaProductosTabla ?? company?.ListaProductosTabla),
           hayCajasAbiertas,
           flagAsistencia: normalizeBooleanFlag(company?.flagAsistencia ?? company?.FlagAsistencia, true),
           correosAdmin: normalizeText(company?.correosAdmin ?? company?.CorreosAdmin),

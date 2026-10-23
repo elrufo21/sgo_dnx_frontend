@@ -28,6 +28,7 @@ import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
+import { SaleProductBrowser } from "@/components/sales/SaleProductBrowser";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { buildApiUrl, PRINT_AGENT_BASE_URL, PRINT_AGENT_TOKEN } from "@/config";
 import {
@@ -41,6 +42,7 @@ import {
 } from "@/features/sales/persistence/externalCaptureDraft";
 import { ServiceInvoicePdfDocument } from "@/features/serviceInvoices/components/ServiceInvoicePdf";
 import { resolveCaptureDocumentType } from "@/features/sales/helpers/captureDocument";
+import { productToRow, setSaleProductQuantity, type SaleRow } from "@/features/sales/helpers/saleRows";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
@@ -55,6 +57,7 @@ import { useAuthStore } from "@/store/auth/auth.store";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { useOrderNoteStore } from "@/store/orderNote/orderNote.store";
 import { useProductsStore } from "@/store/products/products.store";
+import { useBoletaBatchConfigStore } from "@/store/configuration/boletaBatchConfig.store";
 import type { Client } from "@/types/customer";
 import type { Product } from "@/types/product";
 import type { PosCartItem } from "@/types/pos";
@@ -67,19 +70,6 @@ type InvoiceDispatchNavigationState = {
     estadoSunat: string;
     filters: { fechaInicio: string; fechaFin: string };
   };
-};
-type SaleRow = {
-  product: Product;
-  code: string;
-  description: string;
-  quantity: number;
-  price: number;
-  cost: number;
-  stock: number;
-  pv: number;
-  sv: number;
-  matched: boolean;
-  valueUm?: number;
 };
 type SaleForm = {
   concept: "MERCADERIA" | "SERVICIO";
@@ -655,22 +645,6 @@ const parseCapture = (html: string): CaptureData => {
     lines,
   };
 };
-const productToRow = (
-  product: Product,
-  quantity: number,
-  matched = true,
-): SaleRow => ({
-  product,
-  code: product.codigo,
-  description: product.nombre,
-  quantity,
-  price: Number(product.preVenta ?? product.preVentaB ?? 0),
-  cost: Number(product.preCosto ?? 0),
-  stock: Number(product.cantidad ?? 0),
-  pv: Number(product.pv ?? 0),
-  sv: Number(product.sv ?? 0),
-  matched,
-});
 const readPositiveId = (...values: unknown[]) => {
   for (const value of values) {
     const id = Number(value);
@@ -756,6 +730,7 @@ export default function HtmlCaptureSalePage() {
   const capturedInvoiceApiClientRef = useRef<Client | null>(null);
   const capturedInvoiceApiRucRef = useRef("");
   const { products, fetchProducts, loading } = useProductsStore();
+  const listaProductosTabla = useBoletaBatchConfigStore((state) => state.listaProductosTabla);
   const {
     clients,
     fetchClients,
@@ -778,6 +753,8 @@ export default function HtmlCaptureSalePage() {
   const [loadedRecordClient, setLoadedRecordClient] = useState<Client | null>(null);
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [manualProductSearch, setManualProductSearch] = useState("");
+  const [productTab, setProductTab] = useState<"PRODUCTOS" | "DETALLE">("PRODUCTOS");
+  const [productSearchVersion, setProductSearchVersion] = useState(0);
   const [manualProductSearchFocused, setManualProductSearchFocused] =
     useState(false);
   const [manualProductIndex, setManualProductIndex] = useState(0);
@@ -922,6 +899,8 @@ export default function HtmlCaptureSalePage() {
     setPendingExternalCapture(null);
     setRows([]);
     setManualProductSearch("");
+    setProductTab("PRODUCTOS");
+    setProductSearchVersion((version) => version + 1);
     setMonthlyPvs(0);
     setLastTicket(null);
     setViewSunatStatus(null);
@@ -1206,9 +1185,34 @@ export default function HtmlCaptureSalePage() {
   ]);
 
   useEffect(() => {
-    if (isReadOnly) return;
+    if (isReadOnly || listaProductosTabla) return;
     if (!products.length) void fetchProducts("");
-  }, [fetchProducts, isReadOnly, products.length]);
+  }, [fetchProducts, isReadOnly, listaProductosTabla, products.length]);
+
+  useEffect(() => {
+    if (!listaProductosTabla) return;
+    void fetchProducts("");
+    setManualProductSearch("");
+    // Refresh on route entry, without refetching when quantities or the search change.
+  }, [fetchProducts, listaProductosTabla, location.key]);
+
+  useEffect(() => {
+    if (listaProductosTabla) setProductTab(isReadOnly || isCapturedSale ? "DETALLE" : "PRODUCTOS");
+  }, [listaProductosTabla, location.key, isReadOnly, isCapturedSale]);
+
+  useEffect(() => {
+    if (!listaProductosTabla) return;
+    const handleEscape = (event: WindowEventMap["keydown"]) => {
+      if (event.key !== "Escape" || event.defaultPrevented || dialogOpen || pagoVariosModalOpen ||
+          (event.target instanceof Element && event.target.closest('[role="dialog"]'))) return;
+      event.preventDefault();
+      setProductTab("DETALLE");
+      setManualProductSearch("");
+      manualProductSearchRef.current?.focus({ preventScroll: true });
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [listaProductosTabla, dialogOpen, pagoVariosModalOpen]);
 
   useEffect(() => {
     let active = true;
@@ -1718,6 +1722,7 @@ export default function HtmlCaptureSalePage() {
     return map;
   }, [products]);
   const filteredManualProducts = useMemo(() => {
+    if (listaProductosTabla) return [];
     const query = normalizeLabelText(manualProductSearch);
     const compactQuery = compactSearchText(manualProductSearch);
     return products
@@ -1731,7 +1736,7 @@ export default function HtmlCaptureSalePage() {
         );
       })
       .slice(0, 20);
-  }, [manualProductSearch, products]);
+  }, [manualProductSearch, products, listaProductosTabla]);
 
   useEffect(() => {
     setManualProductIndex(0);
@@ -2021,7 +2026,7 @@ export default function HtmlCaptureSalePage() {
     [deleteClient, formMethods, selectedClient?.id],
   );
 
-  const handleAddManualProduct = async (selectedProduct?: Product) => {
+  const handleAddManualProduct = async (selectedProduct?: Product, quantity?: number) => {
     if (isReadOnly) {
       toast.error("Este registro solo se puede visualizar.");
       return;
@@ -2068,6 +2073,7 @@ export default function HtmlCaptureSalePage() {
     const shouldAskFreeSaleReason = !freeSaleReasonAsked && rows.length === 0;
     const addProductToSale = () => {
       setRows((current) => {
+        if (quantity !== undefined) return setSaleProductQuantity(current, product, quantity);
         const existing = current.findIndex((row) => row.code === product.codigo);
         if (existing < 0) return [...current, productToRow(product, 1)];
         return current.map((row, index) =>
@@ -2076,7 +2082,7 @@ export default function HtmlCaptureSalePage() {
             : row,
         );
       });
-      setManualProductSearch("");
+      if (quantity === undefined) setManualProductSearch("");
       setManualProductSearchFocused(false);
       setLastTicket(null);
     };
@@ -2183,6 +2189,22 @@ export default function HtmlCaptureSalePage() {
     if (isReadOnly || isCapturedSale) return;
     if (rows.length === 1) clearManualSaleDraft();
     setRows((current) => current.filter((row) => row.code !== code));
+    setLastTicket(null);
+  };
+
+  const handleCatalogQuantityChange = (product: Product, value: string) => {
+    if (isReadOnly || isCapturedSale || isSaving) return;
+    const quantity = value === "" ? 0 : Number(value);
+    if (!Number.isFinite(quantity) || quantity < 0) return;
+    if (quantity === 0) {
+      if (rows.some((row) => row.code === product.codigo)) handleRemoveRow(product.codigo);
+      return;
+    }
+    if (!rows.some((row) => row.code === product.codigo)) {
+      void handleAddManualProduct(product, quantity);
+      return;
+    }
+    setRows((current) => setSaleProductQuantity(current, product, quantity));
     setLastTicket(null);
   };
 
@@ -4715,6 +4737,23 @@ export default function HtmlCaptureSalePage() {
             </div>
           </div>
 
+          {listaProductosTabla && (
+              <SaleProductBrowser
+                key={`${location.key}:${productSearchVersion}`}
+                products={products}
+                rows={rows}
+                loading={loading}
+                disabled={isSaving || isReadOnly || isCapturedSale}
+                autoFocus={!isReadOnly && !isCapturedSale}
+                visible={productTab === "PRODUCTOS"}
+                searchRef={manualProductSearchRef}
+                onShowProducts={() => setProductTab("PRODUCTOS")}
+                onQuantityChange={handleCatalogQuantityChange}
+              />
+          )}
+
+          <div id="sale-detail-panel" role={listaProductosTabla ? "region" : undefined} aria-label={listaProductosTabla ? "Detalle de la venta" : undefined} hidden={listaProductosTabla && productTab !== "DETALLE"}>
+          {!listaProductosTabla && (
           <div className="grid min-w-0 gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
             <div className="relative min-w-0">
               <input
@@ -4795,6 +4834,7 @@ export default function HtmlCaptureSalePage() {
               Agregar
             </button>
           </div>
+          )}
 
           <div className="max-h-[46vh] w-full max-w-full overflow-x-auto overflow-y-auto">
             <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px]">
@@ -4869,7 +4909,13 @@ export default function HtmlCaptureSalePage() {
                           onFocus={(event) =>
                             moveCaretToEnd(event.currentTarget)
                           }
-                          onBlur={() => handleRowPriceBlur(row.code)}
+                          onBlur={() => {
+                            if (listaProductosTabla && (!Number.isFinite(row.quantity) || row.quantity <= 0)) {
+                              handleRemoveRow(row.code);
+                            } else {
+                              handleRowPriceBlur(row.code);
+                            }
+                          }}
                           disabled={isSaving || isReadOnly || isCapturedSale}
                           className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
                         />
@@ -4929,6 +4975,8 @@ export default function HtmlCaptureSalePage() {
           </div>
 
           {/* Totales: barra compacta al pie de la misma tarjeta */}
+          </div>
+
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm">
             <span className="font-semibold text-slate-600">
               Items: {integer(rows.length)}
