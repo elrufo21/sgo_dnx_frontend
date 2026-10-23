@@ -77,7 +77,7 @@ export default function ConfigurationDashboard() {
         </p>
       </section>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 desktop:grid-cols-3">
         {items.map((item) => (
           <button
             type="button"

@@ -5981,7 +5981,7 @@ const PaymentPage = () => {
           {backLabel}
         </Link>
 
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 min-[1405px]:hidden">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 desktop:hidden">
           <div className="rounded-lg border border-slate-200 bg-amber-50 px-3 py-2">
             <p className="text-[11px] uppercase tracking-wide text-slate-500">
               Ítems
@@ -6432,8 +6432,8 @@ const PaymentPage = () => {
         </div>
       )}
       {/* Layout móvil/mediano: tabs combinados + formulario */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr] lg:gap-5 min-[1405px]:hidden">
-        <section className="order-2 space-y-4 md:order-1">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-5 desktop:hidden">
+        <section className="order-2 min-w-0 space-y-4 md:order-1">
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center gap-1 border-b border-slate-200 p-2 bg-slate-50">
               <button
@@ -6469,24 +6469,24 @@ const PaymentPage = () => {
           </div>
         </section>
 
-        <section className="order-1 space-y-4 md:order-2">
+        <section className="order-1 min-w-0 space-y-4 md:order-2">
           {renderForm()}
         </section>
       </div>
 
-      {/* Layout grande: 3 columnas optimizadas */}
-      <div className="hidden min-[1405px]:grid grid-cols-[1.3fr_1.1fr_1fr] gap-5">
+      {/* Desktop compacto: items y formulario; el PDF baja sin ocultar paneles. */}
+      <div className="hidden min-w-0 desktop:grid desktop:grid-cols-[minmax(0,1fr)_minmax(19rem,0.85fr)] 2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,1fr)] gap-4 2xl:gap-5">
         {/* Comprobante PDF */}
-        <section className="space-y-4">
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+        <section className="order-3 min-w-0 space-y-4 2xl:order-1">
+          <div className="min-w-0 bg-white rounded-2xl shadow-lg border border-slate-200 p-3 2xl:p-5">
             {PdfViewerCard}
           </div>
         </section>
 
         {/* Items a cobrar */}
-        <section className="space-y-4">
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200">
+        <section className="order-1 min-w-0 space-y-4 2xl:order-2">
+          <div className="min-w-0 bg-white rounded-2xl shadow-lg border border-slate-200 p-3 2xl:p-5">
+            <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-slate-200">
               <h2 className="text-lg font-bold text-slate-800">
                 Items a cobrar
               </h2>
@@ -6507,7 +6507,7 @@ const PaymentPage = () => {
         </section>
 
         {/* Formulario */}
-        <section className="space-y-3">{renderForm()}</section>
+        <section className="order-2 min-w-0 space-y-3 desktop:col-start-2 desktop:row-start-1 desktop:row-span-2 2xl:order-3 2xl:col-start-auto 2xl:row-start-auto 2xl:row-span-1">{renderForm()}</section>
       </div>
     </div>
   );

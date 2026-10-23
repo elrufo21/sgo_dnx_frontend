@@ -774,10 +774,10 @@ export default function ShoppingFormBase({
           </div>
 
           <div className="p-6 sm:p-7">
-            <div className="grid grid-cols-1 xl:grid-cols-6 gap-4 lg:gap-6 ">
-              <div className="space-y-4 col-span-2  overflow-auto">
+            <div className="grid grid-cols-1 desktop:grid-cols-6 gap-4 lg:gap-6 ">
+              <div className="min-w-0 space-y-4 desktop:col-span-2 overflow-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="col-span-2 space-y-1">
+                  <div className="md:col-span-2 space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="block text-sm font-semibold text-gray-700">
                         Proveedor
@@ -971,7 +971,7 @@ export default function ShoppingFormBase({
                 />
               </div>
 
-              <div className="space-y-3 col-span-4">
+              <div className="min-w-0 space-y-3 desktop:col-span-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <HookFormAutocomplete<ShoppingFormData>
                     name="concepto"

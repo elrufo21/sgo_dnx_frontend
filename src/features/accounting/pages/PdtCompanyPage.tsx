@@ -1319,9 +1319,9 @@ export default function PdtCompanyPage() {
   return (
     <div className="space-y-4 p-3 sm:p-4">
       <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
-        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
-          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 2xl:w-auto 2xl:grid-cols-none 2xl:auto-cols-max 2xl:grid-flow-col 2xl:items-end">
-            <div className="shrink-0">
+        <div className="grid min-w-0 gap-3 desktop:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] 2xl:flex 2xl:flex-row 2xl:items-end 2xl:justify-between 2xl:flex-wrap">
+          <div className="grid min-w-0 w-full grid-cols-1 gap-2 sm:grid-cols-2 desktop:grid-cols-[auto_repeat(2,minmax(0,1fr))] 2xl:w-auto 2xl:grid-cols-none 2xl:auto-cols-max 2xl:grid-flow-col 2xl:items-end">
+            <div className="shrink-0 desktop:row-span-2 2xl:row-span-1">
               <BackArrowButton
                 fallbackTo="/accounting"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-black transition-colors hover:bg-slate-100"
@@ -1368,7 +1368,7 @@ export default function PdtCompanyPage() {
             </button>
           </div>
 
-          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 2xl:w-auto">
+          <div className="grid min-w-0 w-full grid-cols-1 gap-2 sm:grid-cols-3 desktop:grid-cols-1 2xl:w-auto 2xl:grid-cols-3">
             <div className="flex items-center justify-between gap-2 rounded-md border border-slate-300 bg-slate-100 px-2 py-1.5">
               <span className="text-sm font-semibold text-slate-700">
                 PAGO SUNAT S/
@@ -1435,7 +1435,7 @@ export default function PdtCompanyPage() {
           renderHeaderFilterCell={renderSalesHeaderFilterCell}
           toolbarLeading={
             <div className="w-full md:hidden">
-              <div className="flex min-w-max items-end gap-2 overflow-x-auto pb-1">
+              <div className="flex min-w-0 max-w-full items-end gap-2 overflow-x-auto pb-1">
                 {salesFilterFields.map((field) => (
                   <label
                     key={String(field.key)}
@@ -1505,7 +1505,7 @@ export default function PdtCompanyPage() {
           renderHeaderFilterCell={renderPurchaseHeaderFilterCell}
           toolbarLeading={
             <div className="w-full md:hidden">
-              <div className="flex min-w-max items-end gap-2 overflow-x-auto pb-1">
+              <div className="flex min-w-0 max-w-full items-end gap-2 overflow-x-auto pb-1">
                 {purchaseFilterFields.map((field) => (
                   <label
                     key={String(field.key)}

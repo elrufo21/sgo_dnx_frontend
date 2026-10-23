@@ -298,8 +298,8 @@ export default function InvoiceDispatchPage() {
         text="Cargando documentos pendientes de envío..."
       />
       <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid w-full grid-cols-[auto_auto] gap-2 xl:w-auto">
+        <div className="flex flex-col gap-3 desktop:flex-row desktop:items-end desktop:justify-between">
+          <div className="grid w-full grid-cols-[auto_auto] gap-2 desktop:w-auto">
             <div className="shrink-0">
               <BackArrowButton
                 fallbackTo="/accounting"

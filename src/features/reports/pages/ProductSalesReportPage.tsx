@@ -85,7 +85,7 @@ export default function ProductSalesReportPage() {
   return (
     <div className="space-y-3 p-2 sm:p-4">
       <Paper variant="outlined" className="rounded-xl p-3 shadow-sm sm:p-4">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[112px_minmax(240px,1fr)_auto]">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-3 md:grid-cols-[112px_minmax(0,1fr)] desktop:grid-cols-[112px_minmax(0,1fr)_auto]">
           <TextField
             label="Año"
             type="number"
@@ -134,6 +134,7 @@ export default function ProductSalesReportPage() {
             )}
           />
           <ToggleButtonGroup
+            className="justify-self-start md:col-span-2 desktop:col-span-1"
             aria-label="Tipo de gráfica"
             exclusive
             size="small"
@@ -205,10 +206,10 @@ export default function ProductSalesReportPage() {
               </p>
             </Paper>
           </div>
-          <div className="grid items-start gap-3 2xl:grid-cols-[minmax(0,1.7fr)_minmax(460px,1fr)]">
+          <div className="grid min-w-0 items-start gap-3 desktop:grid-cols-[minmax(0,1.3fr)_minmax(19rem,1fr)] 2xl:grid-cols-[minmax(0,1.7fr)_minmax(460px,1fr)]">
             <Paper
               variant="outlined"
-              className="rounded-xl p-3 shadow-sm sm:p-5"
+              className="min-w-0 rounded-xl p-3 shadow-sm sm:p-5"
             >
               <div className="mb-1">
                 <h2 className="text-lg font-semibold text-slate-900">
@@ -245,7 +246,7 @@ export default function ProductSalesReportPage() {
                     },
                   ]}
                   height={370}
-                  margin={{ left: 140, right: 24, top: 16, bottom: 48 }}
+                  margin={{ left: 16, right: 24, top: 16, bottom: 48 }}
                 />
               ) : (
                 <LineChart
@@ -273,14 +274,14 @@ export default function ProductSalesReportPage() {
                   ]}
                   slots={{ mark: ValueLabelMark }}
                   height={370}
-                  margin={{ left: 140, right: 24, top: 16, bottom: 48 }}
+                  margin={{ left: 16, right: 24, top: 16, bottom: 48 }}
                 />
               )}
             </Paper>
             <TableContainer
               component={Paper}
               variant="outlined"
-              className="rounded-xl shadow-sm"
+              className="min-w-0 rounded-xl shadow-sm"
             >
               <Table size="small" aria-label="Ventas y cantidades por mes">
                 <TableHead className="bg-slate-50">

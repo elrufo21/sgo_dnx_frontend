@@ -1403,10 +1403,10 @@ export default function ServiceInvoiceCreate() {
         </section>
       ) : (
         <HookForm methods={methods} onSubmit={onSubmit}>
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
-            <div className="space-y-4">
+          <div className="grid min-w-0 grid-cols-1 gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(16rem,28%)] 2xl:grid-cols-[minmax(0,1fr)_19rem]">
+            <div className="min-w-0 space-y-4">
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
                   <HookFormSelect<ServiceInvoiceFormValues>
                     name="formaPago"
                     label="Forma pago"

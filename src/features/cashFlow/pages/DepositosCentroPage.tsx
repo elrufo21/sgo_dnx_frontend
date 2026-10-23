@@ -403,7 +403,7 @@ export default function DepositosCentroPage() {
 
   return (
     <div className="space-y-4 p-3 sm:p-4">
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(19rem,0.75fr)_minmax(0,1.8fr)]">
+      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(19rem,0.75fr)_minmax(0,1.8fr)]">
         <FormProvider {...form}>
           <form
             onSubmit={form.handleSubmit(save)}
@@ -431,7 +431,7 @@ export default function DepositosCentroPage() {
                 {formatDate(selected.fecha)} · {selected.usuario}
               </p>
             )}
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="grid gap-2 sm:grid-cols-2 desktop:grid-cols-1">
               <HookFormSelect<FormValues>
                 name="movimiento"
                 label="Movimiento"

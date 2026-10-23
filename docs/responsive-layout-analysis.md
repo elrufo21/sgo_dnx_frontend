@@ -1,12 +1,12 @@
-# Análisis de distribución responsive — 2026-10-22
+# Distribución responsive: análisis e implementación — 2026-10-22
 
 ## Objetivo y alcance
 
-Mantener una distribución de escritorio utilizable a partir de 1200 px de ancho del viewport. Reservar el apilamiento general de paneles para anchos inferiores, conservando legibilidad, acceso a acciones y edición de formularios. Este documento propone el trabajo para todo el frontend; no implementa cambios de interfaz.
+Mantener una distribución de escritorio utilizable a partir de 1200 px de ancho del viewport. Reservar el apilamiento general de paneles para anchos inferiores, conservando legibilidad, acceso a acciones y edición de formularios. El ajuste está implementado en el frontend y sus componentes compartidos. No requiere cambios de API o SQL.
 
-El análisis se basa en el código actual y la captura entregada por el usuario. No se realizaron pruebas visuales del navegador a diferentes anchos. La captura no permite determinar por sí sola el viewport CSS real ni el zoom activo.
+El análisis inicial se basó en el código y la captura entregada por el usuario. La implementación se comprobó posteriormente en el navegador con la estructura real de la aplicación y datos simulados; se detalla la cobertura al final. Los anchos corresponden al viewport CSS, no necesariamente a la resolución física del monitor cuando se usa zoom.
 
-## Hallazgos comprobados
+## Hallazgos iniciales, antes de la implementación
 
 | Área | Regla actual | Efecto |
 | --- | --- | --- |
@@ -44,6 +44,47 @@ Con la fuente raíz normal de 16 px, el sidebar abierto ocupa 220 px entre 1024 
 - Revisar alturas de 720/768 px, sidebar abierto/cerrado y zoom de navegador de 100 % y 125 %. El breakpoint se evalúa contra el viewport CSS, no contra la resolución física anunciada por el monitor.
 - Validar con datos y textos largos, filtros completos, selectores abiertos, diálogos, errores y estados de carga. Una tabla vacía no permite detectar todos los problemas.
 
-## Entrega prevista
+## Implementación realizada
 
-Realizar primero los ajustes compartidos y validar Ventas como referencia; luego recorrer los grupos restantes con los mismos criterios. Documentar los cambios y producir nuevos builds de frontend para ICA y COMAS cuando la implementación esté aprobada y terminada. Este trabajo de presentación no requiere cambios de API ni SQL.
+- `src/App.css` define `--breakpoint-desktop: 75rem` (1200 px con tamaño inicial de fuente normal) mediante el tema de Tailwind 4. Se conserva `xl` para ampliar espaciado o buscadores; los cambios estructurales usan `desktop:`. `2xl` conserva mejoras de espacio para pantallas amplias, sin retirar operaciones del escritorio compacto.
+- Estructura global: `MainLayout` permite encoger el contenido con `min-w-0`, mantiene la altura del encabezado con `shrink-0` y limita nombres de usuario largos con elipsis. El canal de scroll reserva un solo espacio vertical en lugar de ambos bordes. El menú mantiene su comportamiento móvil a 768 px y se puede contraer manualmente; sus botones tienen etiquetas accesibles.
+- `DataTable` mantiene sus tarjetas móviles a 768 px, permite distribuir buscador/filtros desde 1200 px y limita sus bloques al ancho disponible. `SearchInput` conserva sus tamaños preferidos sin superar el panel. Los filtros pueden ocupar varias filas cuando el contenido lo necesita.
+- Ventas HTML: desde 1200 px los productos y el formulario permanecen en paralelo. El lateral usa un mínimo de 20rem y un ancho adaptable; llega a 440 px en pantallas amplias. Las tablas densas conservan su scroll horizontal interno; se redujo el espacio de celdas solo en escritorio compacto. Se conserva la búsqueda optimizada y la navegación con Escape.
+- POS: el carrito lateral y el cambio desde la superposición móvil usan 1200 px. Pago POS elimina el umbral aislado de 1405 px: desde 1200 px muestra Items y formulario en paralelo, con el PDF debajo de Items; desde 1536 px utiliza tres columnas. Por debajo de 1200 px mantiene la interacción con pestañas.
+- Facturas de servicio: formulario y resumen lateral desde 1200 px, con lateral adaptable y campos principales en dos columnas en escritorio compacto. La tabla de servicios se desplaza dentro de su contenedor.
+- Compras, proveedores y notas: los componentes compartidos `ShoppingFormBase`, `PurchaseFormBase` y `SendNoteFormBase` usan 1200 px para su separación lateral. Se corrigieron los `col-span` incondicionales de Compras, que creaban columnas implícitas en anchos pequeños.
+- Caja, Caja Chica, Depósitos y listados: sus separaciones laterales, orden y filtros usan el mismo umbral. Apertura/cierre de Caja ya tenían formularios adaptables; reciben las correcciones del contenedor global y de los componentes compartidos.
+- Contabilidad y reportes: PDT mantiene filtros y totales en bloques adaptables; sus filtros móviles se desplazan dentro de su franja. SIRE elimina anchos fijos que sumaban más espacio que el panel. El reporte de productos muestra gráfico y tabla en paralelo desde 1200 px y ajusta el margen del gráfico para no reservar dos veces el espacio del eje. Sus filtros se apilan antes de 1200 px.
+- Dashboards de Ventas, Contabilidad, Mantenimiento y Configuración, despacho de facturas y guías de remisión utilizan el mismo umbral estructural.
+
+## Verificación de la implementación
+
+Se usó un servidor Vite temporal y la estructura real `MainLayout`, incluyendo menú abierto y nombre de usuario largo. Una fixture interceptó las peticiones y proporcionó 25 productos con descripciones largas, un ítem de POS y datos mensuales/comparación SIRE. Las rutas se abrieron mediante el selector de prueba; se inspeccionaron tamaños calculados, scroll y capturas. No se guardaron ventas, no se imprimió y no se accedió a SQL ni a los servicios reales. La fixture y el servidor se retiran al finalizar.
+
+| Comprobación | Resultado |
+| --- | --- |
+| Ventas en 1199 / 1200 px | Una columna / dos columnas. A 1200 px con menú abierto: paneles aproximados de 597 y 320 px. |
+| Ventas en 1279, 1280, 1300, 1366, 1404, 1405, 1440, 1535 y 1536 px | Dos columnas, sin desplazamiento horizontal del contenido principal. |
+| Ventas en 768 y 390 px | Una columna y tabla/tarjetas según las reglas móviles existentes. |
+| Factura nueva/listado, Caja listado/apertura, Caja Chica, Depósitos, Compras, Proveedores, Nota de pedido, POS/Pago, PDT, SIRE, Reportes y dashboards | Recorrido en 1200 px, sin desbordes horizontales de página. |
+| 15 pantallas en 1199, 768 y 390 px | Se detectaron desbordes en filtros PDT móvil y en el filtro del reporte de productos a 768 px; tras corregirlos se repitieron las 45 combinaciones, todas sin desbordes horizontales de página. |
+| SIRE con comparación y reporte de productos con gráfico/tabla poblados | Comprobados en 390, 768, 1199, 1200, 1366 y 1536 px, sin desbordes horizontales. |
+| Pago POS en 1199, 1200, 1404, 1405, 1535 y 1536 px | Interacción compacta coherente; los tres paneles permanecen accesibles desde 1200 px. |
+| Menú contraído a 1200 px; apertura/cierre móvil a 390 px | Funcionales, sin desbordes. |
+| Cantidad en Ventas, motivo OBS y Escape a Detalle a 1200 px | Funcionales; una tabla de 640 px se desplaza dentro del panel de 595 px. |
+
+Comandos ejecutados:
+
+```sh
+npm run build:vercel
+node scripts/verify-responsive-breakpoints.mjs
+node --experimental-strip-types scripts/verify-product-catalog-search.mjs
+node --experimental-strip-types scripts/verify-sale-product-quantities.mjs
+npm run typecheck
+```
+
+El build y los tres scripts de verificación pasaron. `typecheck` mantiene 272 diagnósticos existentes: al comparar sus mensajes con el registro anterior, ignorando números de línea, no se introdujeron diagnósticos nuevos. El build conserva la advertencia de tamaño del bundle. El script responsive comprueba que el CSS compilado incluya el umbral de 75rem y sus utilidades, y que Pago POS no dependa de 1405 px.
+
+Evidencia local en el directorio `sgo_dnx_backend/artifacts`: `responsive-validation-20261022.json`, `responsive-ventas-1200-20261022.png` y `responsive-facturas-1200-20261022.png`. Las capturas contienen datos simulados.
+
+Límites: pruebas locales con datos simulados y zoom normal; no sustituyen una revisión en cada PC con sus datos, navegadores y zoom. Las vistas sin cambios estructurales heredan los ajustes globales/compartidos; no se probaron todas las operaciones de negocio ni todos los diálogos de cada módulo. No se generaron nuevos ZIP de despliegue para ICA/COMAS en este trabajo.

@@ -7,7 +7,7 @@ type SearchInputProps = InputHTMLAttributes<HTMLInputElement> & {
 
 const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   ({ onClear, value, ...props }, ref) => (
-    <div className="relative w-full lg:w-[26rem] xl:w-[34rem]">
+    <div className="relative min-w-0 w-full max-w-full lg:w-[26rem] xl:w-[34rem]">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       <input
         {...props}

@@ -224,7 +224,7 @@ export default function DeliveryGuidePage() {
           </div>
           <div className="mt-4 space-y-3">
             {fields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2 xl:grid-cols-[1.5fr_repeat(5,minmax(0,1fr))_auto]">
+              <div key={field.id} className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2 desktop:grid-cols-[1.5fr_repeat(5,minmax(0,1fr))_auto]">
                 <HookFormInput<DeliveryGuideValues> name={`items.${index}.description`} label="Descripción" rules={{ required: "Ingrese la descripción." }} />
                 <HookFormInput<DeliveryGuideValues> name={`items.${index}.code`} label="Código bien" />
                 <HookFormInput<DeliveryGuideValues> name={`items.${index}.sunatCode`} label="Código SUNAT" />

@@ -1418,8 +1418,8 @@ export default function SireVentasRegistrosPage() {
 
           {compareResponse ? (
             <div className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="min-w-0">
+              <div className="grid min-w-0 gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(16rem,0.65fr)] desktop:items-start">
+                <div className="min-w-0 desktop:col-span-2">
                   <h3 className="text-base font-semibold text-slate-950">
                     Resultado
                   </h3>
@@ -1428,7 +1428,7 @@ export default function SireVentasRegistrosPage() {
                     {compareResponse.tipoCodigo || tipoCodigo}
                   </p>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[720px] xl:grid-cols-[1.3fr_repeat(3,1fr)]">
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2 desktop:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]">
                   <SummaryTile
                     label="Diferencias"
                     value={String(compareSummary.totalDiff)}
@@ -1451,7 +1451,7 @@ export default function SireVentasRegistrosPage() {
                     hint="BD faltante - SIRE faltante"
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-2 xl:w-[360px]">
+                <div className="grid min-w-0 grid-cols-3 gap-2">
                   <SummaryTile
                     label="BD"
                     value={String(compareSummary.totalBd)}

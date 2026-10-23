@@ -213,8 +213,8 @@ export default function PurchaseFormBase({
             </div>
 
             <div className="p-4 sm:p-6 lg:p-8">
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                <div className="w-full space-y-4 xl:col-span-2">
+              <div className="grid grid-cols-1 gap-6 desktop:grid-cols-5">
+                <div className="min-w-0 w-full space-y-4 desktop:col-span-2">
                   <HookFormInput<PurchaseFormValues>
                     data-focus-first
                     name="nombreRazon"
@@ -267,7 +267,7 @@ export default function PurchaseFormBase({
                   />
                 </div>
 
-                <div className="w-full xl:col-span-3">
+                <div className="min-w-0 w-full desktop:col-span-3">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
                     <HookFormSelect<PurchaseFormValues>
                       name="cuentaTemp.entidadBancaria"

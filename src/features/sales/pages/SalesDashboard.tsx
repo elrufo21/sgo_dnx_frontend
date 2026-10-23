@@ -62,7 +62,7 @@ export default function SalesDashboard() {
         </p>
       </section>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 desktop:grid-cols-3">
         {cards.map((card) => (
           <button
             type="button"

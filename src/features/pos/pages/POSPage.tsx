@@ -861,8 +861,8 @@ const POSPage = () => {
         <div></div>
       </header>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <section className="space-y-4 xl:col-span-2">
+      <div className="grid min-w-0 grid-cols-1 gap-5 desktop:grid-cols-[minmax(0,1fr)_minmax(18rem,34%)]">
+        <section className="min-w-0 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex rounded-lg border bg-gray-50 overflow-hidden">
@@ -894,7 +894,7 @@ const POSPage = () => {
             </div>
             <button
               type="button"
-              className="fixed right-3 top-[calc(var(--app-shell-header-h)+0.75rem)] z-30 flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white shadow-lg xl:static xl:z-auto xl:shadow-sm"
+              className="fixed right-3 top-[calc(var(--app-shell-header-h)+0.75rem)] z-30 flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-sm text-white shadow-lg desktop:static desktop:z-auto desktop:shadow-sm"
               onClick={handleCartShortcut}
               aria-label="Abrir carrito"
             >
@@ -1020,13 +1020,13 @@ const POSPage = () => {
           </div>
         </section>
 
-        <section className="hidden xl:block space-y-3 xl:sticky xl:top-0 xl:self-start">
+        <section className="hidden min-w-0 desktop:block space-y-3 desktop:sticky desktop:top-0 desktop:self-start">
           {renderCartPanel()}
         </section>
       </div>
 
       {mobileCartOpen && (
-        <div className="xl:hidden fixed inset-0 z-40">
+        <div className="desktop:hidden fixed inset-0 z-40">
           <button
             type="button"
             className="absolute inset-0 bg-slate-900/45"

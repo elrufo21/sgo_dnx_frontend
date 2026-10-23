@@ -509,11 +509,11 @@ export default function DataTable<T extends RowData>({
   ) : null;
 
   return (
-    <section className={`w-full rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.45)] ${fillAvailableHeight ? "flex h-full min-h-0 flex-col" : ""}`}>
+    <section className={`min-w-0 w-full rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.45)] ${fillAvailableHeight ? "flex h-full min-h-0 flex-col" : ""}`}>
       <div className="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-5">
         {toolbarLayout === "filters-top" ? (
           <div className="flex flex-col gap-3">
-            {toolbarLeading ? <div className="w-full">{toolbarLeading}</div> : null}
+            {toolbarLeading ? <div className="min-w-0 w-full max-w-full">{toolbarLeading}</div> : null}
             <div className="flex w-full flex-wrap items-center justify-between gap-3">
               {searchControl}
               {toolbarAction ? <div className="shrink-0">{toolbarAction}</div> : null}
@@ -521,11 +521,11 @@ export default function DataTable<T extends RowData>({
             {renderFilters ? <div>{renderFilters}</div> : null}
           </div>
         ) : (
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3 desktop:flex-row desktop:flex-wrap desktop:items-center desktop:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 desktop:flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-2.5">
                 {toolbarLeading ? (
-                  <div className="shrink-0">{toolbarLeading}</div>
+                  <div className="min-w-0 max-w-full">{toolbarLeading}</div>
                 ) : null}
                 {searchControl}
                 {toolbarAction ? (
@@ -533,8 +533,8 @@ export default function DataTable<T extends RowData>({
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 xl:justify-end">
-              {renderFilters ? <div className="">{renderFilters}</div> : null}
+            <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 desktop:justify-end">
+              {renderFilters ? <div className="min-w-0 max-w-full">{renderFilters}</div> : null}
             </div>
           </div>
         )}

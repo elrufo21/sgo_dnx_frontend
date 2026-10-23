@@ -4542,7 +4542,7 @@ export default function HtmlCaptureSalePage() {
     formatDateTime(viewedEmissionDateTime || form.emissionDate) || "-";
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
+    <div className="sale-capture-layout mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
       <BlockingSpinner
         show={isLoadingRecord || isApplyingCapture || isResendingOse}
         text={
@@ -4702,7 +4702,7 @@ export default function HtmlCaptureSalePage() {
         </div>
       ) : null}
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_420px] 2xl:grid-cols-[minmax(0,1fr)_440px] xl:items-start">
+      <div className="grid min-w-0 gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(20rem,32%)] 2xl:grid-cols-[minmax(0,1fr)_440px] desktop:items-start">
         {/* Productos capturados */}
         <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
@@ -4837,7 +4837,7 @@ export default function HtmlCaptureSalePage() {
           )}
 
           <div className="max-h-[46vh] w-full max-w-full overflow-x-auto overflow-y-auto">
-            <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px]">
+            <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px] desktop:min-w-[640px] 2xl:min-w-[760px]">
               <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
                 <tr>
                   {[
@@ -5000,7 +5000,7 @@ export default function HtmlCaptureSalePage() {
         </section>
 
         {/* Datos de la venta */}
-        <section className="order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white xl:sticky xl:top-4">
+        <section className="order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white desktop:sticky desktop:top-4">
           {isBlockedViewedNote ? (
             <div className="bg-red-600 px-4 py-2 text-center text-sm font-black tracking-[0.18em] text-white">
               ANULADO

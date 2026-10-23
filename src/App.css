@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --breakpoint-desktop: 75rem;
+}
+
 :root {
   --app-shell-header-h: 4rem;
   --app-shell-main-px: 1.5rem;
@@ -66,7 +70,19 @@ body {
 }
 
 .app-main-scroll {
-  scrollbar-gutter: stable both-edges;
+  scrollbar-gutter: stable;
+}
+
+/* Keep dense sales tables inside their panel in compact desktop layouts. */
+@media (min-width: 75rem) and (max-width: 95.999rem) {
+  .sale-capture-layout #sale-catalog-panel table {
+    min-width: 36rem;
+  }
+
+  .sale-capture-layout #sale-catalog-panel :is(th, td),
+  .sale-capture-layout #sale-detail-panel :is(th, td) {
+    padding-inline: 0.5rem;
+  }
 }
 
 img,

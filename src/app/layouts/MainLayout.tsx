@@ -886,6 +886,7 @@ export default function MainLayout() {
 
           <button
             onClick={() => setOpen(!open)}
+            aria-label={open ? "Contraer menú" : "Expandir menú"}
             className={`ml-auto rounded-md p-2 text-white transition-colors hover:bg-slate-700 ${
               !open ? "absolute right-2 top-1/2 -translate-y-1/2" : ""
             }`}
@@ -933,6 +934,7 @@ export default function MainLayout() {
           <h1 className="text-base font-semibold text-white">DXN VENTAS</h1>
           <button
             onClick={() => setMobileOpen(false)}
+            aria-label="Cerrar menú"
             className="rounded-md p-2 transition-colors hover:bg-slate-700"
           >
             <X size={20} />
@@ -955,13 +957,14 @@ export default function MainLayout() {
         </nav>
       </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="h-[var(--app-shell-header-h)] bg-[#96312a] px-2 text-white shadow sm:px-4 lg:px-5 xl:px-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="h-[var(--app-shell-header-h)] shrink-0 bg-[#96312a] px-2 text-white shadow sm:px-4 lg:px-5 xl:px-6">
           <div className="mx-auto flex h-full w-full max-w-[var(--app-shell-content-max)] items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <button
                 className="rounded-md p-2 transition-colors hover:bg-slate-500 md:hidden"
                 onClick={() => setMobileOpen(true)}
+                aria-label="Abrir menú"
               >
                 <Menu size={20} />
               </button>
@@ -970,7 +973,7 @@ export default function MainLayout() {
               </h2>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
@@ -1007,7 +1010,7 @@ export default function MainLayout() {
                     {userInitial}
                   </div>
                   <div className="hidden min-w-0 sm:flex flex-col text-left leading-tight text-white">
-                    <span className="text-sm font-semibold">
+                    <span className="max-w-[18ch] truncate text-sm font-semibold">
                       {user?.displayName ?? user?.username ?? "Usuario"}
                     </span>
                     <span className="text-[11px] text-slate-200">
@@ -1036,8 +1039,8 @@ export default function MainLayout() {
           </div>
         </header>
 
-        <main className="app-main-scroll flex-1 overflow-y-auto bg-slate-100 px-[var(--app-shell-main-px)] py-[var(--app-shell-main-py)] min-h-0">
-          <div className="mx-auto w-full max-w-[var(--app-shell-content-max)]">
+        <main className="app-main-scroll min-w-0 flex-1 overflow-y-auto bg-slate-100 px-[var(--app-shell-main-px)] py-[var(--app-shell-main-py)] min-h-0">
+          <div className="mx-auto min-w-0 w-full max-w-[var(--app-shell-content-max)]">
             <Outlet />
           </div>
         </main>

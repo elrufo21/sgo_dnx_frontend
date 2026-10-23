@@ -332,9 +332,9 @@ export default function PettyCashMovementPage() {
 
   return (
     <div className="space-y-4 p-3 sm:p-4">
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(22rem,0.8fr)_minmax(0,1.6fr)]">
+      <div className="grid grid-cols-1 items-start gap-4 desktop:grid-cols-[minmax(22rem,0.8fr)_minmax(0,1.6fr)]">
         <FormProvider {...form}>
-          <form onSubmit={form.handleSubmit(save)} className="xl:order-1">
+          <form onSubmit={form.handleSubmit(save)} className="desktop:order-1">
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -532,7 +532,7 @@ export default function PettyCashMovementPage() {
           </form>
         </FormProvider>
 
-        <div className="min-w-0 space-y-4 xl:order-2">
+        <div className="min-w-0 space-y-4 desktop:order-2">
           <div className="flex gap-1 border-b border-slate-200">
             {(["SALIDA", "INGRESO"] as const).map((item) => (
               <button
