@@ -46,7 +46,7 @@ interface DataTableProps<T extends RowData> {
   toolbarLeading?: ReactNode;
   renderFilters?: ReactNode;
   toolbarAction?: ReactNode;
-  toolbarLayout?: "default" | "filters-top";
+  toolbarLayout?: "default" | "filters-top" | "filters-inline";
   isLoading?: boolean;
   emptyMessage?: string;
   searchPlaceholder?: string;
@@ -511,7 +511,24 @@ export default function DataTable<T extends RowData>({
   return (
     <section className={`min-w-0 w-full rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.45)] ${fillAvailableHeight ? "flex h-full min-h-0 flex-col" : ""}`}>
       <div className="shrink-0 border-b border-slate-200 px-4 py-4 sm:px-5">
-        {toolbarLayout === "filters-top" ? (
+        {toolbarLayout === "filters-inline" ? (
+          <div className="data-table-inline-toolbar flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+            {toolbarLeading ? (
+              <div className="shrink-0 [&>div]:!w-auto">{toolbarLeading}</div>
+            ) : null}
+            {searchControl ? (
+              <div className="min-w-[12rem] flex-1 [&>div]:!w-full">
+                {searchControl}
+              </div>
+            ) : null}
+            {toolbarAction ? (
+              <div className="shrink-0">{toolbarAction}</div>
+            ) : null}
+            {renderFilters ? (
+              <div className="shrink-0 [&>div]:!w-auto">{renderFilters}</div>
+            ) : null}
+          </div>
+        ) : toolbarLayout === "filters-top" ? (
           <div className="flex flex-col gap-3">
             {toolbarLeading ? <div className="min-w-0 w-full max-w-full">{toolbarLeading}</div> : null}
             <div className="flex w-full flex-wrap items-center justify-between gap-3">

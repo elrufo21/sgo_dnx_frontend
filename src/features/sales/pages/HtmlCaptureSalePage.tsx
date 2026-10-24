@@ -167,7 +167,10 @@ type PagoVariosDetailResponse = {
 };
 type PagoVariosTab = "PENDIENTES" | "REALIZADOS";
 type PagoVariosDeleteKeyForm = { clave: string };
-type ManualSaleType = "VENTA LIBRE" | "POR PASAR AL OBS";
+type ManualSaleType =
+  | "VENTA LIBRE"
+  | "POR PASAR AL OBS"
+  | "FACTURA MANUAL";
 type SaleValidationError = { message: string; field?: keyof SaleForm };
 
 const DOC_CONFIG = {
@@ -754,6 +757,7 @@ export default function HtmlCaptureSalePage() {
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [manualProductSearch, setManualProductSearch] = useState("");
   const [productTab, setProductTab] = useState<"PRODUCTOS" | "DETALLE">("PRODUCTOS");
+  const [captureSection, setCaptureSection] = useState<"PRODUCTOS" | "PAGO">("PRODUCTOS");
   const [productSearchVersion, setProductSearchVersion] = useState(0);
   const [manualProductSearchFocused, setManualProductSearchFocused] =
     useState(false);
@@ -847,7 +851,7 @@ export default function HtmlCaptureSalePage() {
     ? "VENTA"
     : manualSaleType === "POR PASAR AL OBS"
       ? "POR PASAR"
-      : "VENTA LIBRE";
+      : manualSaleType;
 
   useEffect(() => {
     if (dialogOpen || pagoVariosModalOpen) {
@@ -1109,9 +1113,11 @@ export default function HtmlCaptureSalePage() {
         setRows(rowsFromDatabase);
         setMonthlyPvs(0);
         setManualSaleType(
-          conceptoOBS.includes("POR PASAR")
-            ? "POR PASAR AL OBS"
-            : "VENTA LIBRE",
+          conceptoOBS === "FACTURA MANUAL"
+            ? "FACTURA MANUAL"
+            : conceptoOBS.includes("POR PASAR")
+              ? "POR PASAR AL OBS"
+              : "VENTA LIBRE",
         );
         setCorrelative({
           serie,
@@ -1201,14 +1207,22 @@ export default function HtmlCaptureSalePage() {
   }, [listaProductosTabla, location.key, isReadOnly, isCapturedSale]);
 
   useEffect(() => {
+    setCaptureSection("PRODUCTOS");
+  }, [location.key]);
+
+  useEffect(() => {
     if (!listaProductosTabla) return;
     const handleEscape = (event: WindowEventMap["keydown"]) => {
       if (event.key !== "Escape" || event.defaultPrevented || dialogOpen || pagoVariosModalOpen ||
           (event.target instanceof Element && event.target.closest('[role="dialog"]'))) return;
       event.preventDefault();
       setProductTab("DETALLE");
+      setCaptureSection("PRODUCTOS");
       setManualProductSearch("");
-      manualProductSearchRef.current?.focus({ preventScroll: true });
+      window.setTimeout(
+        () => manualProductSearchRef.current?.focus({ preventScroll: true }),
+        0,
+      );
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
@@ -2114,6 +2128,15 @@ export default function HtmlCaptureSalePage() {
                   onChange={() => setManualSaleType("VENTA LIBRE")}
                 />
                 VENTA LIBRE (SIN CODIGO)
+              </label>
+              <label className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="free-sale-reason"
+                  defaultChecked={manualSaleType === "FACTURA MANUAL"}
+                  onChange={() => setManualSaleType("FACTURA MANUAL")}
+                />
+                FACTURA MANUAL
               </label>
             </div>
           </div>
@@ -4540,6 +4563,42 @@ export default function HtmlCaptureSalePage() {
     );
   const viewedEmissionDateTimeLabel =
     formatDateTime(viewedEmissionDateTime || form.emissionDate) || "-";
+  const saleTypeBadge = (
+    <div className="shrink-0 rounded-md border border-red-200 bg-red-50 px-4 py-2">
+      <p className="text-[10px] font-semibold uppercase text-red-300">
+        Tipo venta
+      </p>
+      <p className="text-center text-sm font-black uppercase text-red-700">
+        {saleType}
+      </p>
+    </div>
+  );
+  const pvsMetrics = (
+    <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
+      <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase text-slate-400">
+          PVS venta
+        </p>
+        <p className="text-right text-base font-semibold tabular-nums text-slate-800">
+          {money(totals.pv)}
+        </p>
+      </div>
+      <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase text-blue-600">
+          PVS mes
+        </p>
+        <p className="text-right text-base font-semibold tabular-nums text-slate-800">
+          {money(monthlyPvs)}
+        </p>
+      </div>
+    </div>
+  );
+  const responsiveSaleIndicators = (
+    <div className="flex min-w-0 flex-wrap items-center gap-2 desktop:hidden">
+      {saleTypeBadge}
+      {pvsMetrics}
+    </div>
+  );
 
   return (
     <div className="sale-capture-layout mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
@@ -4650,9 +4709,29 @@ export default function HtmlCaptureSalePage() {
         </div>
       </div>
 
-      {/* Barra de acciones */}
-      {!isReadOnly ? (
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+      {/* Navegación compacta y acciones en una sola fila */}
+      <div className="sale-capture-actionbar flex min-w-0 flex-wrap items-center gap-3">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1 desktop:hidden" role="group" aria-label="Secciones de captura de venta">
+          <button
+            type="button"
+            aria-pressed={captureSection === "PRODUCTOS"}
+            onClick={() => setCaptureSection("PRODUCTOS")}
+            className={`min-h-10 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${captureSection === "PRODUCTOS" ? "bg-[#96312a] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+          >
+            Productos y carrito
+          </button>
+          <button
+            type="button"
+            aria-pressed={captureSection === "PAGO"}
+            onClick={() => setCaptureSection("PAGO")}
+            className={`min-h-10 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${captureSection === "PAGO" ? "bg-[#96312a] text-white" : "text-slate-600 hover:bg-slate-100"}`}
+          >
+            Datos de pago
+          </button>
+        </div>
+
+        {!isReadOnly ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 desktop:ml-auto">
           <input
             ref={fileInputRef}
             type="file"
@@ -4700,41 +4779,18 @@ export default function HtmlCaptureSalePage() {
             {isSaving ? "Confirmando..." : "Confirmar"}
           </button>
         </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <div className="grid min-w-0 gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(20rem,32%)] 2xl:grid-cols-[minmax(0,1fr)_440px] desktop:items-start">
         {/* Productos capturados */}
-        <section className="order-1 min-w-0 rounded-lg border border-slate-200 bg-white">
+        <section className={`order-1 min-w-0 rounded-lg border border-slate-200 bg-white ${captureSection === "PAGO" ? "hidden desktop:block" : ""}`}>
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
-            <h2 className="mr-auto">
-              <span className="block rounded-md border border-red-200 bg-red-50 px-4 py-2">
-                <span className="block text-[10px] font-semibold uppercase text-red-300">
-                  Tipo venta
-                </span>
-                <span className="block text-center text-sm font-black uppercase text-red-700">
-                  {saleType}
-                </span>
-              </span>
+            <h2 className="mr-auto hidden desktop:block">
+              {saleTypeBadge}
             </h2>
 
-            <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
-              <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase text-slate-400">
-                  PVS venta
-                </p>
-                <p className="text-right text-base font-semibold tabular-nums text-slate-800">
-                  {money(totals.pv)}
-                </p>
-              </div>
-              <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase text-blue-600">
-                  PVS mes
-                </p>
-                <p className="text-right text-base font-semibold tabular-nums text-slate-800">
-                  {money(monthlyPvs)}
-                </p>
-              </div>
-            </div>
+            <div className="hidden desktop:block">{pvsMetrics}</div>
           </div>
 
           {listaProductosTabla && (
@@ -4747,14 +4803,19 @@ export default function HtmlCaptureSalePage() {
                 autoFocus={!isReadOnly && !isCapturedSale}
                 visible={productTab === "PRODUCTOS"}
                 searchRef={manualProductSearchRef}
-                onShowProducts={() => setProductTab("PRODUCTOS")}
+                searchAside={responsiveSaleIndicators}
+                onShowProducts={() => {
+                  setProductTab("PRODUCTOS");
+                  setCaptureSection("PRODUCTOS");
+                }}
                 onQuantityChange={handleCatalogQuantityChange}
               />
           )}
 
           <div id="sale-detail-panel" role={listaProductosTabla ? "region" : undefined} aria-label={listaProductosTabla ? "Detalle de la venta" : undefined} hidden={listaProductosTabla && productTab !== "DETALLE"}>
           {!listaProductosTabla && (
-          <div className="grid min-w-0 gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3">
+            <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
             <div className="relative min-w-0">
               <input
                 ref={manualProductSearchRef}
@@ -4833,6 +4894,8 @@ export default function HtmlCaptureSalePage() {
               <Plus className="h-4 w-4" />
               Agregar
             </button>
+            </div>
+            {responsiveSaleIndicators}
           </div>
           )}
 
@@ -5000,7 +5063,7 @@ export default function HtmlCaptureSalePage() {
         </section>
 
         {/* Datos de la venta */}
-        <section className="order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white desktop:sticky desktop:top-4">
+        <section className={`order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white desktop:sticky desktop:top-4 ${captureSection === "PRODUCTOS" ? "hidden desktop:block" : ""}`}>
           {isBlockedViewedNote ? (
             <div className="bg-red-600 px-4 py-2 text-center text-sm font-black tracking-[0.18em] text-white">
               ANULADO

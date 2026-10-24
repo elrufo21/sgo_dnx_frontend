@@ -16,6 +16,7 @@ interface BoletaBatchConfigState {
   saving: boolean;
   fetchConfig: () => Promise<void>;
   saveConfig: (boletaPorLote: boolean, flagCaptura: boolean) => Promise<boolean>;
+  saveListaProductosTabla: (listaProductosTabla: boolean) => Promise<boolean>;
   saveCajaConfig: (flagCaja: boolean, correosAdmin: string, diasMaxDep: number, flagAsistencia: boolean) => Promise<boolean>;
 }
 
@@ -346,6 +347,34 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
         return true;
       } catch (error) {
         console.error("Error guardando configuración de compañía", error);
+        set({ saving: false });
+        return false;
+      }
+    },
+
+    saveListaProductosTabla: async (listaProductosTabla) => {
+      const companyId = resolveCompanyId();
+      set({ saving: true });
+      try {
+        const response = await apiRequest<unknown>({
+          url: buildApiUrl(`/Compania/${companyId}/lista-productos-tabla`),
+          method: "PATCH",
+          data: { listaProductosTabla },
+          fallback: null,
+        });
+        if (!resolveResponseOk(response)) {
+          set({ saving: false });
+          return false;
+        }
+
+        const record = asRecord(response);
+        const savedValue = normalizeBooleanFlag(
+          record?.listaProductosTabla ?? record?.ListaProductosTabla ?? listaProductosTabla,
+        );
+        set({ listaProductosTabla: savedValue, saving: false });
+        return true;
+      } catch (error) {
+        console.error("Error guardando configuración de lista de productos", error);
         set({ saving: false });
         return false;
       }

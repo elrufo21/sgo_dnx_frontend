@@ -232,6 +232,7 @@ export default function ServiceInvoiceList() {
         rowClassName={(row) =>
           isAnnulledInvoice(row) ? annulledRowClassName : undefined
         }
+        toolbarLayout="filters-inline"
         tdClassName={(cell) =>
           isAnnulledInvoice(cell.row.original) ? "text-red-800" : undefined
         }
@@ -261,7 +262,7 @@ export default function ServiceInvoiceList() {
               esES.components.MuiLocalizationProvider.defaultProps.localeText
             }
           >
-            <div className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 desktop:w-auto">
+            <div data-table-date-filter className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 desktop:w-auto">
               <label className="flex min-w-[160px] flex-col gap-1 text-xs text-slate-600">
                 Fecha Inicio
                 <DatePicker

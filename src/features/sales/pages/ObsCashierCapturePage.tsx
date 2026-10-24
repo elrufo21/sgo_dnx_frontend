@@ -266,8 +266,9 @@ export default function ObsCashierCapturePage() {
           "estado",
           "cajaId",
         ]}
+        toolbarLayout="filters-inline"
         renderFilters={
-          <div className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+          <div data-table-date-filter className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
             <label className="flex flex-col gap-1 text-xs text-slate-600">
               Fecha inicio
               <input

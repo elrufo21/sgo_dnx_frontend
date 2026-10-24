@@ -5,12 +5,14 @@ import { Layers3, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function BoletaBatchSettingsPage() {
-  const { boletaPorLote, flagCaptura, loading, saving, fetchConfig, saveConfig } =
+  const { boletaPorLote, flagCaptura, listaProductosTabla, loading, saving, fetchConfig, saveConfig, saveListaProductosTabla } =
     useBoletaBatchConfigStore();
   const [draft, setDraft] = useState<{
     boletaPorLote: boolean;
     flagCaptura: boolean;
   } | null>(null);
+  const [draftListaProductosTabla, setDraftListaProductosTabla] = useState<boolean | null>(null);
+  const nextListaProductosTabla = draftListaProductosTabla ?? listaProductosTabla;
   const nextValue = draft?.boletaPorLote ?? boletaPorLote;
   const nextFlagCaptura = draft?.flagCaptura ?? flagCaptura;
 
@@ -29,6 +31,7 @@ export default function BoletaBatchSettingsPage() {
 
   const handleRefresh = useCallback(() => {
     setDraft(null);
+    setDraftListaProductosTabla(null);
     void fetchConfig();
   }, [fetchConfig]);
 
@@ -41,6 +44,16 @@ export default function BoletaBatchSettingsPage() {
     setDraft(null);
     toast.success("Configuración actualizada.");
   }, [nextFlagCaptura, nextValue, saveConfig]);
+
+  const handleSaveProductList = useCallback(async () => {
+    const ok = await saveListaProductosTabla(nextListaProductosTabla);
+    if (!ok) {
+      toast.error("No se pudo guardar la vista de productos.");
+      return;
+    }
+    setDraftListaProductosTabla(null);
+    toast.success("Vista de productos actualizada. Vuelve a abrir la captura de venta para aplicar el cambio.");
+  }, [nextListaProductosTabla, saveListaProductosTabla]);
 
   return (
     <div className="space-y-5 p-4 sm:p-6">
@@ -63,11 +76,13 @@ export default function BoletaBatchSettingsPage() {
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Estado actual</p>
           <p className="mt-2 text-sm font-semibold text-slate-800">{loading ? "Cargando..." : currentLabel}</p>
           <p className="mt-1 text-xs font-medium text-slate-500">{loading ? "" : captureLabel}</p>
+          <p className="mt-1 text-xs font-medium text-slate-500">{loading ? "" : listaProductosTabla ? "Catálogo en tabla" : "Catálogo con autocomplete"}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Próxima configuración</p>
           <p className="mt-2 text-sm font-semibold text-slate-800">{nextLabel}</p>
           <p className="mt-1 text-xs font-medium text-slate-500">{nextCaptureLabel}</p>
+          <p className="mt-1 text-xs font-medium text-slate-500">{nextListaProductosTabla ? "Catálogo en tabla" : "Catálogo con autocomplete"}</p>
         </div>
       </div>
 
@@ -95,6 +110,35 @@ export default function BoletaBatchSettingsPage() {
             <span className="text-sm font-medium text-slate-800">Mostrar botón Capturar datos</span>
             <input type="checkbox" className="h-5 w-5 accent-[#B23636]" checked={nextFlagCaptura} onChange={(event) => setDraft({ boletaPorLote: nextValue, flagCaptura: event.target.checked })} />
           </label>
+        </div>
+
+        <div className="mt-6 border-t border-slate-100 pt-5">
+          <p className="text-sm font-semibold text-slate-900">Lista de productos en captura HTML</p>
+          <p className="mt-1 text-xs text-slate-600">El cambio se aplica al volver a abrir una captura de venta.</p>
+          <label className="mt-4 flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4">
+            <span>
+              <span className="block text-sm font-medium text-slate-800">Usar catálogo en tabla</span>
+              <span className="mt-1 block text-xs text-slate-600">Activado: lista completa con cantidades por producto. Desactivado: autocomplete actual.</span>
+            </span>
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-[#B23636]"
+              checked={nextListaProductosTabla}
+              disabled={loading || saving}
+              onChange={(event) => setDraftListaProductosTabla(event.target.checked)}
+            />
+          </label>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleSaveProductList}
+              disabled={loading || saving || nextListaProductosTabla === listaProductosTabla}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#B23636] px-4 text-sm font-semibold text-[#B23636] hover:bg-[#B23636]/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Guardando..." : "Guardar vista de productos"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end">

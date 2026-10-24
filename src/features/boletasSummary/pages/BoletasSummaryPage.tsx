@@ -1237,9 +1237,9 @@ export default function BoletasSummaryPage() {
           searchPlaceholder="Buscar en resúmenes enviados..."
           showSearchClear={false}
           onFilteredDataChange={setFilteredSentRows}
+          toolbarLayout="filters-inline"
           renderFilters={
-            <div className="w-full">
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end">
+            <div data-table-date-filter className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end">
                 <label className="flex min-w-[150px] flex-col gap-1 text-xs text-slate-600">
                   Fecha Inicio
                   <input
@@ -1282,7 +1282,6 @@ export default function BoletasSummaryPage() {
                   <FileSpreadsheet className="h-4 w-4" />
                   Exportar Excel
                 </button>
-              </div>
             </div>
           }
           footerContent={

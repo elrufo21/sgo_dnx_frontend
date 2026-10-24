@@ -158,6 +158,7 @@ const CashFlowList = () => {
         paginationPage={pagination.page}
         paginationPageSize={pagination.pageSize}
         onPaginationChange={(page, pageSize) => setPagination({ page, pageSize })}
+        toolbarLayout="filters-inline"
         renderFilters={
           <LocalizationProvider
             dateAdapter={AdapterDayjs}
@@ -166,7 +167,7 @@ const CashFlowList = () => {
               esES.components.MuiLocalizationProvider.defaultProps.localeText
             }
           >
-            <div className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 desktop:w-auto">
+            <div data-table-date-filter className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 desktop:w-auto">
               <label className="flex min-w-[160px] flex-col gap-1 text-xs text-slate-600">
                 Fecha Inicio
                 <DatePicker

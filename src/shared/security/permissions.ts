@@ -63,7 +63,7 @@ export const permissionGroups = [
     permissions: [
       ["CONFIGURACION.VER", "Módulo Configuración", "Acceso general a ajustes."],
       ["CONFIGURACION.FACTURACION", "Facturación", "Configurar certificado y credenciales SOL."],
-      ["CONFIGURACION.VENTAS_BOLETAS", "Ventas y boletas", "Configurar envío y captura."],
+      ["CONFIGURACION.VENTAS_BOLETAS", "Ventas y boletas", "Configurar envío, captura y vista de productos."],
       ["CONFIGURACION.CAJA", "Configuración de caja", "Configurar cierre de caja."],
       ["CONFIGURACION.PERMISOS", "Permisos", "Administrar permisos por área y usuario."],
     ],

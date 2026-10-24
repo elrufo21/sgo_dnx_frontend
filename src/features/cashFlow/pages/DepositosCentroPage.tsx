@@ -596,9 +596,11 @@ export default function DepositosCentroPage() {
               searchPlaceholder="Buscar depósito..."
               emptyMessage="No hay depósitos para el rango seleccionado."
               initialPageSize={10}
+              toolbarLayout="filters-inline"
               renderFilters={
                 <form
                   onSubmit={filters.handleSubmit(searchDates)}
+                  data-table-date-filter
                   className="flex flex-wrap items-end gap-2"
                 >
                   <div className="w-36">

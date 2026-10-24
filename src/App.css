@@ -73,6 +73,43 @@ body {
   scrollbar-gutter: stable;
 }
 
+@media (max-width: 1199px) {
+  .data-table-inline-toolbar [data-table-date-filter] {
+    width: max-content !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .data-table-inline-toolbar [data-table-date-filter] label {
+    width: 7.5rem;
+    min-width: 7.5rem !important;
+  }
+
+  .data-table-inline-toolbar [data-table-date-filter] > div {
+    width: 7.5rem;
+    min-width: 7.5rem !important;
+  }
+
+  .data-table-inline-toolbar [data-table-date-filter] input[type="date"],
+  .data-table-inline-toolbar [data-table-date-filter] input[type="month"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .data-table-inline-toolbar [data-table-date-filter] .MuiFormControl-root {
+    min-width: 0;
+    width: 100% !important;
+  }
+
+  .sale-capture-actionbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding-block: 0.5rem;
+    background: rgb(241 245 249 / 96%);
+    backdrop-filter: blur(8px);
+  }
+}
+
 /* Keep dense sales tables inside their panel in compact desktop layouts. */
 @media (min-width: 75rem) and (max-width: 95.999rem) {
   .sale-capture-layout #sale-catalog-panel table {

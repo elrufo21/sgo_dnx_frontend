@@ -1324,9 +1324,9 @@ export default function SireVentasRegistrosPage() {
         initialPageSize={20}
         pageSizeOptions={[10, 20, 50, 100]}
         tableMaxHeight="62vh"
+        toolbarLayout="filters-inline"
         renderFilters={
-          <div className="w-full">
-            <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-end md:justify-end">
+          <div data-table-date-filter className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-end md:justify-end">
               <div className="min-w-[140px]"><HookFormInput<SireFilters> name="period" label="Periodo" type="month" onChange={(event) => handlePeriodChange(event.target.value)} /></div>
               <div className="min-w-[150px]"><HookFormInput<SireFilters> name="dateFrom" label="Fecha inicio" type="date" /></div>
               <div className="min-w-[150px]"><HookFormInput<SireFilters> name="dateTo" label="Fecha fin" type="date" /></div>
@@ -1352,7 +1352,6 @@ export default function SireVentasRegistrosPage() {
                 <Download className="h-4 w-4" />
                 Excel
               </button>
-            </div>
           </div>
         }
         footerContent={

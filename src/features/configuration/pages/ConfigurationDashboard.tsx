@@ -24,7 +24,7 @@ export default function ConfigurationDashboard() {
     },
     {
       title: "Ventas y boletas",
-      desc: "Define envío de boletas y captura de datos.",
+      desc: "Configura envío de boletas, captura y vista de productos.",
       icon: <Layers3 className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/boleta-batch",
       permission: "CONFIGURACION.VENTAS_BOLETAS",

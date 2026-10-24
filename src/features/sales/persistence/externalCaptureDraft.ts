@@ -18,7 +18,7 @@ export type ManualSaleDraftData = {
   /** Solo se restaura un borrador creado desde el formulario de nueva venta. */
   source?: "new-form";
   form: Record<string, string>;
-  saleType: "VENTA LIBRE" | "POR PASAR AL OBS";
+  saleType: "VENTA LIBRE" | "POR PASAR AL OBS" | "FACTURA MANUAL";
   lines: Array<{ code: string; quantity: number; price: number }>;
 };
 
@@ -128,8 +128,9 @@ const normalizeManualData = (value: unknown): ManualSaleDraftData | null => {
     source: "new-form",
     form,
     saleType:
-      data.saleType === "POR PASAR AL OBS"
-        ? "POR PASAR AL OBS"
+      data.saleType === "POR PASAR AL OBS" ||
+      data.saleType === "FACTURA MANUAL"
+        ? data.saleType
         : "VENTA LIBRE",
     lines,
   };

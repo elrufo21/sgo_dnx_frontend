@@ -210,7 +210,7 @@ export default function AttendanceReportPage() {
               localeText={esES.components.MuiLocalizationProvider.defaultProps.localeText}
             >
               <div className="flex w-full flex-wrap items-end justify-between gap-x-6 gap-y-2">
-                <div className="flex flex-wrap items-end gap-2">
+              <div className="flex flex-wrap items-end gap-2">
                   <TextField
                     select
                     size="small"
@@ -237,7 +237,7 @@ export default function AttendanceReportPage() {
                     label={<span className="text-xs text-slate-700">Reporte General</span>}
                   />
                 </div>
-                <div className="flex flex-wrap items-end gap-2">
+                <div data-table-date-filter className="flex flex-wrap items-end gap-2">
                   <label className="flex min-w-[150px] flex-col gap-1 text-xs text-slate-600">
                     Fecha inicio
                     <DatePicker
@@ -299,7 +299,7 @@ export default function AttendanceReportPage() {
               </button>
             </div>
           }
-          toolbarLayout="filters-top"
+          toolbarLayout="filters-inline"
         />
       )}
 

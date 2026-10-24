@@ -87,6 +87,16 @@ export default function MainLayout() {
   const [search, setSearch] = useState(""); // 🔍 buscador
   const { pathname } = useLocation();
   useEffect(() => {
+    const desktopSidebar = window.matchMedia("(min-width: 1300px)");
+    const syncSidebarWithViewport = () => setOpen(desktopSidebar.matches);
+
+    syncSidebarWithViewport();
+    desktopSidebar.addEventListener("change", syncSidebarWithViewport);
+    return () =>
+      desktopSidebar.removeEventListener("change", syncSidebarWithViewport);
+  }, []);
+
+  useEffect(() => {
     const inCash = [
       "/cash_flow_control",
       "/cash-final-report",

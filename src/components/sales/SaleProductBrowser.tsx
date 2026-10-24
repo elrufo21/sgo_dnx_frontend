@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import SearchInput from "@/components/inputs/SearchInput";
 import { SaleProductCatalog } from "@/components/sales/SaleProductCatalog";
 import type { SaleRow } from "@/features/sales/helpers/saleRows";
@@ -12,11 +12,19 @@ type SaleProductBrowserProps = {
   autoFocus: boolean;
   visible: boolean;
   searchRef: RefObject<HTMLInputElement | null>;
+  searchAside?: ReactNode;
   onShowProducts: () => void;
   onQuantityChange: (product: Product, value: string) => void;
 };
 
-export function SaleProductBrowser({ visible, searchRef, onShowProducts, autoFocus, ...catalogProps }: SaleProductBrowserProps) {
+export function SaleProductBrowser({
+  visible,
+  searchRef,
+  searchAside,
+  onShowProducts,
+  autoFocus,
+  ...catalogProps
+}: SaleProductBrowserProps) {
   // Keep typing local so each keystroke does not rerender the sale/payment form.
   const [search, setSearch] = useState("");
   useEffect(() => {
@@ -25,27 +33,34 @@ export function SaleProductBrowser({ visible, searchRef, onShowProducts, autoFoc
 
   return (
     <>
-      <div className="border-b border-slate-100 px-4 py-3">
-        <SearchInput
-          ref={searchRef}
-          autoFocus={autoFocus}
-          aria-label="Buscar producto por código o nombre"
-          placeholder="Buscar producto por código o nombre"
-          value={search}
-          disabled={catalogProps.disabled}
-          onChange={(event) => {
-            const value = event.currentTarget.value;
-            setSearch(value);
-            if (value.trim() && !visible) onShowProducts();
-          }}
-          onClear={() => {
-            setSearch("");
-            searchRef.current?.focus();
-          }}
-        />
-        <p className="mt-1 text-xs text-slate-500">Busca para filtrar productos. Escape muestra el detalle de la venta.</p>
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <SearchInput
+            ref={searchRef}
+            autoFocus={autoFocus}
+            aria-label="Buscar producto por código o nombre"
+            placeholder="Buscar producto por código o nombre"
+            value={search}
+            disabled={catalogProps.disabled}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setSearch(value);
+              if (value.trim() && !visible) onShowProducts();
+            }}
+            onClear={() => {
+              setSearch("");
+              searchRef.current?.focus();
+            }}
+          />
+        </div>
+        {searchAside ? <div className="shrink-0 desktop:hidden">{searchAside}</div> : null}
       </div>
-      <div id="sale-catalog-panel" role="region" aria-label="Productos" hidden={!visible}>
+      <div
+        id="sale-catalog-panel"
+        role="region"
+        aria-label="Productos"
+        hidden={!visible}
+      >
         <SaleProductCatalog {...catalogProps} search={search} />
       </div>
     </>
