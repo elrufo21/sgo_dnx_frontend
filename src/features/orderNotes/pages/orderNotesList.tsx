@@ -706,6 +706,10 @@ const OrderNotesList = () => {
       columnHelper.accessor("conceptoOBS", {
         header: "ConceptoOBS",
         cell: (info) => info.getValue() || "-",
+        meta: {
+          thClassName: "min-w-[8rem] whitespace-nowrap",
+          tdClassName: "min-w-[8rem] whitespace-nowrap",
+        },
       }),
       columnHelper.accessor("efectivo", {
         header: "Efectivo",
