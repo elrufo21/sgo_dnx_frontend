@@ -422,7 +422,9 @@ const OrderNotesList = () => {
 
         excelRow.eachCell((cell, colNumber) => {
           const columnKey = worksheet.getColumn(colNumber).key;
-          const isAmountColumn = ["total", "acuenta", "saldo"].includes(columnKey);
+          const isAmountColumn = ["total", "acuenta", "saldo"].includes(
+            columnKey,
+          );
 
           cell.border = {
             top: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -480,8 +482,11 @@ const OrderNotesList = () => {
 
       totalsRow.eachCell((cell, colNumber) => {
         const columnKey = worksheet.getColumn(colNumber).key;
-        const isAmountColumn = ["total", "acuenta", "saldo"].includes(columnKey);
-        const isLabelColumn = columnKey === "notaId" || columnKey === "formaPago";
+        const isAmountColumn = ["total", "acuenta", "saldo"].includes(
+          columnKey,
+        );
+        const isLabelColumn =
+          columnKey === "notaId" || columnKey === "formaPago";
 
         cell.font = { bold: true };
         cell.border = {
@@ -621,10 +626,7 @@ const OrderNotesList = () => {
           tdClassName: "min-w-[240px] whitespace-normal",
         },
       }),
-      columnHelper.accessor("conceptoOBS", {
-        header: "ConceptoOBS",
-        cell: (info) => info.getValue() || "-",
-      }),
+
       columnHelper.accessor("notaCondicion", {
         header: "Condicion",
         cell: (info) => info.getValue(),
@@ -701,6 +703,10 @@ const OrderNotesList = () => {
           );
         },
       }),
+      columnHelper.accessor("conceptoOBS", {
+        header: "ConceptoOBS",
+        cell: (info) => info.getValue() || "-",
+      }),
       columnHelper.accessor("efectivo", {
         header: "Efectivo",
         cell: (info) => formatAmount(parseAmount(info.getValue())),
@@ -744,7 +750,10 @@ const OrderNotesList = () => {
               esES.components.MuiLocalizationProvider.defaultProps.localeText
             }
           >
-            <div data-table-date-filter className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 desktop:w-auto">
+            <div
+              data-table-date-filter
+              className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 desktop:w-auto"
+            >
               <label className="flex min-w-[160px] flex-col gap-1 text-xs text-slate-600">
                 Fecha Inicio
                 <DatePicker
