@@ -365,6 +365,7 @@ const OrderNotesList = () => {
         { header: "Fecha", key: "fecha", width: 14 },
         { header: "Código cliente", key: "codigoCliente", width: 16 },
         { header: "Cliente", key: "cliente", width: 34 },
+        { header: "ConceptoOBS", key: "conceptoOBS", width: 24 },
         { header: "Condicion", key: "notaCondicion", width: 14 },
         { header: "Forma Pago", key: "formaPago", width: 18 },
         { header: "Total", key: "total", width: 14 },
@@ -409,6 +410,7 @@ const OrderNotesList = () => {
           fecha: toExcelSafeText(note.fecha),
           codigoCliente: toExcelSafeText(note.codigoCliente),
           cliente: toExcelSafeText(note.cliente),
+          conceptoOBS: toExcelSafeText(note.conceptoOBS),
           notaCondicion: toExcelSafeText(note.notaCondicion || "-"),
           formaPago: toExcelSafeText(note.formaPago),
           total: Number(getSignedTotal(note, note.total).toFixed(2)),
@@ -419,7 +421,8 @@ const OrderNotesList = () => {
         });
 
         excelRow.eachCell((cell, colNumber) => {
-          const isAmountColumn = colNumber >= 9 && colNumber <= 11;
+          const columnKey = worksheet.getColumn(colNumber).key;
+          const isAmountColumn = ["total", "acuenta", "saldo"].includes(columnKey);
 
           cell.border = {
             top: { style: "thin", color: { argb: "FFE2E8F0" } },
@@ -431,7 +434,7 @@ const OrderNotesList = () => {
           cell.alignment = {
             vertical: "top",
             horizontal: isAmountColumn ? "right" : "left",
-            wrapText: colNumber === 5,
+            wrapText: colNumber === 5 || columnKey === "conceptoOBS",
           };
 
           if (isAmountColumn) {
@@ -476,8 +479,9 @@ const OrderNotesList = () => {
       });
 
       totalsRow.eachCell((cell, colNumber) => {
-        const isAmountColumn = colNumber >= 8 && colNumber <= 10;
-        const isLabelColumn = colNumber === 1 || colNumber === 7;
+        const columnKey = worksheet.getColumn(colNumber).key;
+        const isAmountColumn = ["total", "acuenta", "saldo"].includes(columnKey);
+        const isLabelColumn = columnKey === "notaId" || columnKey === "formaPago";
 
         cell.font = { bold: true };
         cell.border = {
@@ -617,6 +621,10 @@ const OrderNotesList = () => {
           tdClassName: "min-w-[240px] whitespace-normal",
         },
       }),
+      columnHelper.accessor("conceptoOBS", {
+        header: "ConceptoOBS",
+        cell: (info) => info.getValue() || "-",
+      }),
       columnHelper.accessor("notaCondicion", {
         header: "Condicion",
         cell: (info) => info.getValue(),
@@ -718,6 +726,7 @@ const OrderNotesList = () => {
         filterKeys={[
           "notaId",
           "cliente",
+          "conceptoOBS",
           "estado",
           "estadoSunat",
           "documento",

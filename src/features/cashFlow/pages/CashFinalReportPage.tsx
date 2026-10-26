@@ -156,7 +156,6 @@ export default function CashFinalReportPage() {
   const [reports, setReports] = useState<SavedReport[]>([]);
   const preparationRequest = useRef(0);
   const columnHelper = createColumnHelper<SavedReport>();
-  const productColumnHelper = createColumnHelper<CashProductReportRow>();
 
   const load = async (date: string) => {
     const requestId = ++preparationRequest.current;
@@ -574,24 +573,6 @@ export default function CashFinalReportPage() {
     }),
     columnHelper.accessor("usuario", { header: "Registró" }),
   ] as unknown as ColumnDef<SavedReport, unknown>[];
-  const productColumns = [
-    productColumnHelper.accessor("codigo", { header: "Código" }),
-    productColumnHelper.accessor("descripcion", { header: "Descripción" }),
-    productColumnHelper.accessor("cantidad", {
-      header: "Cantidad",
-      cell: (info) => money(info.getValue()),
-    }),
-    productColumnHelper.accessor("importe", {
-      header: "Importe S/.",
-      cell: (info) => money(info.getValue()),
-      meta: { align: "right" },
-    }),
-  ] as ColumnDef<CashProductReportRow, unknown>[];
-  const totalProductos = (preparation?.productos ?? []).reduce(
-    (total, product) => total + Number(product.importe || 0),
-    0,
-  );
-
   const panelRows = tab === "income"
     ? [
         ...totals.incomes.filter((row) => !row.manual),
@@ -900,33 +881,6 @@ export default function CashFinalReportPage() {
                   </div>
                 </div>
               </div>
-
-              <section className="rounded border border-gray-200 bg-white p-2">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-slate-800">
-                    Productos vendidos del día
-                  </h2>
-                  <span className="text-xs font-semibold text-slate-700">
-                    Total: S/ {money(totalProductos)}
-                  </span>
-                </div>
-                <DataTable
-                  columns={productColumns}
-                  data={preparation?.productos ?? []}
-                  emptyMessage="No hay productos vendidos para esta fecha."
-                  searchPlaceholder="Buscar producto..."
-                  filterKeys={["codigo", "descripcion"]}
-                  initialPageSize={10}
-                  pageSizeOptions={[10, 20, 50, 100]}
-                  tableMaxHeight="40vh"
-                  persistPageSize={false}
-                  footerContent={
-                    <div className="flex justify-end font-semibold">
-                      Total productos vendidos: S/ {money(totalProductos)}
-                    </div>
-                  }
-                />
-              </section>
 
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div className="rounded border border-gray-200 bg-white p-2">

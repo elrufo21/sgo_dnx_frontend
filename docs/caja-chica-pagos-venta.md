@@ -29,6 +29,8 @@ La descripción del pago es un borrador del modal: se conserva al seleccionar do
 
 Cada pago realizado tiene un botón **Ver**. Su detalle se muestra en la pestaña **Pendientes** con la fecha y hora de registro en el encabezado, documentos a la izquierda y forma de pago, importes, entidad, operación y descripción a la derecha. Desde ahí permite volver al historial, eliminarlo con clave de administrador o usar **Nuevo** para limpiar el formulario y regresar a los documentos pendientes.
 
+En el detalle, las columnas **Total**, **Efectivo** y **Depósito** muestran respectivamente `monto`, `efectivo` y `deposito` de cada documento. El total general se toma de la cabecera del pago. La corrección del orden de estas columnas evita mostrar el efectivo cero como si fuera el total en pagos por depósito; no modifica importes guardados ni datos de SQL.
+
 El acceso Caja chica de Ventas y su ruta anterior redirigen a esta misma pantalla.
 
 En **Movimiento de Caja Chica**, los datos de un movimiento registrado son de solo lectura. Al abrir un movimiento manual sin imagen se puede seleccionar una imagen JPG, PNG o WEBP de hasta 5 MB y revisar la vista previa; se guarda únicamente al pulsar **Guardar comprobante**. Antes de guardarla se puede elegir otra imagen. Un movimiento que ya tiene imagen no permite reemplazarla ni borrarla. El movimiento todavía puede eliminarse conforme a las reglas existentes.

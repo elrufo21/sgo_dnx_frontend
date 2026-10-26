@@ -204,9 +204,8 @@ export default function ObsCashierCapturePage() {
   }, [fetchRows]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
+    void fetchRows(today, today, "OBS");
+  }, [fetchRows, today]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -241,7 +240,11 @@ export default function ObsCashierCapturePage() {
           <button
             key={type}
             type="button"
-            onClick={() => setSaleType(type)}
+            onClick={() => {
+              if (type === saleType) return;
+              setSaleType(type);
+              void fetchRows(fechaInicio, fechaFin, type);
+            }}
             className={`border-b-2 px-4 py-2 text-sm font-semibold ${saleType === type ? "border-[#B23636] text-[#96312a]" : "border-transparent text-slate-500 hover:text-slate-800"}`}
           >
             {type}
@@ -284,7 +287,11 @@ export default function ObsCashierCapturePage() {
                 className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
                 type="date"
                 value={fechaFin}
-                onChange={(event) => setFechaFin(event.target.value)}
+                onChange={(event) => {
+                  const nextDate = event.target.value;
+                  setFechaFin(nextDate);
+                  void fetchRows(fechaInicio, nextDate, saleType);
+                }}
               />
             </label>
             <button

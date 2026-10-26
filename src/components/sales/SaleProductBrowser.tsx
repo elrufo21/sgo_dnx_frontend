@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useState, type ReactNode, type RefObject } from "react";
 import SearchInput from "@/components/inputs/SearchInput";
 import { SaleProductCatalog } from "@/components/sales/SaleProductCatalog";
+import { indexProductCatalog, searchProductCatalog } from "@/features/sales/helpers/productCatalogSearch";
 import type { SaleRow } from "@/features/sales/helpers/saleRows";
 import type { Product } from "@/types/product";
 
@@ -29,6 +30,10 @@ export function SaleProductBrowser({
 }: SaleProductBrowserProps) {
   // Keep typing local so each keystroke does not rerender the sale/payment form.
   const [search, setSearch] = useState("");
+  const productIndex = useMemo(
+    () => indexProductCatalog(catalogProps.products),
+    [catalogProps.products],
+  );
   useEffect(() => {
     if (!visible) setSearch("");
   }, [visible]);
@@ -44,6 +49,28 @@ export function SaleProductBrowser({
             placeholder="Buscar producto por código o nombre"
             value={search}
             disabled={catalogProps.disabled}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== "ArrowDown") return;
+              if (!search.trim()) return;
+              const firstMatch = searchProductCatalog(productIndex, search)[0];
+              if (!firstMatch) return;
+
+              event.preventDefault();
+              if (!visible) onShowProducts();
+              requestAnimationFrame(() => {
+                const quantityInput = Array.from(
+                  document.querySelectorAll<HTMLInputElement>(
+                    '[data-nav-group="sale-product-catalog"]',
+                  ),
+                ).find(
+                  (input) =>
+                    input.getAttribute("aria-label") ===
+                      `Cantidad de ${firstMatch.codigo}` &&
+                    input.getClientRects().length > 0,
+                );
+                quantityInput?.focus();
+              });
+            }}
             onChange={(event) => {
               const value = event.currentTarget.value;
               setSearch(value);

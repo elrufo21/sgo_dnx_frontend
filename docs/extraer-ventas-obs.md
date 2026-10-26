@@ -6,7 +6,10 @@ Consultar y mostrar las ventas OBS o IOC registradas en `TABLAOBS`, junto con su
 
 ## Uso
 
-- Al entrar al módulo se consulta el rango de fechas seleccionado.
+- Al entrar al módulo se consulta el rango inicial del día actual.
+- Cambiar **Fecha inicio** solo modifica el filtro; no consulta automáticamente.
+- Cambiar **Fecha fin** consulta usando el inicio seleccionado y el nuevo fin. También se puede consultar con **Buscar**.
+- Cambiar entre **OBS** e **IOC** consulta el rango actual para el tipo elegido.
 - **Buscar** consulta el API con las fechas actuales y el tipo de venta seleccionado.
 - **Actualizar** vuelve a consultar el mismo rango para traer los datos más recientes.
 - El campo de búsqueda de la tabla filtra localmente por transacción, código, cliente, usuario, estado o caja.

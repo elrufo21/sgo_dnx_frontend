@@ -1,5 +1,11 @@
 # Nota Pedido
 
+## Concepto OBS en el listado
+
+El listado incluye **ConceptoOBS** después de **Cliente**, con el valor registrado en la nota (por ejemplo, `VENTA` o `FACTURA MANUAL`). El buscador también considera este campo y la exportación Excel lo incluye en la misma posición. Si la nota no tiene concepto o el procedimiento anterior todavía no lo devuelve, se muestra `-`.
+
+La API consulta `dbo.listaNotaPedidoWEB`, que agrega el concepto al final de la cadena, en la posición 46 (contando desde cero), sin desplazar los campos existentes. `dbo.listaNotaPedido` se conserva sin cambios para cualquier consumidor existente, incluido el escritorio. El frontend acepta la cadena y respuestas JSON con `conceptoOBS` o `ConceptoOBS`; el parser JSON del backend también conserva el campo. El responsable de SQL debe crear o actualizar el procedimiento web con `sgo_dnx_backend/scripts/sql/20261026_listaNotaPedido_web.sql` en cada base que atienda la API. Preparar el archivo no actualiza la base ni cambia datos o tablas.
+
 ## Anulación
 
 Las facturas y boletas siguen su flujo electrónico. Una **PROFORMA V** se anula localmente desde su vista, con reposición de inventario para sus productos inventariables.

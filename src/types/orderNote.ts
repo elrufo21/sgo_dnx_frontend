@@ -16,6 +16,8 @@ export interface OrderNoteApiItem {
   ClienteId?: string | number | null;
   codigoCliente?: string | null;
   CodigoCliente?: string | null;
+  conceptoOBS?: string | null;
+  ConceptoOBS?: string | null;
   clienteRazon?: string | null;
   ClienteRazon?: string | null;
   miembro?: string | null;
@@ -63,6 +65,7 @@ export interface OrderNote {
   fecha: string;
   codigoCliente: string;
   cliente: string;
+  conceptoOBS: string;
   formaPago: string;
   efectivo: string;
   deposito: string;

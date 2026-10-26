@@ -4219,14 +4219,14 @@ export default function HtmlCaptureSalePage() {
                               <td className="px-3 py-3 text-slate-500">
                                 {item.conceptoOBS || "-"}
                               </td>
+                              <td className="px-5 py-3 text-right font-black text-slate-800">
+                                {money(item.monto)}
+                              </td>
                               <td className="px-5 py-3 text-right text-slate-700">
                                 {money(item.efectivo)}
                               </td>
                               <td className="px-5 py-3 text-right text-slate-700">
                                 {money(item.deposito)}
-                              </td>
-                              <td className="px-5 py-3 text-right font-black text-slate-800">
-                                {money(item.monto)}
                               </td>
                             </tr>
                           ))
