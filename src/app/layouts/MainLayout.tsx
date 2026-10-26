@@ -104,7 +104,9 @@ export default function MainLayout() {
       "/sales/obs_capture",
       "/depositos-centro",
     ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
-    setOpenMenuGroup(inCash ? "caja" : pathname.startsWith("/reports") ? "reportes" : null);
+    setOpenMenuGroup(
+      inCash ? "caja" : pathname.startsWith("/reports") ? "reportes" : null,
+    );
   }, [pathname]);
   const openDialog = useDialogStore((state) => state.openDialog);
 
@@ -147,9 +149,7 @@ export default function MainLayout() {
       ["Firma digital", user.renovacionFirma],
       ["Hosting SOME", user.renovacionSome],
     ] as const;
-    if (
-      renewals.some(([, raw]) => raw.trim() !== "" && !parseDateOnly(raw))
-    ) {
+    if (renewals.some(([, raw]) => raw.trim() !== "" && !parseDateOnly(raw))) {
       toast.error(
         "No se pudieron leer las fechas de renovación. Inicia sesión nuevamente.",
       );
@@ -660,9 +660,21 @@ export default function MainLayout() {
       id: "reportes",
       icon: <TableProperties size={18} />,
       children: [
-        { label: "Reporte de ventas", to: "/reports/sales", icon: <BarChart3 size={18} /> },
-        { label: "Reporte de productos", to: "/reports/products", icon: <PackageSearch size={18} /> },
-        { label: "Reporte de asistencia Web", to: "/reports/attendance", icon: <ClipboardCheck size={18} /> },
+        {
+          label: "Reporte de ventas",
+          to: "/reports/sales",
+          icon: <BarChart3 size={18} />,
+        },
+        {
+          label: "Reporte de productos",
+          to: "/reports/products",
+          icon: <PackageSearch size={18} />,
+        },
+        {
+          label: "Reporte de asistencia Web",
+          to: "/reports/attendance",
+          icon: <ClipboardCheck size={18} />,
+        },
       ],
     };
     const items: NavItem[] = [
@@ -687,9 +699,9 @@ export default function MainLayout() {
       reportes,
       caja,
       {
-        label: "Compras",
-        to: "/shopping",
-        icon: <CopySlashIcon size={18} />,
+        label: "Cliente",
+        to: "/customers",
+        icon: <UserCheck size={18} />,
         state: { resetSearchFilter: true },
       },
       {
@@ -698,10 +710,11 @@ export default function MainLayout() {
         icon: <ReceiptText size={18} />,
         state: { resetSearchFilter: true },
       },
+
       {
-        label: "Cliente",
-        to: "/customers",
-        icon: <UserCheck size={18} />,
+        label: "Compras",
+        to: "/shopping",
+        icon: <CopySlashIcon size={18} />,
         state: { resetSearchFilter: true },
       },
       {
@@ -848,7 +861,9 @@ export default function MainLayout() {
                 setOpen(true);
                 setOpenMenuGroup(item.id);
               } else {
-                setOpenMenuGroup((value) => value === item.id ? null : item.id);
+                setOpenMenuGroup((value) =>
+                  value === item.id ? null : item.id,
+                );
               }
             }}
             className={`group flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${!open && !alwaysShowLabel ? "justify-center" : "justify-start"} ${active ? "bg-slate-700 text-white shadow-sm" : "text-slate-200 hover:bg-slate-700/70 hover:text-white"}`}

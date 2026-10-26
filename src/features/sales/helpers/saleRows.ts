@@ -37,7 +37,7 @@ export function setSaleProductQuantity(
   value: string | number,
 ): SaleRow[] {
   const quantity = value === "" ? 0 : Number(value);
-  if (!Number.isFinite(quantity) || quantity < 0) return rows;
+  if (!Number.isSafeInteger(quantity) || quantity < 0) return rows;
   const existing = rows.find((row) => row.code === product.codigo);
   if (quantity === 0) {
     return existing ? rows.filter((row) => row !== existing) : rows;

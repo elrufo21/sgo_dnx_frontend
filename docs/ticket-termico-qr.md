@@ -4,4 +4,6 @@ El ticket PDF usa un ancho de 226 puntos (80 mm), altura automática y no incluy
 
 El QR ahora permanece inmediatamente después del contenido del comprobante. La corrección está centralizada en `src/components/Ticket.tsx`, por lo que aplica tanto a Ventas como a la captura HTML.
 
+La cantidad de cada producto se imprime en negrita a 13 puntos (antes 9), para facilitar su lectura. El tamaño se aplica al número de unidades en el detalle del ticket compartido, tanto al completar la venta como al volver a imprimirla; el encabezado **Cant.**, las descripciones y los importes mantienen su tamaño.
+
 La impresión correcta se realiza en silencio, sin mostrar un toast de éxito. Si falla la generación del ticket, la conexión con el agente o el envío a la impresora, se conserva el toast con el error correspondiente.

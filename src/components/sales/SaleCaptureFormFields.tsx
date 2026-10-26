@@ -11,6 +11,7 @@ import { HookFormAutocomplete } from "@/components/forms/HookFormAutocomplete";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { focusNextInput } from "@/shared/helpers/focusNextInput";
+import { getAutomaticPaymentBank } from "@/shared/helpers/paymentBank";
 import { toast } from "@/shared/ui/toast";
 import type { Client } from "@/types/customer";
 
@@ -134,6 +135,7 @@ export function SaleCaptureFormFields({
     paymentMethod,
   );
   const bankEntity = values.bankEntity ?? "-";
+  const automaticBank = getAutomaticPaymentBank(paymentMethod);
   const docTypeCode = values.docTypeCode ?? "03";
   const isDniLocked = true;
   const correlativeDisplay = values.correlativeDisplay ?? "";
@@ -160,16 +162,23 @@ export function SaleCaptureFormFields({
   }, [isPagoVarios, paymentMethod, setValue]);
 
   useEffect(() => {
+    if (disabled) return;
     if (isPagoVarios || !paymentNeedsOperation) {
       if (bankEntity !== "-") {
         setValue("bankEntity", "-", { shouldDirty: true });
       }
       return;
     }
+    if (automaticBank) {
+      if (bankEntity !== automaticBank) {
+        setValue("bankEntity", automaticBank, { shouldDirty: true });
+      }
+      return;
+    }
     if (bankEntity === "-" || !bankEntity) {
       setValue("bankEntity", "(SELECCIONE)", { shouldDirty: true });
     }
-  }, [bankEntity, isPagoVarios, paymentNeedsOperation, setValue]);
+  }, [automaticBank, bankEntity, disabled, isPagoVarios, paymentNeedsOperation, setValue]);
 
   useEffect(() => {
     const total = Math.max(0, Number(totalAmount) || 0);
@@ -774,6 +783,11 @@ export function SaleCaptureFormFields({
               name="paymentMethod"
               label="Forma pago"
               disabled={disabled || isPagoVarios}
+              onChange={(event) => {
+                if (getAutomaticPaymentBank(event.target.value)) {
+                  window.requestAnimationFrame(() => setFocus("operationNumber"));
+                }
+              }}
               options={[
                 { value: "(SELECCIONE)", label: "(SELECCIONE)" },
                 { value: "EFECTIVO", label: "EFECTIVO" },
@@ -802,7 +816,7 @@ export function SaleCaptureFormFields({
           <HookFormSelect<SaleCaptureFormValues>
             name="bankEntity"
             label="Entidad"
-            disabled={disabled || isPagoVarios || !paymentNeedsOperation}
+            disabled={disabled || isPagoVarios || !paymentNeedsOperation || Boolean(automaticBank)}
             onChange={(event) => {
               if (!["(SELECCIONE)", "-"].includes(event.target.value)) {
                 window.requestAnimationFrame(() => setFocus("operationNumber"));

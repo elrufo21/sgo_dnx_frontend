@@ -21,15 +21,19 @@ assert.equal(rows[0].valueUm, 1);
 assert.equal(rows[1], kitRow);
 assert.equal(rows.reduce((total, row) => total + row.quantity * row.price, 0), 760);
 
-for (const invalid of ["-1", "NaN", "Infinity", Number.NaN]) {
+for (const invalid of ["-1", "NaN", "Infinity", Number.NaN, "0.5", "1.5", "1,5", 2.25, Number.MAX_SAFE_INTEGER + 1]) {
   assert.equal(setSaleProductQuantity(rows, kimono, invalid), rows);
+  const empty = [];
+  assert.equal(setSaleProductQuantity(empty, kimono, invalid), empty);
 }
 assert.equal(setSaleProductQuantity(rows, kimono, "3"), rows);
-rows = setSaleProductQuantity(rows, kimono, "0.5");
-assert.equal(rows[0].quantity, 0.5);
+rows = setSaleProductQuantity(rows, kimono, "12");
+assert.equal(rows[0].quantity, 12);
+assert.equal(rows[0].price, 170);
+assert.equal(rows.reduce((total, row) => total + row.quantity * row.price, 0), 2290);
 rows = setSaleProductQuantity(rows, kimono, "0");
 assert.deepEqual(rows.map((row) => row.code), [kit.codigo]);
 rows = setSaleProductQuantity(rows, kit, "");
 assert.equal(rows.length, 0);
 assert.equal(productToRow(kimono, 2, false).matched, false);
-console.log("OK: selección, cantidades absolutas, decimales, eliminación, precios editados y totales.");
+console.log("OK: cantidades enteras, rechazo de decimales, selección, eliminación, precios editados y totales.");

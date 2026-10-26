@@ -13,6 +13,7 @@ type NavigableNumberInputProps = Omit<
   onChange: (value: string) => void;
   navGroup?: string;
   selectOnFocus?: boolean;
+  integerOnly?: boolean;
 };
 
 const NavigableNumberInput = forwardRef<
@@ -25,6 +26,7 @@ const NavigableNumberInput = forwardRef<
       onChange,
       navGroup = "navigable-number-input",
       selectOnFocus = true,
+      integerOnly = false,
       className = "",
       onKeyDown,
       onFocus,
@@ -78,6 +80,7 @@ const NavigableNumberInput = forwardRef<
     };
 
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (integerOnly && !/^\d*$/.test(event.target.value)) return;
       onChange(event.target.value);
     };
 
@@ -85,8 +88,9 @@ const NavigableNumberInput = forwardRef<
       <input
         {...rest}
         ref={inputRef}
-        type="number"
-        inputMode="decimal"
+        type={integerOnly ? "text" : "number"}
+        inputMode={integerOnly ? "numeric" : "decimal"}
+        pattern={integerOnly ? "[0-9]*" : undefined}
         data-nav-group={navGroup}
         value={value}
         onChange={handleChange}

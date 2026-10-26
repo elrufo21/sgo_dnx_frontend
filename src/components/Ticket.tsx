@@ -308,11 +308,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   colCant: {
-    width: "12%",
+    width: "16%",
     textAlign: "center",
   },
+  itemQuantity: {
+    fontSize: 13,
+    fontWeight: "bold",
+  },
   colDesc: {
-    width: "44%",
+    width: "40%",
     paddingLeft: 3,
   },
   colPUni: {
@@ -336,7 +340,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   tableItemDescriptionFull: {
-    width: "88%",
+    width: "84%",
     paddingLeft: 3,
     fontSize: 9,
     fontWeight: "bold",
@@ -828,7 +832,7 @@ const TicketDocument = ({
             <View key={index}>
               <View style={styles.tableItemRow}>
                 <View style={styles.tableItemMetaRow}>
-                  <Text style={styles.colCant}>
+                  <Text style={[styles.colCant, styles.itemQuantity]}>
                     {formatTicketInteger(item.quantity)}
                   </Text>
                   <Text style={styles.tableItemDescriptionFull}>

@@ -14,6 +14,7 @@ type SaleProductBrowserProps = {
   searchRef: RefObject<HTMLInputElement | null>;
   searchAside?: ReactNode;
   onShowProducts: () => void;
+  onShowDetail: () => void;
   onQuantityChange: (product: Product, value: string) => void;
 };
 
@@ -22,6 +23,7 @@ export function SaleProductBrowser({
   searchRef,
   searchAside,
   onShowProducts,
+  onShowDetail,
   autoFocus,
   ...catalogProps
 }: SaleProductBrowserProps) {
@@ -46,9 +48,11 @@ export function SaleProductBrowser({
               const value = event.currentTarget.value;
               setSearch(value);
               if (value.trim() && !visible) onShowProducts();
+              else if (!value.trim() && visible) onShowDetail();
             }}
             onClear={() => {
               setSearch("");
+              if (visible) onShowDetail();
               searchRef.current?.focus();
             }}
           />

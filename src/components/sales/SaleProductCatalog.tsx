@@ -33,7 +33,8 @@ function QuantityCell({ row }: CellContext<Product, unknown>) {
     <NavigableNumberInput
       aria-label={`Cantidad de ${product.codigo}`}
       min={0}
-      step="any"
+      step={1}
+      integerOnly
       navGroup="sale-product-catalog"
       value={draft ?? (Number.isFinite(quantity) && quantity > 0 ? quantity : "")}
       onFocus={(event) => setDraft(event.currentTarget.value)}

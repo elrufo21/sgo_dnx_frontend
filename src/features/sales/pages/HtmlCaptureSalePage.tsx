@@ -27,6 +27,7 @@ import TicketDocument from "@/components/Ticket";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
+import NavigableNumberInput from "@/components/inputs/NavigableNumberInput";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { SaleProductBrowser } from "@/components/sales/SaleProductBrowser";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
@@ -42,10 +43,15 @@ import {
 } from "@/features/sales/persistence/externalCaptureDraft";
 import { ServiceInvoicePdfDocument } from "@/features/serviceInvoices/components/ServiceInvoicePdf";
 import { resolveCaptureDocumentType } from "@/features/sales/helpers/captureDocument";
-import { productToRow, setSaleProductQuantity, type SaleRow } from "@/features/sales/helpers/saleRows";
+import {
+  productToRow,
+  setSaleProductQuantity,
+  type SaleRow,
+} from "@/features/sales/helpers/saleRows";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
+import { getAutomaticPaymentBank } from "@/shared/helpers/paymentBank";
 import {
   focusNextInput,
   focusPreviousInput,
@@ -167,10 +173,7 @@ type PagoVariosDetailResponse = {
 };
 type PagoVariosTab = "PENDIENTES" | "REALIZADOS";
 type PagoVariosDeleteKeyForm = { clave: string };
-type ManualSaleType =
-  | "VENTA LIBRE"
-  | "POR PASAR AL OBS"
-  | "FACTURA MANUAL";
+type ManualSaleType = "VENTA LIBRE" | "POR PASAR AL OBS" | "FACTURA MANUAL";
 type SaleValidationError = { message: string; field?: keyof SaleForm };
 
 const DOC_CONFIG = {
@@ -431,9 +434,18 @@ type ExistingSaleData = {
   detalles: unknown;
   archivos: Record<string, unknown> | null;
 };
-const inFlightExistingSaleRequests = new Map<string, Promise<ExistingSaleData>>();
-const inFlightVoidValidations = new Map<string, Promise<AnulacionValidationResponse | null>>();
-const inFlightPagoVariosRequests = new Map<string, Promise<PagoVariosResponse>>();
+const inFlightExistingSaleRequests = new Map<
+  string,
+  Promise<ExistingSaleData>
+>();
+const inFlightVoidValidations = new Map<
+  string,
+  Promise<AnulacionValidationResponse | null>
+>();
+const inFlightPagoVariosRequests = new Map<
+  string,
+  Promise<PagoVariosResponse>
+>();
 const fetchExistingSaleData = (notaId: number, userKey: string) => {
   const requestKey = `${userKey}:${notaId}`;
   const pending = inFlightExistingSaleRequests.get(requestKey);
@@ -476,10 +488,7 @@ const fetchExistingSaleData = (notaId: number, userKey: string) => {
   );
   return request;
 };
-const validateVoidByDeadline = (
-  docuId: number,
-  documentNumber: string,
-) => {
+const validateVoidByDeadline = (docuId: number, documentNumber: string) => {
   const requestKey = `${docuId}:${documentNumber}`;
   const pending = inFlightVoidValidations.get(requestKey);
   if (pending) return pending;
@@ -733,7 +742,9 @@ export default function HtmlCaptureSalePage() {
   const capturedInvoiceApiClientRef = useRef<Client | null>(null);
   const capturedInvoiceApiRucRef = useRef("");
   const { products, fetchProducts, loading } = useProductsStore();
-  const listaProductosTabla = useBoletaBatchConfigStore((state) => state.listaProductosTabla);
+  const listaProductosTabla = useBoletaBatchConfigStore(
+    (state) => state.listaProductosTabla,
+  );
   const {
     clients,
     fetchClients,
@@ -753,11 +764,17 @@ export default function HtmlCaptureSalePage() {
     useState<CaptureData | null>(null);
   const [isApplyingCapture, setIsApplyingCapture] = useState(false);
   const [loadedRecordId, setLoadedRecordId] = useState<number | null>(null);
-  const [loadedRecordClient, setLoadedRecordClient] = useState<Client | null>(null);
+  const [loadedRecordClient, setLoadedRecordClient] = useState<Client | null>(
+    null,
+  );
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [manualProductSearch, setManualProductSearch] = useState("");
-  const [productTab, setProductTab] = useState<"PRODUCTOS" | "DETALLE">("PRODUCTOS");
-  const [captureSection, setCaptureSection] = useState<"PRODUCTOS" | "PAGO">("PRODUCTOS");
+  const [productTab, setProductTab] = useState<"PRODUCTOS" | "DETALLE">(
+    "PRODUCTOS",
+  );
+  const [captureSection, setCaptureSection] = useState<"PRODUCTOS" | "PAGO">(
+    "PRODUCTOS",
+  );
   const [productSearchVersion, setProductSearchVersion] = useState(0);
   const [manualProductSearchFocused, setManualProductSearchFocused] =
     useState(false);
@@ -949,11 +966,14 @@ export default function HtmlCaptureSalePage() {
       setLoadedRecordClient(null);
       setViewedEmissionDateTime("");
       try {
-        const { nota, detalles: detailsResult, archivos } =
-          await fetchExistingSaleData(
-            routeNoteId,
-            String(session.userId || session.username),
-          );
+        const {
+          nota,
+          detalles: detailsResult,
+          archivos,
+        } = await fetchExistingSaleData(
+          routeNoteId,
+          String(session.userId || session.username),
+        );
         if (!nota) throw new Error("Registro no encontrado.");
 
         if (!active || recordLoadVersion !== recordLoadVersionRef.current)
@@ -965,12 +985,13 @@ export default function HtmlCaptureSalePage() {
           return;
         setLoadedRecordClient(client);
         setViewSunatStatus({
-          docuId: Number(
-            archivos?.docuId ??
-              archivos?.DocuId ??
-              nota.docuId ??
-              nota.DocuId,
-          ) || 0,
+          docuId:
+            Number(
+              archivos?.docuId ??
+                archivos?.DocuId ??
+                nota.docuId ??
+                nota.DocuId,
+            ) || 0,
           notaEstado: safeTrim(nota.notaEstado ?? nota.NotaEstado),
           estadoSunat: safeTrim(nota.estadoSunat ?? nota.EstadoSunat),
           docuEstado: safeTrim(nota.docuEstado ?? nota.DocuEstado),
@@ -1203,7 +1224,8 @@ export default function HtmlCaptureSalePage() {
   }, [fetchProducts, listaProductosTabla, location.key]);
 
   useEffect(() => {
-    if (listaProductosTabla) setProductTab(isReadOnly || isCapturedSale ? "DETALLE" : "PRODUCTOS");
+    if (listaProductosTabla)
+      setProductTab(isReadOnly || isCapturedSale ? "DETALLE" : "PRODUCTOS");
   }, [listaProductosTabla, location.key, isReadOnly, isCapturedSale]);
 
   useEffect(() => {
@@ -1213,8 +1235,15 @@ export default function HtmlCaptureSalePage() {
   useEffect(() => {
     if (!listaProductosTabla) return;
     const handleEscape = (event: WindowEventMap["keydown"]) => {
-      if (event.key !== "Escape" || event.defaultPrevented || dialogOpen || pagoVariosModalOpen ||
-          (event.target instanceof Element && event.target.closest('[role="dialog"]'))) return;
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        dialogOpen ||
+        pagoVariosModalOpen ||
+        (event.target instanceof Element &&
+          event.target.closest('[role="dialog"]'))
+      )
+        return;
       event.preventDefault();
       setProductTab("DETALLE");
       setCaptureSection("PRODUCTOS");
@@ -1544,7 +1573,10 @@ export default function HtmlCaptureSalePage() {
     "EFECTIVO",
     "-",
   ].includes(pagoVariosFormaPago);
-  const pagoVariosEntidadEditable = pagoVariosRequiereOperacion;
+  const pagoVariosEntidadAutomatica =
+    getAutomaticPaymentBank(pagoVariosFormaPago);
+  const pagoVariosEntidadEditable =
+    pagoVariosRequiereOperacion && !pagoVariosEntidadAutomatica;
   const pagoVariosDepositoIngresado = Math.max(
     0,
     Number(pagoVariosDeposito || 0),
@@ -1559,18 +1591,20 @@ export default function HtmlCaptureSalePage() {
     : pagoVariosFormaPago === "EFECTIVO"
       ? pagoVariosTotal
       : 0;
-  const pagoVariosEntidadFinal = pagoVariosEntidadEditable
-    ? pagoVariosEntidad || "(SELECCIONE)"
-    : "-";
+  const pagoVariosEntidadFinal =
+    pagoVariosEntidadAutomatica ??
+    (pagoVariosEntidadEditable ? pagoVariosEntidad || "(SELECCIONE)" : "-");
 
   useEffect(() => {
-    if (!pagoVariosEntidadEditable) {
+    if (!pagoVariosRequiereOperacion) {
       setPagoVariosEntidad("-");
       setPagoVariosOperacion("");
       setPagoVariosDeposito("");
       return;
     }
-    if (pagoVariosEntidad === "-" || !pagoVariosEntidad) {
+    if (pagoVariosEntidadAutomatica) {
+      setPagoVariosEntidad(pagoVariosEntidadAutomatica);
+    } else if (pagoVariosEntidad === "-" || !pagoVariosEntidad) {
       setPagoVariosEntidad("(SELECCIONE)");
     }
     if (!isPagoVariosMixed) setPagoVariosDeposito("");
@@ -1578,6 +1612,7 @@ export default function HtmlCaptureSalePage() {
   }, [
     isPagoVariosMixed,
     pagoVariosEntidad,
+    pagoVariosEntidadAutomatica,
     pagoVariosEntidadEditable,
     pagoVariosFormaPago,
     pagoVariosRequiereOperacion,
@@ -1596,12 +1631,17 @@ export default function HtmlCaptureSalePage() {
       focusPagoVariosField("descripcion");
       return;
     }
+    if (pagoVariosEntidadAutomatica) {
+      focusPagoVariosField("operacion");
+      return;
+    }
     if (pagoVariosEntidadEditable) {
       focusPagoVariosField("entidad");
     }
   }, [
     focusPagoVariosField,
     isPagoVariosMixed,
+    pagoVariosEntidadAutomatica,
     pagoVariosEntidadEditable,
     pagoVariosFormaPago,
   ]);
@@ -1775,7 +1815,9 @@ export default function HtmlCaptureSalePage() {
       if (code) return getClientCode(client) === code;
       if (ruc) return normalizeDocumentText(client.ruc) === ruc;
       if (name && name.toUpperCase() !== "VARIOS") {
-        return normalizeLabelText(client.nombreRazon) === normalizeLabelText(name);
+        return (
+          normalizeLabelText(client.nombreRazon) === normalizeLabelText(name)
+        );
       }
       return false;
     },
@@ -1789,18 +1831,20 @@ export default function HtmlCaptureSalePage() {
     const code = safeTrim(form.memberCode);
     const ruc = normalizeDocumentText(form.customerRuc);
     const name = safeTrim(form.customerName);
-    const matches = (predicate: (opt: (typeof clientOptions)[number]) => boolean) =>
-      clientOptions.find(predicate)?.client ?? null;
+    const matches = (
+      predicate: (opt: (typeof clientOptions)[number]) => boolean,
+    ) => clientOptions.find(predicate)?.client ?? null;
 
-    const byCode = code
-      ? matches((opt) => opt.code === code)
-      : null;
+    const byCode = code ? matches((opt) => opt.code === code) : null;
     const byRuc = ruc
       ? matches((opt) => normalizeDocumentText(opt.client.ruc) === ruc)
       : null;
-    const byName = name && name.toUpperCase() !== "VARIOS"
-      ? matches((opt) => normalizeLabelText(opt.label) === normalizeLabelText(name))
-      : null;
+    const byName =
+      name && name.toUpperCase() !== "VARIOS"
+        ? matches(
+            (opt) => normalizeLabelText(opt.label) === normalizeLabelText(name),
+          )
+        : null;
     return (
       byCode ??
       byRuc ??
@@ -1846,12 +1890,14 @@ export default function HtmlCaptureSalePage() {
       const byRuc = ruc
         ? source.find((client) => normalizeDocumentText(client.ruc) === ruc)
         : null;
-      const byName = name && name.toUpperCase() !== "VARIOS"
-        ? source.find(
-            (client) =>
-              normalizeLabelText(client.nombreRazon) === normalizeLabelText(name),
-          )
-        : null;
+      const byName =
+        name && name.toUpperCase() !== "VARIOS"
+          ? source.find(
+              (client) =>
+                normalizeLabelText(client.nombreRazon) ===
+                normalizeLabelText(name),
+            )
+          : null;
       return byCode ?? byRuc ?? byName ?? null;
     },
     [
@@ -2040,7 +2086,10 @@ export default function HtmlCaptureSalePage() {
     [deleteClient, formMethods, selectedClient?.id],
   );
 
-  const handleAddManualProduct = async (selectedProduct?: Product, quantity?: number) => {
+  const handleAddManualProduct = async (
+    selectedProduct?: Product,
+    quantity?: number,
+  ) => {
     if (isReadOnly) {
       toast.error("Este registro solo se puede visualizar.");
       return;
@@ -2087,8 +2136,11 @@ export default function HtmlCaptureSalePage() {
     const shouldAskFreeSaleReason = !freeSaleReasonAsked && rows.length === 0;
     const addProductToSale = () => {
       setRows((current) => {
-        if (quantity !== undefined) return setSaleProductQuantity(current, product, quantity);
-        const existing = current.findIndex((row) => row.code === product.codigo);
+        if (quantity !== undefined)
+          return setSaleProductQuantity(current, product, quantity);
+        const existing = current.findIndex(
+          (row) => row.code === product.codigo,
+        );
         if (existing < 0) return [...current, productToRow(product, 1)];
         return current.map((row, index) =>
           index === existing
@@ -2218,9 +2270,10 @@ export default function HtmlCaptureSalePage() {
   const handleCatalogQuantityChange = (product: Product, value: string) => {
     if (isReadOnly || isCapturedSale || isSaving) return;
     const quantity = value === "" ? 0 : Number(value);
-    if (!Number.isFinite(quantity) || quantity < 0) return;
+    if (!Number.isSafeInteger(quantity) || quantity < 0) return;
     if (quantity === 0) {
-      if (rows.some((row) => row.code === product.codigo)) handleRemoveRow(product.codigo);
+      if (rows.some((row) => row.code === product.codigo))
+        handleRemoveRow(product.codigo);
       return;
     }
     if (!rows.some((row) => row.code === product.codigo)) {
@@ -2232,8 +2285,9 @@ export default function HtmlCaptureSalePage() {
   };
 
   const handleRowQuantityChange = (code: string, value: string) => {
-    const quantity =
-      value === "" ? Number.NaN : Math.max(0, Number(value) || 0);
+    if (isReadOnly || isCapturedSale || isSaving) return;
+    const quantity = value === "" ? Number.NaN : Number(value);
+    if (value !== "" && (!Number.isSafeInteger(quantity) || quantity < 0)) return;
     setRows((current) =>
       current.map((row) => (row.code === code ? { ...row, quantity } : row)),
     );
@@ -3337,7 +3391,6 @@ export default function HtmlCaptureSalePage() {
         "No se pudo enviar a la tiketera.";
       throw new Error(printMessage);
     }
-
   };
 
   const sendTicketEmail = async () => {
@@ -3598,6 +3651,11 @@ export default function HtmlCaptureSalePage() {
     ) {
       focusSaleField();
       toast.error("Completa cantidad y precio de los productos.");
+      return;
+    }
+    if (rows.some((row) => !Number.isSafeInteger(row.quantity) || row.quantity <= 0)) {
+      focusSaleField();
+      toast.error("Las cantidades deben ser números enteros mayores que cero.");
       return;
     }
     const belowCostRow = rows.find(
@@ -3920,9 +3978,9 @@ export default function HtmlCaptureSalePage() {
         role="dialog"
         aria-modal="true"
         aria-label="Pago varios"
-        className="flex h-[min(90vh,736px)] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
+        className="flex h-[min(90dvh,736px)] max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
       >
-        <div className="flex justify-end border-b border-slate-100 px-5 py-4">
+        <div className="flex shrink-0 justify-end border-b border-slate-100 px-5 py-4">
           <button
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-50"
@@ -3931,7 +3989,7 @@ export default function HtmlCaptureSalePage() {
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex gap-1 border-b border-slate-200 px-5">
+        <div className="flex shrink-0 gap-1 border-b border-slate-200 px-5">
           {(
             [
               ["PENDIENTES", "Pendientes"],
@@ -3949,15 +4007,15 @@ export default function HtmlCaptureSalePage() {
           ))}
         </div>
         {!pagoVariosDetail && pagoVariosConceptos.length > 1 ? (
-          <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+          <div className="shrink-0 border-b border-red-100 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
             Para pagar varios, seleccione documentos con el mismo Concepto OBS.
           </div>
         ) : null}
 
         <div
-          className={`grid min-h-0 flex-1 ${pagoVariosTab === "PENDIENTES" ? "lg:grid-cols-[minmax(0,1fr)_350px]" : ""}`}
+          className={`flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:overflow-hidden ${pagoVariosTab === "PENDIENTES" ? "lg:grid-cols-[minmax(0,1fr)_350px]" : ""}`}
         >
-          <div className="min-h-0 overflow-auto">
+          <div className="min-h-0 shrink-0 overflow-auto">
             {pagoVariosTab === "PENDIENTES" && !pagoVariosDetail ? (
               <>
                 <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3">
@@ -4114,13 +4172,13 @@ export default function HtmlCaptureSalePage() {
                             Concepto OBS
                           </th>
                           <th className="border-b border-slate-100 px-5 py-3 text-right">
+                            Total
+                          </th>
+                          <th className="border-b border-slate-100 px-5 py-3 text-right">
                             Efectivo
                           </th>
                           <th className="border-b border-slate-100 px-5 py-3 text-right">
                             Depósito
-                          </th>
-                          <th className="border-b border-slate-100 px-5 py-3 text-right">
-                            Total
                           </th>
                         </tr>
                       </thead>
@@ -4322,159 +4380,162 @@ export default function HtmlCaptureSalePage() {
           </div>
 
           {pagoVariosTab === "PENDIENTES" ? (
-            <aside className="flex min-h-0 flex-col gap-4 border-t border-slate-100 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
-              <div className="rounded-md border border-red-100 bg-white p-4">
-                <p className="text-[11px] font-black uppercase text-red-600">
-                  {pagoVariosDetail ? "Total del pago" : "Total a pagar"}
-                </p>
-                <p className="mt-1 text-3xl font-black text-slate-900">
-                  S/ {money(pagoVariosDetail?.total ?? pagoVariosTotal)}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {integer(
-                    pagoVariosDetail
-                      ? pagoVariosDetailItems.length
-                      : selectedPagoVariosItems.length,
-                  )}{" "}
-                  documentos {pagoVariosDetail ? "del pago" : "seleccionados"}
-                </p>
-              </div>
-
-              <label className="grid gap-1 text-xs font-bold text-slate-500">
-                Forma pago
-                <select
-                  data-pago-varios-forma="true"
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
-                  value={pagoVariosDetail?.formaPago ?? pagoVariosFormaPago}
-                  onChange={(event) =>
-                    setPagoVariosFormaPago(event.target.value)
-                  }
-                  disabled={Boolean(pagoVariosDetail)}
-                >
-                  {PAYMENT_METHOD_OPTIONS.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
-                  Depósito
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    data-pago-varios-deposito="true"
-                    min="0"
-                    step="0.01"
-                    className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                    value={
+            <aside className="flex min-h-0 shrink-0 flex-col gap-4 border-t border-slate-100 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto [&>*]:shrink-0">
+                <div className="rounded-md border border-red-100 bg-white p-4">
+                  <p className="text-[11px] font-black uppercase text-red-600">
+                    {pagoVariosDetail ? "Total del pago" : "Total a pagar"}
+                  </p>
+                  <p className="mt-1 text-3xl font-black text-slate-900">
+                    S/ {money(pagoVariosDetail?.total ?? pagoVariosTotal)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {integer(
                       pagoVariosDetail
-                        ? String(pagoVariosDetail.deposito)
-                        : isPagoVariosMixed
-                          ? pagoVariosDeposito
-                          : pagoVariosDepositoFinal > 0
-                            ? String(Number(pagoVariosDepositoFinal.toFixed(2)))
-                            : ""
-                    }
+                        ? pagoVariosDetailItems.length
+                        : selectedPagoVariosItems.length,
+                    )}{" "}
+                    documentos {pagoVariosDetail ? "del pago" : "seleccionados"}
+                  </p>
+                </div>
+
+                <label className="grid gap-1 text-xs font-bold text-slate-500">
+                  Forma pago
+                  <select
+                    data-pago-varios-forma="true"
+                    className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                    value={pagoVariosDetail?.formaPago ?? pagoVariosFormaPago}
                     onChange={(event) =>
-                      setPagoVariosDeposito(event.target.value)
+                      setPagoVariosFormaPago(event.target.value)
                     }
-                    disabled={Boolean(pagoVariosDetail) || !isPagoVariosMixed}
-                  />
+                    disabled={Boolean(pagoVariosDetail)}
+                  >
+                    {PAYMENT_METHOD_OPTIONS.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
                 </label>
-                <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
-                  Efectivo
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
+                    Depósito
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      data-pago-varios-deposito="true"
+                      min="0"
+                      step="0.01"
+                      className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                      value={
+                        pagoVariosDetail
+                          ? String(pagoVariosDetail.deposito)
+                          : isPagoVariosMixed
+                            ? pagoVariosDeposito
+                            : pagoVariosDepositoFinal > 0
+                              ? String(
+                                  Number(pagoVariosDepositoFinal.toFixed(2)),
+                                )
+                              : ""
+                      }
+                      onChange={(event) =>
+                        setPagoVariosDeposito(event.target.value)
+                      }
+                      disabled={Boolean(pagoVariosDetail) || !isPagoVariosMixed}
+                    />
+                  </label>
+                  <label className="grid min-w-0 gap-1 text-xs font-bold text-slate-500">
+                    Efectivo
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none disabled:bg-slate-100"
+                      value={
+                        pagoVariosDetail
+                          ? String(pagoVariosDetail.efectivo)
+                          : pagoVariosEfectivoFinal > 0
+                            ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
+                            : ""
+                      }
+                      disabled
+                    />
+                  </label>
+                </div>
+
+                <label className="grid gap-1 text-xs font-bold text-slate-500">
+                  Entidad
+                  <select
+                    data-pago-varios-entidad="true"
+                    className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
+                    value={pagoVariosDetail?.entidad ?? pagoVariosEntidadFinal}
+                    onChange={(event) => {
+                      setPagoVariosEntidad(event.target.value);
+                      focusPagoVariosField("operacion");
+                    }}
+                    disabled={
+                      Boolean(pagoVariosDetail) || !pagoVariosEntidadEditable
+                    }
+                  >
+                    {BANK_OPTIONS.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-1 text-xs font-bold text-slate-500">
+                  Nro operacion
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    className="h-11 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-right text-base font-semibold text-slate-700 outline-none disabled:bg-slate-100"
+                    data-pago-varios-operacion="true"
+                    className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
                     value={
                       pagoVariosDetail
-                        ? String(pagoVariosDetail.efectivo)
-                        : pagoVariosEfectivoFinal > 0
-                          ? String(Number(pagoVariosEfectivoFinal.toFixed(2)))
+                        ? pagoVariosDetail.nroOperacion || ""
+                        : pagoVariosRequiereOperacion
+                          ? pagoVariosOperacion
                           : ""
                     }
-                    disabled
+                    onChange={(event) =>
+                      setPagoVariosOperacion(event.target.value)
+                    }
+                    onFocus={(event) => event.currentTarget.select()}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      focusPagoVariosField("descripcion");
+                    }}
+                    disabled={
+                      Boolean(pagoVariosDetail) || !pagoVariosRequiereOperacion
+                    }
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-bold text-slate-500">
+                  Descripcion
+                  <textarea
+                    key={
+                      pagoVariosDetail
+                        ? `detalle-${pagoVariosDetail.pagoId}-${pagoVariosDetail.descripcion}`
+                        : "borrador"
+                    }
+                    data-pago-varios-descripcion="true"
+                    data-no-history-guard="true"
+                    ref={pagoVariosDescripcionRef}
+                    className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                    defaultValue={
+                      pagoVariosDetail?.descripcion ??
+                      pagoVariosDescripcionDraftRef.current
+                    }
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => {
+                      const value = event.target.value.toUpperCase();
+                      event.currentTarget.value = value;
+                      pagoVariosDescripcionDraftRef.current = value;
+                    }}
+                    disabled={Boolean(pagoVariosDetail)}
                   />
                 </label>
               </div>
-
-              <label className="grid gap-1 text-xs font-bold text-slate-500">
-                Entidad
-                <select
-                  data-pago-varios-entidad="true"
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                  value={pagoVariosDetail?.entidad ?? pagoVariosEntidadFinal}
-                  onChange={(event) => {
-                    setPagoVariosEntidad(event.target.value);
-                    focusPagoVariosField("operacion");
-                  }}
-                  disabled={
-                    Boolean(pagoVariosDetail) || !pagoVariosEntidadEditable
-                  }
-                >
-                  {BANK_OPTIONS.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="grid gap-1 text-xs font-bold text-slate-500">
-                Nro operacion
-                <input
-                  data-pago-varios-operacion="true"
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400 disabled:bg-slate-100"
-                  value={
-                    pagoVariosDetail
-                      ? pagoVariosDetail.nroOperacion || ""
-                      : pagoVariosRequiereOperacion
-                        ? pagoVariosOperacion
-                        : ""
-                  }
-                  onChange={(event) =>
-                    setPagoVariosOperacion(event.target.value)
-                  }
-                  onFocus={(event) => event.currentTarget.select()}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    focusPagoVariosField("descripcion");
-                  }}
-                  disabled={
-                    Boolean(pagoVariosDetail) || !pagoVariosRequiereOperacion
-                  }
-                />
-              </label>
-
-              <label className="grid gap-1 text-xs font-bold text-slate-500">
-                Descripcion
-                <textarea
-                  key={
-                    pagoVariosDetail
-                      ? `detalle-${pagoVariosDetail.pagoId}-${pagoVariosDetail.descripcion}`
-                      : "borrador"
-                  }
-                  data-pago-varios-descripcion="true"
-                  data-no-history-guard="true"
-                  ref={pagoVariosDescripcionRef}
-                  className="min-h-[76px] resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
-                  defaultValue={
-                    pagoVariosDetail?.descripcion ??
-                    pagoVariosDescripcionDraftRef.current
-                  }
-                  onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) => {
-                    const value = event.target.value.toUpperCase();
-                    event.currentTarget.value = value;
-                    pagoVariosDescripcionDraftRef.current = value;
-                  }}
-                  disabled={Boolean(pagoVariosDetail)}
-                />
-              </label>
-
               <button
                 type="button"
                 className="mt-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-red-700 px-4 text-sm font-black uppercase text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
@@ -4534,7 +4595,9 @@ export default function HtmlCaptureSalePage() {
       viewSunatStatus?.notaEstado,
       viewSunatStatus?.estadoSunat,
       viewSunatStatus?.docuEstado,
-    ].some((value) => ["ANULADO", "BAJA"].includes(safeTrim(value).toUpperCase()));
+    ].some((value) =>
+      ["ANULADO", "BAJA"].includes(safeTrim(value).toUpperCase()),
+    );
   const isBlockedViewedNote = isRejectedInvoiceView || isAnnulledViewedNote;
   const isPendingInvoiceDispatch =
     isFromInvoiceDispatch &&
@@ -4711,7 +4774,11 @@ export default function HtmlCaptureSalePage() {
 
       {/* Navegación compacta y acciones en una sola fila */}
       <div className="sale-capture-actionbar flex min-w-0 flex-wrap items-center gap-3">
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1 desktop:hidden" role="group" aria-label="Secciones de captura de venta">
+        <div
+          className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1 desktop:hidden"
+          role="group"
+          aria-label="Secciones de captura de venta"
+        >
           <button
             type="button"
             aria-pressed={captureSection === "PRODUCTOS"}
@@ -4731,313 +4798,333 @@ export default function HtmlCaptureSalePage() {
         </div>
 
         {!isReadOnly ? (
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 desktop:ml-auto">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".html,.htm,text/html"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          {canCaptureData ? (
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 desktop:ml-auto">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".html,.htm,text/html"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {canCaptureData ? (
+              <button
+                type="button"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading || isSaving || isReadOnly}
+              >
+                <FileUp className="h-4 w-4" />
+                Capturar datos
+              </button>
+            ) : null}
             <button
               type="button"
               className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={loading || isSaving || isReadOnly}
+              onClick={clearForm}
+              disabled={isSaving || isReadOnly}
             >
-              <FileUp className="h-4 w-4" />
-              Capturar datos
+              <RotateCcw className="h-4 w-4" />
+              Limpiar
             </button>
-          ) : null}
-          <button
-            type="button"
-            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium leading-none text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-            onClick={clearForm}
-            disabled={isSaving || isReadOnly}
-          >
-            <RotateCcw className="h-4 w-4" />
-            Limpiar
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-green-700 px-4 text-sm font-semibold leading-none text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-            onClick={registerSale}
-            disabled={
-              isSaving ||
-              isReadOnly ||
-              !rows.length ||
-              rows.some((row) => !row.matched)
-            }
-          >
-            {isSaving ? (
-              <FileDown className="h-4 w-4 animate-pulse" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-            {isSaving ? "Confirmando..." : "Confirmar"}
-          </button>
-        </div>
+            <button
+              type="button"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-green-700 px-4 text-sm font-semibold leading-none text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              onClick={registerSale}
+              disabled={
+                isSaving ||
+                isReadOnly ||
+                !rows.length ||
+                rows.some((row) => !row.matched)
+              }
+            >
+              {isSaving ? (
+                <FileDown className="h-4 w-4 animate-pulse" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              {isSaving ? "Confirmando..." : "Confirmar"}
+            </button>
+          </div>
         ) : null}
       </div>
 
       <div className="grid min-w-0 gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(20rem,32%)] 2xl:grid-cols-[minmax(0,1fr)_440px] desktop:items-start">
         {/* Productos capturados */}
-        <section className={`order-1 min-w-0 rounded-lg border border-slate-200 bg-white ${captureSection === "PAGO" ? "hidden desktop:block" : ""}`}>
+        <section
+          className={`order-1 min-w-0 rounded-lg border border-slate-200 bg-white ${captureSection === "PAGO" ? "hidden desktop:block" : ""}`}
+        >
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-2">
-            <h2 className="mr-auto hidden desktop:block">
-              {saleTypeBadge}
-            </h2>
+            <h2 className="mr-auto hidden desktop:block">{saleTypeBadge}</h2>
 
             <div className="hidden desktop:block">{pvsMetrics}</div>
           </div>
 
           {listaProductosTabla && (
-              <SaleProductBrowser
-                key={`${location.key}:${productSearchVersion}`}
-                products={products}
-                rows={rows}
-                loading={loading}
-                disabled={isSaving || isReadOnly || isCapturedSale}
-                autoFocus={!isReadOnly && !isCapturedSale}
-                visible={productTab === "PRODUCTOS"}
-                searchRef={manualProductSearchRef}
-                searchAside={responsiveSaleIndicators}
-                onShowProducts={() => {
-                  setProductTab("PRODUCTOS");
-                  setCaptureSection("PRODUCTOS");
-                }}
-                onQuantityChange={handleCatalogQuantityChange}
-              />
+            <SaleProductBrowser
+              key={`${location.key}:${productSearchVersion}`}
+              products={products}
+              rows={rows}
+              loading={loading}
+              disabled={isSaving || isReadOnly || isCapturedSale}
+              autoFocus={!isReadOnly && !isCapturedSale}
+              visible={productTab === "PRODUCTOS"}
+              searchRef={manualProductSearchRef}
+              searchAside={responsiveSaleIndicators}
+              onShowProducts={() => {
+                setProductTab("PRODUCTOS");
+                setCaptureSection("PRODUCTOS");
+              }}
+              onShowDetail={() => {
+                setProductTab("DETALLE");
+                setCaptureSection("PRODUCTOS");
+              }}
+              onQuantityChange={handleCatalogQuantityChange}
+            />
           )}
 
-          <div id="sale-detail-panel" role={listaProductosTabla ? "region" : undefined} aria-label={listaProductosTabla ? "Detalle de la venta" : undefined} hidden={listaProductosTabla && productTab !== "DETALLE"}>
-          {!listaProductosTabla && (
-          <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3">
-            <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="relative min-w-0">
-              <input
-                ref={manualProductSearchRef}
-                type="search"
-                data-no-uppercase="true"
-                className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
-                placeholder="Buscar producto por código o nombre"
-                value={manualProductSearch}
-                onChange={(event) => {
-                  setManualProductSearch(event.currentTarget.value);
-                  setManualProductSearchFocused(true);
-                }}
-                onFocus={() => setManualProductSearchFocused(true)}
-                onBlur={() =>
-                  window.setTimeout(
-                    () => setManualProductSearchFocused(false),
-                    120,
-                  )
-                }
-                onKeyDown={(event) => {
-                  handleManualProductKeyDown(event);
-                }}
-                data-auto-next="true"
-                disabled={loading || isSaving || isReadOnly || isCapturedSale}
-              />
-              {manualProductSearchFocused &&
-              !dialogOpen &&
-              !pagoVariosModalOpen ? (
-                <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
-                  {filteredManualProducts.length ? (
-                    filteredManualProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50 ${
-                          filteredManualProducts[manualProductIndex]?.id ===
-                          product.id
-                            ? "bg-slate-100"
-                            : ""
-                        }`}
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          void handleAddManualProduct(product);
-                        }}
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold text-slate-700">
-                            {product.nombre}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {product.codigo}
-                          </span>
-                        </span>
-                        <span className="shrink-0 font-semibold text-slate-700">
-                          S/{" "}
-                          {money(
-                            Number(product.preVenta ?? product.preVentaB ?? 0),
-                          )}
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-slate-400">
-                      {loading ? "Cargando productos..." : "Sin coincidencias"}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => void handleAddManualProduct()}
-              disabled={loading || isSaving || isReadOnly || isCapturedSale}
-            >
-              <Plus className="h-4 w-4" />
-              Agregar
-            </button>
-            </div>
-            {responsiveSaleIndicators}
-          </div>
-          )}
-
-          <div className="max-h-[46vh] w-full max-w-full overflow-x-auto overflow-y-auto">
-            <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px] desktop:min-w-[640px] 2xl:min-w-[760px]">
-              <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
-                <tr>
-                  {[
-                    "Código",
-                    "Descripcion",
-                    "Cantidad",
-                    "Precio",
-                    "PV Total",
-                    "SV Total",
-                    "Importe",
-                    "",
-                  ].map((header, i) => (
-                    <th
-                      key={header}
-                      className={`border-b border-slate-100 px-4 py-2 font-medium ${
-                        i > 1 ? "text-right" : "text-left"
-                      }`}
-                    >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-5 py-14 text-center text-sm text-slate-400"
-                    >
-                      Captura un HTML o agrega productos para venta libre.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr
-                      key={row.code}
-                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-                    >
-                      <td className="px-4 py-2 font-medium text-slate-500">
-                        {row.code}
-                      </td>
-                      <td className="px-4 py-2 text-slate-600">
-                        <span className="flex items-center gap-2">
-                          {row.description}
-                          {!row.matched && (
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                              no encontrado
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-right text-slate-600">
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={
-                            Number.isFinite(row.quantity) ? row.quantity : ""
-                          }
-                          data-auto-next="true"
-                          onChange={(event) =>
-                            handleRowQuantityChange(
-                              row.code,
-                              event.currentTarget.value,
-                            )
-                          }
-                          onKeyDown={handleNumberInputKeyDown}
-                          onFocus={(event) =>
-                            moveCaretToEnd(event.currentTarget)
-                          }
-                          onBlur={() => {
-                            if (listaProductosTabla && (!Number.isFinite(row.quantity) || row.quantity <= 0)) {
-                              handleRemoveRow(row.code);
-                            } else {
-                              handleRowPriceBlur(row.code);
-                            }
-                          }}
-                          disabled={isSaving || isReadOnly || isCapturedSale}
-                          className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right text-slate-600">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={Number.isFinite(row.price) ? row.price : ""}
-                          data-sale-price-input="true"
-                          data-row-code={row.code}
-                          data-auto-next="true"
-                          onChange={(event) =>
-                            handleRowPriceChange(
-                              row.code,
-                              event.currentTarget.value,
-                            )
-                          }
-                          onKeyDown={handleNumberInputKeyDown}
-                          onFocus={(event) =>
-                            moveCaretToEnd(event.currentTarget)
-                          }
-                          disabled={isSaving || isReadOnly || isCapturedSale}
-                          className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
-                        />
-                      </td>
-
-                      <td className="px-4 py-2 text-right font-medium text-slate-700">
-                        {money(row.pv * safeRowNumber(row.quantity))}
-                      </td>
-                      <td className="px-4 py-2 text-right text-slate-500">
-                        {money(row.sv * safeRowNumber(row.quantity))}
-                      </td>
-                      <td className="px-4 py-2 text-right font-semibold text-slate-800">
-                        {money(
-                          safeRowNumber(row.price) *
-                            safeRowNumber(row.quantity),
+          <div
+            id="sale-detail-panel"
+            role={listaProductosTabla ? "region" : undefined}
+            aria-label={listaProductosTabla ? "Detalle de la venta" : undefined}
+            hidden={listaProductosTabla && productTab !== "DETALLE"}
+          >
+            {!listaProductosTabla && (
+              <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-4 py-3">
+                <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <div className="relative min-w-0">
+                    <input
+                      ref={manualProductSearchRef}
+                      type="search"
+                      data-no-uppercase="true"
+                      className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+                      placeholder="Buscar producto por código o nombre"
+                      value={manualProductSearch}
+                      onChange={(event) => {
+                        setManualProductSearch(event.currentTarget.value);
+                        setManualProductSearchFocused(true);
+                      }}
+                      onFocus={() => setManualProductSearchFocused(true)}
+                      onBlur={() =>
+                        window.setTimeout(
+                          () => setManualProductSearchFocused(false),
+                          120,
+                        )
+                      }
+                      onKeyDown={(event) => {
+                        handleManualProductKeyDown(event);
+                      }}
+                      data-auto-next="true"
+                      disabled={
+                        loading || isSaving || isReadOnly || isCapturedSale
+                      }
+                    />
+                    {manualProductSearchFocused &&
+                    !dialogOpen &&
+                    !pagoVariosModalOpen ? (
+                      <div className="absolute left-0 right-0 top-10 z-30 max-h-72 overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                        {filteredManualProducts.length ? (
+                          filteredManualProducts.map((product) => (
+                            <button
+                              key={product.id}
+                              type="button"
+                              className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50 ${
+                                filteredManualProducts[manualProductIndex]
+                                  ?.id === product.id
+                                  ? "bg-slate-100"
+                                  : ""
+                              }`}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                void handleAddManualProduct(product);
+                              }}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate font-semibold text-slate-700">
+                                  {product.nombre}
+                                </span>
+                                <span className="text-xs text-slate-400">
+                                  {product.codigo}
+                                </span>
+                              </span>
+                              <span className="shrink-0 font-semibold text-slate-700">
+                                S/{" "}
+                                {money(
+                                  Number(
+                                    product.preVenta ?? product.preVentaB ?? 0,
+                                  ),
+                                )}
+                              </span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-slate-400">
+                            {loading
+                              ? "Cargando productos..."
+                              : "Sin coincidencias"}
+                          </div>
                         )}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                          onClick={() => handleRemoveRow(row.code)}
-                          disabled={isSaving || isReadOnly || isCapturedSale}
-                          title="Quitar"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => void handleAddManualProduct()}
+                    disabled={
+                      loading || isSaving || isReadOnly || isCapturedSale
+                    }
+                  >
+                    <Plus className="h-4 w-4" />
+                    Agregar
+                  </button>
+                </div>
+                {responsiveSaleIndicators}
+              </div>
+            )}
+
+            <div className="max-h-[46vh] w-full max-w-full overflow-x-auto overflow-y-auto">
+              <table className="w-full min-w-[640px] border-collapse text-sm sm:min-w-[760px] desktop:min-w-[640px] 2xl:min-w-[760px]">
+                <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-400">
+                  <tr>
+                    {[
+                      "Código",
+                      "Descripcion",
+                      "Cantidad",
+                      "Precio",
+                      "PV Total",
+                      "SV Total",
+                      "Importe",
+                      "",
+                    ].map((header, i) => (
+                      <th
+                        key={header}
+                        className={`border-b border-slate-100 px-4 py-2 font-medium ${
+                          i > 1 ? "text-right" : "text-left"
+                        }`}
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="px-5 py-14 text-center text-sm text-slate-400"
+                      >
+                        Captura un HTML o agrega productos para venta libre.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    rows.map((row) => (
+                      <tr
+                        key={row.code}
+                        className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                      >
+                        <td className="px-4 py-2 font-medium text-slate-500">
+                          {row.code}
+                        </td>
+                        <td className="px-4 py-2 text-slate-600">
+                          <span className="flex items-center gap-2">
+                            {row.description}
+                            {!row.matched && (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                no encontrado
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-600">
+                          <NavigableNumberInput
+                            aria-label={`Cantidad de ${row.code}`}
+                            integerOnly
+                            selectOnFocus={false}
+                            min="0"
+                            step="1"
+                            value={
+                              Number.isFinite(row.quantity) ? row.quantity : ""
+                            }
+                            data-auto-next="true"
+                            onChange={(value) =>
+                              handleRowQuantityChange(row.code, value)
+                            }
+                            onKeyDown={handleNumberInputKeyDown}
+                            onFocus={(event) =>
+                              moveCaretToEnd(event.currentTarget)
+                            }
+                            onBlur={() => {
+                              if (
+                                listaProductosTabla &&
+                                (!Number.isFinite(row.quantity) ||
+                                  row.quantity <= 0)
+                              ) {
+                                handleRemoveRow(row.code);
+                              } else {
+                                handleRowPriceBlur(row.code);
+                              }
+                            }}
+                            disabled={isSaving || isReadOnly || isCapturedSale}
+                            className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-600">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={Number.isFinite(row.price) ? row.price : ""}
+                            data-sale-price-input="true"
+                            data-row-code={row.code}
+                            data-auto-next="true"
+                            onChange={(event) =>
+                              handleRowPriceChange(
+                                row.code,
+                                event.currentTarget.value,
+                              )
+                            }
+                            onKeyDown={handleNumberInputKeyDown}
+                            onFocus={(event) =>
+                              moveCaretToEnd(event.currentTarget)
+                            }
+                            disabled={isSaving || isReadOnly || isCapturedSale}
+                            className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
+                          />
+                        </td>
 
-          {/* Totales: barra compacta al pie de la misma tarjeta */}
+                        <td className="px-4 py-2 text-right font-medium text-slate-700">
+                          {money(row.pv * safeRowNumber(row.quantity))}
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-500">
+                          {money(row.sv * safeRowNumber(row.quantity))}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold text-slate-800">
+                          {money(
+                            safeRowNumber(row.price) *
+                              safeRowNumber(row.quantity),
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-100 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                            onClick={() => handleRemoveRow(row.code)}
+                            disabled={isSaving || isReadOnly || isCapturedSale}
+                            title="Quitar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totales: barra compacta al pie de la misma tarjeta */}
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-sm">
@@ -5063,7 +5150,9 @@ export default function HtmlCaptureSalePage() {
         </section>
 
         {/* Datos de la venta */}
-        <section className={`order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white desktop:sticky desktop:top-4 ${captureSection === "PRODUCTOS" ? "hidden desktop:block" : ""}`}>
+        <section
+          className={`order-2 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white desktop:sticky desktop:top-4 ${captureSection === "PRODUCTOS" ? "hidden desktop:block" : ""}`}
+        >
           {isBlockedViewedNote ? (
             <div className="bg-red-600 px-4 py-2 text-center text-sm font-black tracking-[0.18em] text-white">
               ANULADO

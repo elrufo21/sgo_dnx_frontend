@@ -20,6 +20,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { usePosStore, selectTotals } from "@/store/pos/pos.store";
 import { toast } from "@/shared/ui/toast";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
+import { getAutomaticPaymentBank } from "@/shared/helpers/paymentBank";
 import TicketDocument from "@/components/Ticket";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 import { apiRequest } from "@/shared/helpers/apiRequest";
@@ -1561,6 +1562,7 @@ const PaymentPage = () => {
     };
   };
   const normalizedPaymentMethod = String(paymentMethod ?? "").trim();
+  const automaticBank = getAutomaticPaymentBank(normalizedPaymentMethod);
   const isCash = normalizedPaymentMethod === "EFECTIVO";
   const paymentNeedsOperation = !["(SELECCIONE)", "EFECTIVO", "-"].includes(
     normalizedPaymentMethod,
@@ -2122,18 +2124,23 @@ const PaymentPage = () => {
   };
 
   useEffect(() => {
+    if (formLocked) return;
     const currentBank = String(getValues("bankEntity") ?? "").trim();
     if (!paymentNeedsOperation) {
       if (currentBank !== "-") {
         setValue("bankEntity", "-", { shouldDirty: false });
       }
       setValue("nroOperacion", "", { shouldDirty: false });
+    } else if (automaticBank) {
+      if (currentBank !== automaticBank) {
+        setValue("bankEntity", automaticBank, { shouldDirty: false });
+      }
     } else {
       if (!currentBank || currentBank === "-") {
         setValue("bankEntity", "(SELECCIONE)", { shouldDirty: false });
       }
     }
-  }, [getValues, paymentNeedsOperation, setValue]);
+  }, [automaticBank, formLocked, getValues, paymentNeedsOperation, setValue]);
 
   const lastDocTypeRef = useRef<string | null>(null);
   const defaultCustomerAppliedRef = useRef(false);
@@ -6203,7 +6210,7 @@ const PaymentPage = () => {
               <HookFormSelect
                 name="bankEntity"
                 label="Entidad bancaria"
-                disabled={formLocked}
+                disabled={formLocked || Boolean(automaticBank)}
                 rules={{
                   validate: (value: any) => {
                     const normalized = safeTrim(value);
