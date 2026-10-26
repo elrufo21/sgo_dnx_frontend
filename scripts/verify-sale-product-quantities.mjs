@@ -10,7 +10,7 @@ assert.equal(rows[0].price, 168);
 rows = setSaleProductQuantity(rows, kit, "2");
 assert.equal(rows.length, 2);
 
-// A detail price edit must survive subsequent quantity edits in Products.
+// Quantity edits must preserve the price already stored on the sale row.
 rows = rows.map((row) => row.code === kimono.codigo ? { ...row, price: 170, valueUm: 1 } : row);
 const kitRow = rows[1];
 rows = setSaleProductQuantity(rows, kimono, "3");
@@ -36,4 +36,4 @@ assert.deepEqual(rows.map((row) => row.code), [kit.codigo]);
 rows = setSaleProductQuantity(rows, kit, "");
 assert.equal(rows.length, 0);
 assert.equal(productToRow(kimono, 2, false).matched, false);
-console.log("OK: cantidades enteras, rechazo de decimales, selección, eliminación, precios editados y totales.");
+console.log("OK: cantidades enteras, rechazo de decimales, selección, eliminación, precios existentes y totales.");

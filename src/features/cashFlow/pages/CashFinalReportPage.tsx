@@ -104,6 +104,11 @@ function AdminKeyDialogContent() {
 
 const today = () => getLocalDateISO();
 const money = (value: number) => `${Number(value || 0).toFixed(2)}`;
+const moneyWithThousands = (value: number) =>
+  Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 const BASE_INCOMES = new Set([
   "TOTAL EFECTIVO",
   "VITRINA",
@@ -553,11 +558,11 @@ export default function CashFinalReportPage() {
     columnHelper.accessor("cajeros", { header: "Cajeros" }),
     columnHelper.accessor("totalObs", {
       header: "Sistema OBS",
-      cell: (info) => money(info.getValue()),
+      cell: (info) => moneyWithThousands(info.getValue()),
     }),
     columnHelper.accessor("salidas", {
       header: "Salidas",
-      cell: (info) => money(info.getValue()),
+      cell: (info) => moneyWithThousands(info.getValue()),
     }),
     columnHelper.accessor("diferencia", {
       header: "Diferencia",

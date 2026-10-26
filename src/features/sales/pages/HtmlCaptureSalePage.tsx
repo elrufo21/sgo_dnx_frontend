@@ -856,6 +856,7 @@ export default function HtmlCaptureSalePage() {
   const formMethods = useForm<SaleForm>({ defaultValues: defaultForm });
   const form = formMethods.watch();
   const manualProductSearchRef = useRef<HTMLInputElement | null>(null);
+  const shiftShortcutEligibleRef = useRef(false);
   const isCapturedSale = Boolean(capture) || isCashbillSale;
   const isLoadingRecord = isExistingRoute && loadedRecordId !== routeNoteId;
   const saleType = isCapturedSale ? "CASHBILL" : manualSaleType;
@@ -1255,6 +1256,67 @@ export default function HtmlCaptureSalePage() {
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
+  }, [listaProductosTabla, dialogOpen, pagoVariosModalOpen]);
+
+  useEffect(() => {
+    if (!listaProductosTabla) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        shiftShortcutEligibleRef.current =
+          !event.repeat &&
+          !event.altKey &&
+          !event.ctrlKey &&
+          !event.metaKey;
+      } else if (event.shiftKey) {
+        shiftShortcutEligibleRef.current = false;
+      }
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== "Shift") return;
+      const shouldFocusSearch = shiftShortcutEligibleRef.current;
+      shiftShortcutEligibleRef.current = false;
+      if (
+        !shouldFocusSearch ||
+        dialogOpen ||
+        pagoVariosModalOpen ||
+        (event.target instanceof Element &&
+          event.target.closest('[role="dialog"]'))
+      )
+        return;
+
+      const target = event.target;
+      const isEditable =
+        (target instanceof HTMLInputElement &&
+          !target.disabled &&
+          !target.readOnly) ||
+        (target instanceof HTMLTextAreaElement &&
+          !target.disabled &&
+          !target.readOnly) ||
+        (target instanceof HTMLSelectElement && !target.disabled) ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      const searchInput = manualProductSearchRef.current;
+      if (
+        !isEditable ||
+        !(target instanceof Element) ||
+        !target.closest("#sale-catalog-panel, #sale-detail-panel") ||
+        target === searchInput ||
+        !searchInput ||
+        searchInput.disabled
+      )
+        return;
+
+      setCaptureSection("PRODUCTOS");
+      window.requestAnimationFrame(() =>
+        searchInput.focus({ preventScroll: true }),
+      );
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      shiftShortcutEligibleRef.current = false;
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
   }, [listaProductosTabla, dialogOpen, pagoVariosModalOpen]);
 
   useEffect(() => {
@@ -2290,30 +2352,6 @@ export default function HtmlCaptureSalePage() {
     if (value !== "" && (!Number.isSafeInteger(quantity) || quantity < 0)) return;
     setRows((current) =>
       current.map((row) => (row.code === code ? { ...row, quantity } : row)),
-    );
-    setLastTicket(null);
-  };
-
-  const handleRowPriceChange = (code: string, value: string) => {
-    const price = value === "" ? Number.NaN : Math.max(0, Number(value) || 0);
-    setRows((current) =>
-      current.map((row) => (row.code === code ? { ...row, price } : row)),
-    );
-    setLastTicket(null);
-  };
-
-  const handleRowPriceBlur = (code: string) => {
-    const row = rows.find((item) => item.code === code);
-    if (!row || !Number.isFinite(row.price)) return;
-    const minimum = minAllowedPrice(row);
-    if (minimum <= 0 || row.price >= minimum) return;
-
-    toast.error(`El precio no debe ser menor a: S/ ${money(minimum)}`);
-    focusPriceInput(code);
-    setRows((current) =>
-      current.map((item) =>
-        item.code === code ? { ...item, price: minimum } : item,
-      ),
     );
     setLastTicket(null);
   };
@@ -4879,6 +4917,13 @@ export default function HtmlCaptureSalePage() {
                 setProductTab("DETALLE");
                 setCaptureSection("PRODUCTOS");
               }}
+              onFocusDetailQuantity={() =>
+                document
+                  .querySelector<HTMLInputElement>(
+                    '#sale-detail-panel input[aria-label^="Cantidad de "]',
+                  )
+                  ?.focus({ preventScroll: true })
+              }
               onQuantityChange={handleCatalogQuantityChange}
             />
           )}
@@ -5062,8 +5107,6 @@ export default function HtmlCaptureSalePage() {
                                   row.quantity <= 0)
                               ) {
                                 handleRemoveRow(row.code);
-                              } else {
-                                handleRowPriceBlur(row.code);
                               }
                             }}
                             disabled={isSaving || isReadOnly || isCapturedSale}
@@ -5075,22 +5118,16 @@ export default function HtmlCaptureSalePage() {
                             type="number"
                             min="0"
                             step="0.01"
+                            readOnly
                             value={Number.isFinite(row.price) ? row.price : ""}
                             data-sale-price-input="true"
                             data-row-code={row.code}
-                            data-auto-next="true"
-                            onChange={(event) =>
-                              handleRowPriceChange(
-                                row.code,
-                                event.currentTarget.value,
-                              )
-                            }
                             onKeyDown={handleNumberInputKeyDown}
                             onFocus={(event) =>
                               moveCaretToEnd(event.currentTarget)
                             }
                             disabled={isSaving || isReadOnly || isCapturedSale}
-                            className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
+                            className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 read-only:bg-slate-50 read-only:text-slate-500 disabled:bg-slate-50"
                           />
                         </td>
 

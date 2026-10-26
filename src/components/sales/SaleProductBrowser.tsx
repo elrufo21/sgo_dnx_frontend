@@ -16,6 +16,7 @@ type SaleProductBrowserProps = {
   searchAside?: ReactNode;
   onShowProducts: () => void;
   onShowDetail: () => void;
+  onFocusDetailQuantity: () => void;
   onQuantityChange: (product: Product, value: string) => void;
 };
 
@@ -25,6 +26,7 @@ export function SaleProductBrowser({
   searchAside,
   onShowProducts,
   onShowDetail,
+  onFocusDetailQuantity,
   autoFocus,
   ...catalogProps
 }: SaleProductBrowserProps) {
@@ -51,7 +53,12 @@ export function SaleProductBrowser({
             disabled={catalogProps.disabled}
             onKeyDown={(event) => {
               if (event.key !== "Enter" && event.key !== "ArrowDown") return;
-              if (!search.trim()) return;
+              if (!search.trim()) {
+                if (visible) return;
+                event.preventDefault();
+                onFocusDetailQuantity();
+                return;
+              }
               const firstMatch = searchProductCatalog(productIndex, search)[0];
               if (!firstMatch) return;
 
