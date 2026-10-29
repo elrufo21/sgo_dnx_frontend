@@ -590,6 +590,16 @@ export default function CashFinalReportPage() {
         ...manualRows.filter((row) => row.tipo === "income"),
       ]
     : allExpenseRows;
+  const iocCounts = incomeRows
+    .map((row) => row.descripcion.trim().match(/^IOC\s*\(\s*(\d+)\s*\)$/i))
+    .filter((match) => match !== null);
+  const iocLabel = iocCounts.length
+    ? `IOC (${iocCounts.reduce((sum, match) => sum + Number(match[1]), 0)})`
+    : "IOC";
+  const displayIncome = (row: Movement) =>
+    view === "detail" && !row.manual && row.descripcion === "IOC"
+      ? { ...row, descripcion: iocLabel }
+      : row;
   const readOnly = view === "detail" && !editing;
   const resetToNew = () => {
     setReportId(null);
@@ -620,7 +630,7 @@ export default function CashFinalReportPage() {
         products={preparation.productos}
         sistemaObs={preparation.totalObs}
         gastos={allExpenseRows}
-        ingresos={totals.incomes}
+        ingresos={totals.incomes.map(displayIncome)}
         conteoMonedas={coins}
         totalEfectivo={totals.counted}
         totalBilletes={totals.bills}
@@ -1004,7 +1014,7 @@ export default function CashFinalReportPage() {
                                   className="w-full rounded border border-gray-200 px-1 py-0.5 text-xs"
                                 />
                               ) : (
-                                row.descripcion
+                                tab === "income" ? displayIncome(row).descripcion : row.descripcion
                               )}
                             </div>
                             <div className="border-l border-slate-300 px-2 py-1 text-right font-medium">

@@ -34,7 +34,7 @@ Al guardar o actualizar el informe final se abre un cuadro que indica **«Solo e
 
 Desde el listado, el botón **Ver** abre un informe guardado en modo lectura con el arqueo, ingresos, salidas y observaciones originales.
 
-En un informe guardado, los conceptos `IOC` e `IOC (n)` se muestran en una única fila **IOC**, con la suma de sus importes originales. Los totales y el PDF usan esa misma fila; no se infiere que dos importes iguales sean duplicados. Al editar y guardar se conservan los movimientos originales, con su descripción, importe, estado e identificador, sin crear un IOC adicional. Las demás filas manuales no se modifican.
+En un informe guardado, los conceptos `IOC` e `IOC (n)` se muestran en una única fila, con la suma de sus importes originales. Si hay cantidades guardadas en las descripciones, se suman y muestran como **IOC (n)**; si no hay cantidades, se muestra **IOC**. Los totales y el PDF usan esa misma fila; no se infiere que dos importes iguales sean duplicados. Al editar y guardar se conservan los movimientos originales, con su descripción, importe, estado e identificador, sin crear un IOC adicional. Las demás filas manuales no se modifican.
 
 El listado permite buscar informes por **Fecha Inicio** y **Fecha Fin**. Por defecto muestra el mes en curso hasta la fecha actual; ambos límites son obligatorios y la fecha inicial no puede ser posterior a la final.
 
