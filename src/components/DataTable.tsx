@@ -12,11 +12,13 @@ import {
 } from "@tanstack/react-table";
 import {
   useEffect,
+  useDeferredValue,
   useMemo,
   useRef,
   useState,
   type FormEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { useLocation } from "react-router";
 import {
@@ -69,6 +71,38 @@ interface DataTableProps<T extends RowData> {
   renderHeaderFilterCell?: (columnId: string) => ReactNode;
   rowClassName?: string | ((row: T) => string | undefined);
   fillAvailableHeight?: boolean;
+  isolatedSearch?: boolean;
+}
+
+function LocalTableSearch({ value, onChange, inputRef, placeholder, showClear }: {
+  value: string;
+  onChange: (value: string) => void;
+  inputRef: RefObject<HTMLInputElement | null>;
+  placeholder: string;
+  showClear: boolean;
+}) {
+  const [text, setText] = useState(value);
+  const lastSent = useRef(value);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (value === lastSent.current) return;
+    if (timer.current) clearTimeout(timer.current);
+    lastSent.current = value;
+    // Sync route resets or externally controlled search changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setText(value);
+  }, [value]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const update = (next: string, immediate = false) => {
+    setText(next);
+    if (timer.current) clearTimeout(timer.current);
+    const publish = () => { lastSent.current = next; onChange(next); };
+    if (immediate) publish();
+    else timer.current = setTimeout(publish, 150);
+  };
+  return <SearchInput ref={inputRef} autoFocus placeholder={placeholder} value={text}
+    onChange={(event) => update(event.target.value)}
+    onClear={showClear ? () => update("", true) : undefined} />;
 }
 
 const alignmentClass: Record<"left" | "center" | "right", string> = {
@@ -168,6 +202,7 @@ export default function DataTable<T extends RowData>({
   renderHeaderFilterCell,
   rowClassName,
   fillAvailableHeight = false,
+  isolatedSearch = false,
 }: DataTableProps<T>) {
   const location = useLocation();
   const searchScope = useMemo(
@@ -270,26 +305,32 @@ export default function DataTable<T extends RowData>({
     }
   }, [globalFilter, globalFilterStorageKey]);
 
-  const filteredData = useMemo(() => {
-    if (manualFiltering) return data;
-    const terms = normalizeSearchText(globalFilter).split(" ").filter(Boolean);
-    if (terms.length === 0) return data;
-
-    return data.filter((rowItem) => {
+  const deferredFilter = useDeferredValue(globalFilter);
+  const hasSearchTerms = normalizeSearchText(deferredFilter).length > 0;
+  const [hasSearched, setHasSearched] = useState(false);
+  useEffect(() => { if (hasSearchTerms) setHasSearched(true); }, [hasSearchTerms]);
+  const shouldIndex = !manualFiltering && (hasSearchTerms || hasSearched);
+  const searchIndex = useMemo(() => {
+    if (!shouldIndex) return [];
+    return data.map((rowItem) => {
       const original = rowItem as Record<string, unknown>;
       const keysToSearch =
         filterKeys && filterKeys.length > 0
           ? filterKeys
           : (Object.keys(original) as (keyof T & string)[]);
 
-      const searchableText = keysToSearch
+      return keysToSearch
         .map((key) => getSearchableText(original[key]))
         .filter(Boolean)
         .join(" ");
-
-      return terms.every((term) => searchableText.includes(term));
     });
-  }, [data, filterKeys, globalFilter, manualFiltering]);
+  }, [data, filterKeys, shouldIndex]);
+  const filteredData = useMemo(() => {
+    if (manualFiltering) return data;
+    const terms = normalizeSearchText(deferredFilter).split(" ").filter(Boolean);
+    if (terms.length === 0) return data;
+    return data.filter((_, index) => terms.every((term) => searchIndex[index].includes(term)));
+  }, [data, searchIndex, deferredFilter, manualFiltering]);
 
   useEffect(() => {
     if (!onFilteredDataChange) return;
@@ -496,7 +537,10 @@ export default function DataTable<T extends RowData>({
     }
   }, [pageSize, pageSizeStorageKey, persistPageSize]);
 
-  const searchControl = showSearch ? (
+  const searchControl = showSearch && isolatedSearch ? (
+      <LocalTableSearch inputRef={searchRef} value={globalFilter} onChange={handleGlobalFilterChange}
+        placeholder={searchPlaceholder} showClear={showSearchClear} />
+  ) : showSearch ? (
       <SearchInput
         ref={searchRef}
         autoFocus

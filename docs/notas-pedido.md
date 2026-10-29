@@ -14,6 +14,8 @@ Las facturas y boletas siguen su flujo electrónico. Una **PROFORMA V** se anula
 
 Los cuadros de efectivo, depósito y total se calculan únicamente con las filas visibles tras aplicar la búsqueda del listado. Al limpiar o cambiar el filtro, los tres valores se actualizan de inmediato.
 
+El buscador mantiene el texto en su propio control y espera 150 ms tras la última tecla para actualizar los resultados. Así escribir y borrar no vuelve a renderizar la tabla por cada tecla. Los campos del índice se conservan estables al recalcular los totales, y el índice se reutiliza incluso al limpiar la búsqueda; se reconstruye cuando cambian las filas o los campos. Los totales se recalculan a partir de las mismas filas filtradas. No modifica SQL ni agrega paginación.
+
 Los estados `ANULADO`, `BAJA` y `RECHAZADO` se muestran en rojo en las columnas **Estado** y **Estado Sunat**. En una anulación confirmada con nota de crédito, el estado SUNAT de la factura es `ANULADO`; para una boleta dada de baja es `BAJA`.
 
 Al abrir una nota existente, la acción **Anular** se oculta si `NotaEstado`, `EstadoSunat` o `DocuEstado` indica `ANULADO`, `BAJA` o `RECHAZADO`. Se espera a cargar esos estados antes de mostrar la acción.

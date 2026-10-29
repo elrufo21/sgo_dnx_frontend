@@ -20,7 +20,13 @@ En el PDF de caja, los bloques de salidas, ventas no capturadas al facturador, a
 
 El módulo independiente **Generar informe de caja final** aparece en el sidebar únicamente cuando `Compania.FlagCaja` es `1`; con valor `0` no se muestra. No abre, cierra ni edita cajas. Tiene su propio formulario: fecha, cajeros consolidados, conteo por denominación, pestañas de ingresos/salidas, Sistema OBS, observaciones, diferencial y listado de informes registrados. Solo consolida las cajas que ya están cerradas para la fecha seleccionada. El conteo comparte las once denominaciones base de Control de flujo de caja, por lo que siempre se muestra aunque no exista un conteo previo en la fecha.
 
+**TOTAL EFECTIVO** se calcula como Sistema OBS menos todas las salidas, incluidas las agregadas manualmente, con dos decimales. Si las salidas superan el OBS, el resultado es negativo; se usa también para el total de ingresos, el diferencial, el guardado y el PDF. El backend permite ese ingreso negativo únicamente cuando coincide con la resta indicada. Verificación sin SQL: `node scripts/verify-informe-final-efectivo.mjs`.
+
 En el listado de informes finales, **Sistema OBS** y **Salidas** muestran separador de miles y dos decimales (por ejemplo, `10,000.00`).
+
+En el formulario del informe final, los totales del conteo, ingresos, gastos, billetes y monedas, así como OBS, salidas y diferencial, se muestran con separador de miles y dos decimales. El formato solo cambia la presentación; los cálculos y los importes editables permanecen numéricos. El PDF ya utiliza el mismo formato.
+
+Los importes mostrados como texto en las tablas de ingresos y gastos también usan separador de miles y dos decimales, incluido TOTAL EFECTIVO. Los movimientos manuales se mantienen como campos numéricos al editar y se muestran con el mismo formato en modo lectura.
 
 La vista del informe final muestra el conteo, ingresos, gastos, OBS y diferencial, sin una tabla de productos vendidos. Al imprimir o enviar por correo un informe final, el PDF incluye los productos vendidos de la fecha en una página aparte cuando hay filas.
 

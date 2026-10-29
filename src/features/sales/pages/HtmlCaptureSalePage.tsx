@@ -745,8 +745,10 @@ export default function HtmlCaptureSalePage() {
   const listaProductosTabla = useBoletaBatchConfigStore(
     (state) => state.listaProductosTabla,
   );
+  const companyDistrict = useBoletaBatchConfigStore((state) => state.companyDistrict);
   const {
     clients,
+    loading: loadingClients,
     fetchClients,
     searchClients,
     fetchClientById,
@@ -3286,6 +3288,7 @@ export default function HtmlCaptureSalePage() {
         invoice,
         company: {
           name: session.companyName,
+          district: companyDistrict,
           ruc: session.companyRuc,
           address: session.companyAddress,
           phone: session.companyPhone,
@@ -3502,6 +3505,7 @@ export default function HtmlCaptureSalePage() {
       formData.append("rucEmisor", session.companyRuc || "20601070155");
       formData.append("nroComprobante", documentNumber);
       formData.append("nombreCompania", session.companyName || "Mi Empresa");
+      if (companyDistrict) formData.append("nombreSede", `DXN ${companyDistrict.toUpperCase()}`);
       formData.append(
         "tipoComprobante",
         isInvoice ? "Factura electrónica" : "Boleta electrónica",
@@ -4704,13 +4708,15 @@ export default function HtmlCaptureSalePage() {
   return (
     <div className="sale-capture-layout mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
       <BlockingSpinner
-        show={isLoadingRecord || isApplyingCapture || isResendingOse}
+        show={loading || loadingClients || isLoadingRecord || isApplyingCapture || isResendingOse}
         text={
           isResendingOse
             ? "Reenviando documento a OSE..."
             : isLoadingRecord
               ? "Cargando registro..."
-              : "Cargando datos de la extensión..."
+              : isApplyingCapture
+                ? "Cargando datos de la extensión..."
+                : "Cargando datos de venta..."
         }
       />
       {PagoVariosModal}
@@ -5100,15 +5106,6 @@ export default function HtmlCaptureSalePage() {
                             onFocus={(event) =>
                               moveCaretToEnd(event.currentTarget)
                             }
-                            onBlur={() => {
-                              if (
-                                listaProductosTabla &&
-                                (!Number.isFinite(row.quantity) ||
-                                  row.quantity <= 0)
-                              ) {
-                                handleRemoveRow(row.code);
-                              }
-                            }}
                             disabled={isSaving || isReadOnly || isCapturedSale}
                             className="ml-auto h-8 w-24 rounded-md border border-slate-200 bg-white px-2 text-right text-sm outline-none transition-colors focus:border-slate-400 disabled:bg-slate-50"
                           />

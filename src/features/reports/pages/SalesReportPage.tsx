@@ -1,7 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart } from "@mui/x-charts/BarChart";
-import { LineChart, MarkElement, type MarkElementProps } from "@mui/x-charts/LineChart";
+import {
+  LineChart,
+  MarkElement,
+  type MarkElementProps,
+} from "@mui/x-charts/LineChart";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
@@ -18,7 +22,10 @@ type SalesReport = { year: number; total: number; months: MonthSale[] };
 type ChartType = "bar" | "line";
 
 const currentYear = new Date().getFullYear();
-const currency = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
+const currency = new Intl.NumberFormat("es-PE", {
+  style: "currency",
+  currency: "PEN",
+});
 const axisCurrency = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
@@ -30,7 +37,13 @@ async function fetchReport(year: number): Promise<SalesReport> {
   const response = await apiRequest<SalesReport>({
     url: buildApiUrl(`/SalesReport/monthly?year=${year}`),
   });
-  if (!response || typeof response !== "object" || !("months" in response)) {
+  if (
+    !response ||
+    typeof response !== "object" ||
+    !("months" in response) ||
+    !("year" in response) ||
+    response.year !== year
+  ) {
     throw new Error("No se pudo cargar el reporte de ventas.");
   }
   return response as SalesReport;
@@ -38,14 +51,19 @@ async function fetchReport(year: number): Promise<SalesReport> {
 
 export default function SalesReportPage() {
   const [year, setYear] = useState(String(currentYear));
-  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [chartType, setChartType] = useState<ChartType>("bar");
-  const validYear = /^\d{4}$/.test(year) && Number(year) >= 1753 && Number(year) <= currentYear;
+  const validYear =
+    /^\d{4}$/.test(year) && Number(year) >= 1753 && Number(year) <= currentYear;
   const report = useQuery({
-    queryKey: ["sales-report", selectedYear],
-    queryFn: () => fetchReport(selectedYear),
+    queryKey: ["sales-report", Number(year)],
+    queryFn: () => fetchReport(Number(year)),
+    enabled: validYear,
   });
-  const chartMax = Math.max(...(report.data?.months.map((month) => month.total) ?? [0])) * 1.15 || 1;
+  const visibleReport =
+    validYear && report.data?.year === Number(year) ? report.data : undefined;
+  const chartMax =
+    Math.max(...(visibleReport?.months.map((month) => month.total) ?? [0])) *
+      1.15 || 1;
   const ValueLabelMark = (props: MarkElementProps) => (
     <g>
       <MarkElement {...props} />
@@ -59,14 +77,14 @@ export default function SalesReportPage() {
         fill="#334155"
         pointerEvents="none"
       >
-        {formatCurrency(report.data?.months[props.dataIndex]?.total ?? 0)}
+        {formatCurrency(visibleReport?.months[props.dataIndex]?.total ?? 0)}
       </text>
     </g>
   );
 
   const consult = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (validYear) setSelectedYear(Number(year));
+    if (validYear) void report.refetch();
   };
 
   return (
@@ -76,7 +94,10 @@ export default function SalesReportPage() {
         className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3"
       >
         <div className="flex flex-wrap items-center gap-3">
-          <form onSubmit={consult} className="flex flex-wrap items-center gap-3">
+          <form
+            onSubmit={consult}
+            className="flex flex-wrap items-center gap-3"
+          >
             <TextField
               label="Año"
               type="number"
@@ -84,13 +105,11 @@ export default function SalesReportPage() {
               sx={{ width: 112 }}
               value={year}
               onChange={(event) => setYear(event.target.value)}
-              slotProps={{ htmlInput: { min: 1753, max: currentYear, step: 1 } }}
+              slotProps={{
+                htmlInput: { min: 1753, max: currentYear, step: 1 },
+              }}
               error={year.length > 0 && !validYear}
-              helperText={
-                year.length > 0 && !validYear
-                  ? `Ingrese un año entre 1753 y ${currentYear}.`
-                  : undefined
-              }
+              helperText=""
             />
             <IconButton
               type="submit"
@@ -108,42 +127,64 @@ export default function SalesReportPage() {
             exclusive
             size="small"
             value={chartType}
-            onChange={(_, value: ChartType | null) => value && setChartType(value)}
+            onChange={(_, value: ChartType | null) =>
+              value && setChartType(value)
+            }
           >
-            <ToggleButton value="bar" aria-label="Columnas">Columnas</ToggleButton>
-            <ToggleButton value="line" aria-label="Líneas">Líneas</ToggleButton>
+            <ToggleButton value="bar" aria-label="Columnas">
+              Columnas
+            </ToggleButton>
+            <ToggleButton value="line" aria-label="Líneas">
+              Líneas
+            </ToggleButton>
           </ToggleButtonGroup>
         </div>
-        {report.data && (
+        {visibleReport && (
           <div className="flex items-baseline gap-3 border-l border-slate-200 pl-4">
-            <span className="text-sm text-slate-600">Total {report.data.year}</span>
-            <span className="text-xl font-semibold tabular-nums text-slate-900">{formatCurrency(report.data.total)}</span>
+            <span className="text-sm text-slate-600">
+              Total {visibleReport.year}
+            </span>
+            <span className="text-xl font-semibold tabular-nums text-slate-900">
+              {formatCurrency(visibleReport.total)}
+            </span>
           </div>
         )}
       </Paper>
 
-      {report.isLoading ? (
-        <div className="flex justify-center py-16" role="status" aria-label="Cargando reporte">
+      {!validYear ? null : report.isLoading ? (
+        <div
+          className="flex justify-center py-16"
+          role="status"
+          aria-label="Cargando reporte"
+        >
           <CircularProgress />
         </div>
       ) : report.isError ? (
-        <Alert severity="error">{report.error instanceof Error ? report.error.message : "Error al consultar las ventas."}</Alert>
-      ) : report.data ? (
+        <Alert severity="error">
+          {report.error instanceof Error
+            ? report.error.message
+            : "Error al consultar las ventas."}
+        </Alert>
+      ) : visibleReport ? (
         <Paper variant="outlined" className="p-3 sm:p-5">
-          {report.data.months.every((month) => month.total === 0) && (
+          {visibleReport.months.every((month) => month.total === 0) && (
             <Alert severity="info" className="mb-3">
               No hay ventas canceladas para el año seleccionado.
             </Alert>
           )}
           {chartType === "bar" ? (
             <BarChart
-              dataset={report.data.months}
-              xAxis={[{ scaleType: "band", dataKey: "monthName", label: "Mes" }]}
-              yAxis={[{
-                width: 120,
-                max: chartMax,
-                valueFormatter: (value: number) => axisCurrency.format(value),
-              }]}
+              dataset={visibleReport.months}
+              xAxis={[
+                { scaleType: "band", dataKey: "monthName", label: "Mes" },
+              ]}
+              yAxis={[
+                {
+                  width: 120,
+                  max: chartMax,
+                  valueFormatter: (value: number) => axisCurrency.format(value),
+                },
+              ]}
               series={[
                 {
                   dataKey: "total",
@@ -158,13 +199,17 @@ export default function SalesReportPage() {
             />
           ) : (
             <LineChart
-              dataset={report.data.months}
-              xAxis={[{ scaleType: "point", dataKey: "monthName", label: "Mes" }]}
-              yAxis={[{
-                width: 120,
-                max: chartMax,
-                valueFormatter: (value: number) => axisCurrency.format(value),
-              }]}
+              dataset={visibleReport.months}
+              xAxis={[
+                { scaleType: "point", dataKey: "monthName", label: "Mes" },
+              ]}
+              yAxis={[
+                {
+                  width: 120,
+                  max: chartMax,
+                  valueFormatter: (value: number) => axisCurrency.format(value),
+                },
+              ]}
               series={[
                 {
                   dataKey: "total",

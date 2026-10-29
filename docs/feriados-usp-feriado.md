@@ -2,6 +2,8 @@
 
 El módulo web usa `dbo.usp_FeriadoWEB`. El procedimiento original `dbo.usp_Feriado` se conserva para el escritorio.
 
+El listado web ordena los feriados por fecha descendente, antes de filtrar o paginar; ante fechas iguales usa el identificador descendente. Al crear o editar un feriado, la lista actualizada conserva ese orden. El orden se aplica en el frontend sin cambiar SQL.
+
 - `LISTAR` y `ELIMINAR|id` delegan al procedimiento original.
 - `CREAR|yyyy-MM-dd|motivo` registra un feriado; se permiten motivos repetidos.
 - `ACTUALIZAR|id|yyyy-MM-dd|motivo` modifica un feriado; se permiten motivos repetidos.

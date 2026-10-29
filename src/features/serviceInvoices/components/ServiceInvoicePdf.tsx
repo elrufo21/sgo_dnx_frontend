@@ -20,6 +20,7 @@ type ServiceInvoicePdfProps = {
   company?: {
     name?: string;
     commercialName?: string;
+    district?: string;
     ruc?: string;
     address?: string;
     phone?: string;
@@ -468,7 +469,7 @@ export function ServiceInvoicePdfDocument({
           <View style={styles.top}>
             <DxnLogo />
             <View style={styles.titleArea}>
-              <Text style={styles.title}>{companyName}</Text>
+              <Text style={styles.title}>{safeText(company?.district) ? `DXN ${safeText(company?.district).toUpperCase()}` : companyName}</Text>
               <Text style={styles.subtitle}>De: {companyName}</Text>
               <Text style={styles.address}>
                 {companyAddress}

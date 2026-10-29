@@ -7,6 +7,7 @@ interface BoletaBatchConfigState {
   boletaPorLote: boolean;
   flagCaptura: boolean;
   listaProductosTabla: boolean;
+  companyDistrict: string;
   flagCaja: boolean;
   hayCajasAbiertas: boolean | null;
   flagAsistencia: boolean;
@@ -253,6 +254,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
     boletaPorLote: false,
     flagCaptura: false,
     listaProductosTabla: false,
+    companyDistrict: "",
     flagCaja: false,
     hayCajasAbiertas: null,
     flagAsistencia: true,
@@ -295,6 +297,7 @@ export const useBoletaBatchConfigStore = create<BoletaBatchConfigState>(
           ),
           flagCaja: normalizeBooleanFlag(company?.flagCaja ?? company?.FlagCaja),
           listaProductosTabla: normalizeBooleanFlag(company?.listaProductosTabla ?? company?.ListaProductosTabla),
+          companyDistrict: normalizeText(company?.companiaDistrito ?? company?.CompaniaDistrito),
           hayCajasAbiertas,
           flagAsistencia: normalizeBooleanFlag(company?.flagAsistencia ?? company?.FlagAsistencia, true),
           correosAdmin: normalizeText(company?.correosAdmin ?? company?.CorreosAdmin),

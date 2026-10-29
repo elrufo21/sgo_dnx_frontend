@@ -667,8 +667,13 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         method: "POST",
         data: requestData as any,
         config: requestConfig,
-        fallback: { ...data, id: Date.now() },
+        fallback: null,
       });
+
+      if (!created || created === "error" || (typeof created === "object" && "codigo" in created)) {
+        toast.error("No se pudo registrar el proveedor. Verifica el servidor e inténtalo de nuevo.");
+        return false;
+      }
 
       if (
         typeof created === "string" &&
@@ -778,8 +783,13 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
         method: "POST",
         data: requestData as any,
         config: requestConfig,
-        fallback: { ...data, id },
+        fallback: null,
       });
+
+      if (!updated || updated === "error" || (typeof updated === "object" && "codigo" in updated)) {
+        toast.error("No se pudo actualizar el proveedor. Verifica el servidor e inténtalo de nuevo.");
+        return false;
+      }
 
       if (
         typeof updated === "string" &&

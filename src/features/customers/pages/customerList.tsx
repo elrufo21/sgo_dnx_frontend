@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Pencil, PlusIcon, Trash2 } from "lucide-react";
 import DataTable from "@/components/DataTable";
+import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useClientsStore } from "@/store/customers/customers.store";
 import { toast } from "@/shared/ui/toast";
@@ -112,6 +113,7 @@ const CustomerList = () => {
 
   return (
     <div className="h-[calc(100dvh-var(--app-shell-header-h)-var(--app-shell-main-py)-var(--app-shell-main-py))]">
+      <BlockingSpinner show={loading} text="Cargando clientes..." />
       <DataTable
         data={filteredClients}
         columns={columns}

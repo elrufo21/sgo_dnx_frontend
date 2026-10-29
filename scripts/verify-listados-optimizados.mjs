@@ -117,4 +117,17 @@ const renderTable = (manualFiltering) => renderToStaticMarkup(React.createElemen
 ));
 assert.ok(renderTable(true).includes("resultado del servidor"), "La búsqueda remota no debe volver a filtrar solo la página");
 assert.ok(!renderTable(false).includes("resultado del servidor"), "Las tablas locales conservan su filtro");
+const localRows = [{ name: "Árbol Rojo", code: "A-123" }, { name: "Azul", code: "B-456" }];
+const localSearch = (value) => renderToStaticMarkup(React.createElement(MemoryRouter, null,
+  React.createElement(Table, { columns: [{ accessorKey: "name", header: "Nombre" }], data: localRows,
+    filterKeys: ["name", "code"], globalFilterValue: value, persistPageSize: false }),
+));
+assert.ok(localSearch("123 arbol").includes("Árbol Rojo"), "Busca términos en cualquier orden y sin acentos");
+assert.ok(!localSearch("123 arbol").includes(">Azul<"), "Excluye filas que no cumplen los términos");
+assert.ok(localSearch("").includes("Árbol Rojo") && localSearch("").includes(">Azul<"), "Vaciar la búsqueda recupera las filas");
+const isolated = renderToStaticMarkup(React.createElement(MemoryRouter, null,
+  React.createElement(Table, { columns: [{ accessorKey: "name", header: "Nombre" }], data: localRows,
+    filterKeys: ["name", "code"], globalFilterValue: "123 arbol", isolatedSearch: true, persistPageSize: false }),
+));
+assert.ok(isolated.includes('value="123 arbol"') && isolated.includes("Árbol Rojo"), "El buscador aislado conserva la búsqueda inicial y los resultados");
 console.log("DataTable: búsqueda remota y compatibilidad de búsqueda local OK");

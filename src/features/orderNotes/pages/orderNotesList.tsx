@@ -19,6 +19,10 @@ import { useLocation, useNavigate } from "react-router";
 
 const columnHelper = createColumnHelper<OrderNote>();
 const ORDER_NOTES_RANGE_STORAGE_KEY = "sgo.orderNotes.range";
+const ORDER_NOTE_SEARCH_KEYS: (keyof OrderNote & string)[] = [
+  "notaId", "cliente", "conceptoOBS", "estado", "estadoSunat", "documento",
+  "codigoCliente", "notaCondicion", "formaPago", "notaUsuario",
+];
 
 const parseAmount = (value: unknown): number => {
   const raw = String(value ?? "").trim();
@@ -733,18 +737,8 @@ const OrderNotesList = () => {
         onFilteredDataChange={setFilteredNotes}
         initialPageSize={50}
         isLoading={loading}
-        filterKeys={[
-          "notaId",
-          "cliente",
-          "conceptoOBS",
-          "estado",
-          "estadoSunat",
-          "documento",
-          "codigoCliente",
-          "notaCondicion",
-          "formaPago",
-          "notaUsuario",
-        ]}
+        filterKeys={ORDER_NOTE_SEARCH_KEYS}
+        isolatedSearch
         toolbarLayout="filters-inline"
         renderFilters={
           <LocalizationProvider

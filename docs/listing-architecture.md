@@ -40,5 +40,6 @@ Renderizar listados (tabla + acciones CRUD) sin crear componentes `*List.tsx` po
 3) En el router, apuntar la ruta a `<GenericList moduleKey="<moduleKey>" />`.
 
 ## Notas
+- En `DataTable`, la búsqueda local prepara al buscar el texto normalizado una vez por conjunto de filas y columnas y difiere el filtrado para priorizar la escritura. Conserva la búsqueda por términos, acentos y campos anidados; los datos y claves nuevos reconstruyen el índice. `manualFiltering` conserva la búsqueda remota sin crear el índice ni filtrar la página recibida. No cambia las consultas ni la paginación. Los resultados pueden actualizarse después de la escritura mientras React completa el filtrado.
 - Los antiguos `*List.tsx` se eliminaron; el router usa directamente `GenericList`.
 - Para módulos que requieran lógica adicional en la vista de lista, puede extenderse `useDeps` (por ejemplo, prefiltros) o incorporar props extra en el config y consumirlos en `CrudList`/`GenericList`.

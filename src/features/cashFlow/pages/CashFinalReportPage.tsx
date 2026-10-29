@@ -287,7 +287,7 @@ export default function CashFinalReportPage() {
     const fixed: Movement[] = [
       {
         descripcion: "TOTAL EFECTIVO",
-        importe: Math.max(0, Number(preparation?.totalObs || 0) - expenses),
+        importe: Number((Number(preparation?.totalObs || 0) - expenses).toFixed(2)),
         manual: false,
       },
       {
@@ -935,7 +935,7 @@ export default function CashFinalReportPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium">Total</span>
                         <span className="text-base font-bold">
-                          {money(totals.counted)}
+                          {moneyWithThousands(totals.counted)}
                         </span>
                       </div>
                     </div>
@@ -1002,7 +1002,7 @@ export default function CashFinalReportPage() {
                               )}
                             </div>
                             <div className="border-l border-slate-300 px-2 py-1 text-right font-medium">
-                              {row.manual ? (
+                              {row.manual && !readOnly ? (
                                 <NavigableNumberInput
                                   disabled={readOnly}
                                   value={row.importe || ""}
@@ -1014,7 +1014,7 @@ export default function CashFinalReportPage() {
                                   className="w-24 rounded border border-gray-200 px-1 py-0.5 text-right text-xs"
                                 />
                               ) : (
-                                money(row.importe)
+                                moneyWithThousands(row.importe)
                               )}
                             </div>
                             <div className="px-1 py-1">
@@ -1039,7 +1039,7 @@ export default function CashFinalReportPage() {
                         Efectivo en Caja
                       </span>
                       <span className="text-base font-bold">
-                        {money(
+                        {moneyWithThousands(
                           tab === "income" ? totals.expected : totals.expenses,
                         )}
                       </span>
@@ -1056,7 +1056,7 @@ export default function CashFinalReportPage() {
                         Tot. Billetes:
                       </span>
                       <div className="flex-1 rounded border px-2 py-1 text-right font-semibold">
-                        {money(totals.bills)}
+                        {moneyWithThousands(totals.bills)}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1064,7 +1064,7 @@ export default function CashFinalReportPage() {
                         Tot. Sencillo:
                       </span>
                       <div className="flex-1 rounded border bg-gray-50 px-2 py-1 text-right font-semibold">
-                        {money(totals.counted - totals.bills)}
+                        {moneyWithThousands(totals.counted - totals.bills)}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
@@ -1100,7 +1100,7 @@ export default function CashFinalReportPage() {
                         />
                       </button>
                       <div className="w-32 rounded border px-2 py-1 text-right font-semibold">
-                        {money(preparation?.totalObs || 0)}
+                        {moneyWithThousands(preparation?.totalObs || 0)}
                       </div>
                     </div>
                     {preparation && !preparation.totalObsDisponible && (
@@ -1113,7 +1113,7 @@ export default function CashFinalReportPage() {
                         Salidas:
                       </span>
                       <div className="w-32 rounded bg-red-500 px-2 py-1 text-right font-bold text-white">
-                        {money(totals.expenses)}
+                        {moneyWithThousands(totals.expenses)}
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
@@ -1123,7 +1123,7 @@ export default function CashFinalReportPage() {
                       <div
                         className={`w-32 rounded border px-2 py-1 text-right font-semibold ${totals.difference === 0 ? "text-slate-800" : "text-red-600"}`}
                       >
-                        {money(totals.difference)}
+                        {moneyWithThousands(totals.difference)}
                       </div>
                     </div>
                   </div>

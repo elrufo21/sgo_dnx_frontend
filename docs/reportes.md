@@ -6,6 +6,8 @@ El módulo **Reportes** es un grupo desplegable en el menú lateral con las opci
 
 En el reporte de ventas se ingresa un año y se alterna entre columnas y líneas; la gráfica muestra el importe mensual sobre cada barra o punto. En el reporte de productos se selecciona un producto activo buscándolo por nombre o código; la lista se filtra mientras se escribe y el reporte se consulta automáticamente al elegir el producto y al cambiar el año válido. Su gráfica muestra la cantidad vendida por mes y unidad del producto, mientras la tarjeta anual y la tabla mantienen los importes de venta. En pantallas amplias, la gráfica y la tabla mensual se muestran en paralelo; en pantallas angostas se apilan.
 
+En **Reporte de ventas**, vaciar el año, dejarlo incompleto o escribir un valor fuera del rango permitido limpia inmediatamente la gráfica y el total, oculta la carga y los errores anteriores y deshabilita la consulta. Al completar cuatro dígitos dentro del rango permitido, se consulta automáticamente ese año; la lupa o Enter permiten volver a consultar el mismo año. La clave de caché incluye el año escrito y la gráfica y el total solo aparecen si el año de la respuesta coincide con él. La API debe devolver el año solicitado; una respuesta con otro año se considera un error. Cambiar rápidamente de año no permite que una respuesta tardía muestre el reporte anterior. Verificación local sin API ni SQL: `node scripts/verify-sales-report-year.mjs`.
+
 ## Fuente y reglas
 
 - Ventas generales: `NotaPedido.NotaFecha` y `SUM(NotaPagar)` para notas con `NotaEstado = 'CANCELADO'`.

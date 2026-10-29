@@ -107,11 +107,7 @@ export default function ProductSalesReportPage() {
             }}
             slotProps={{ htmlInput: { min: 1753, max: currentYear, step: 1 } }}
             error={year.length > 0 && !validYear}
-            helperText={
-              year.length > 0 && !validYear
-                ? `Ingrese un año entre 1753 y ${currentYear}.`
-                : undefined
-            }
+            helperText=""
           />
           <Autocomplete<Product>
             options={products}
