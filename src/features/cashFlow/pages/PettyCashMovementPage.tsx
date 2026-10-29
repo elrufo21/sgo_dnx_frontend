@@ -168,7 +168,6 @@ export default function PettyCashMovementPage() {
   const canAttachImage =
     viewing &&
     viewedMovement !== undefined &&
-    !isAutomaticMovement(viewedMovement) &&
     !viewedMovement.rutaImagen.trim();
 
   const attachImage = async () => {

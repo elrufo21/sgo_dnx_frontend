@@ -53,8 +53,7 @@ export function SaleProductBrowser({
             disabled={catalogProps.disabled}
             onKeyDown={(event) => {
               if (event.key !== "Enter" && event.key !== "ArrowDown") return;
-              if (!search.trim()) {
-                if (visible) return;
+              if (!search.trim() && !visible) {
                 event.preventDefault();
                 onFocusDetailQuantity();
                 return;

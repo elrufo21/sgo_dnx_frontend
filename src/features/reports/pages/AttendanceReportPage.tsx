@@ -11,7 +11,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { esES } from "@mui/x-date-pickers/locales";
-import { Eraser, Printer, Search } from "lucide-react";
+import { Eraser, Printer } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import {
   fetchAttendancePeople,
@@ -45,7 +45,7 @@ export default function AttendanceReportPage() {
   const [defaultDateRange] = useState(() => {
     const today = new Date();
     return {
-      fechaInicio: getLocalDateISO(new Date(today.getFullYear(), today.getMonth(), 1)),
+      fechaInicio: getLocalDateISO(today),
       fechaFin: getLocalDateISO(today),
     };
   });
@@ -58,7 +58,6 @@ export default function AttendanceReportPage() {
     reporteGeneral: true,
   }));
   const [filterError, setFilterError] = useState("");
-  const [search, setSearch] = useState("");
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const people = useQuery({
@@ -113,14 +112,17 @@ export default function AttendanceReportPage() {
   ) => {
     setFilterError("");
     if (!nextFechaInicio || !nextFechaFin) {
+      setAppliedFilters(null);
       setFilterError("Selecciona la fecha de inicio y la fecha de fin.");
       return;
     }
     if (nextFechaInicio > nextFechaFin) {
+      setAppliedFilters(null);
       setFilterError("La fecha de inicio no puede ser posterior a la fecha de fin.");
       return;
     }
     if (!nextReporteGeneral && !nextPersonalId) {
+      setAppliedFilters(null);
       setFilterError("Selecciona un personal o activa Reporte General.");
       return;
     }
@@ -141,12 +143,14 @@ export default function AttendanceReportPage() {
     setFechaFin(defaultDateRange.fechaFin);
     setPersonalId("");
     setReporteGeneral(true);
-    setAppliedFilters(null);
+    setAppliedFilters({ ...defaultDateRange, reporteGeneral: true });
     setFilterError("");
-    setSearch("");
   };
 
-  const reportRows = report.data ?? [];
+  const reportRows = useMemo(
+    () => [...(report.data ?? [])].sort((a, b) => b.horaIngreso.localeCompare(a.horaIngreso)),
+    [report.data],
+  );
 
   const abrirPdf = async () => {
     if (generatingPdf || !appliedFilters || reportRows.length === 0) return;
@@ -193,15 +197,13 @@ export default function AttendanceReportPage() {
         <DataTable
           data={reportRows}
           columns={columns}
-          isLoading={report.isLoading || report.isFetching}
-          filterKeys={["fecha", "nombres", "estadoAsistencia"]}
-          searchPlaceholder="Buscar por nombre o estado..."
-          emptyMessage={appliedFilters ? "No hay asistencias para los filtros seleccionados." : "Selecciona los filtros y presiona Buscar."}
+          isLoading={report.isFetching}
+          showSearch={false}
+          globalFilterValue=""
+          emptyMessage={appliedFilters ? "No hay asistencias para los filtros seleccionados." : "Selecciona un personal para consultar el reporte."}
           initialPageSize={50}
           persistPageSize={false}
           tableMaxHeight="65vh"
-          globalFilterValue={search}
-          onGlobalFilterValueChange={setSearch}
           footerContent={reportRows.length > 0 ? <span className="font-semibold text-slate-700">Días trabajados: {reportRows.length}</span> : undefined}
           toolbarLeading={
             <LocalizationProvider
@@ -233,7 +235,16 @@ export default function AttendanceReportPage() {
                   </TextField>
                   <FormControlLabel
                     className="!mr-1 !mb-1"
-                    control={<Checkbox checked={reporteGeneral} onChange={(event) => setReporteGeneral(event.target.checked)} size="small" />}
+                    control={<Checkbox checked={reporteGeneral} onChange={(event) => {
+                      const nextGeneral = event.target.checked;
+                      setReporteGeneral(nextGeneral);
+                      if (nextGeneral) setPersonalId("");
+                      if (nextGeneral || personalId) buscar(fechaInicio, fechaFin, personalId, nextGeneral);
+                      else {
+                        setAppliedFilters(null);
+                        setFilterError("");
+                      }
+                    }} size="small" />}
                     label={<span className="text-xs text-slate-700">Reporte General</span>}
                   />
                 </div>
@@ -243,7 +254,11 @@ export default function AttendanceReportPage() {
                     <DatePicker
                       format="DD/MM/YYYY"
                       value={fechaInicio ? dayjs(fechaInicio) : null}
-                      onChange={(value: Dayjs | null) => setFechaInicio(value?.isValid() ? value.format("YYYY-MM-DD") : "")}
+                      onChange={(value: Dayjs | null) => {
+                        const nextFechaInicio = value?.isValid() ? value.format("YYYY-MM-DD") : "";
+                        setFechaInicio(nextFechaInicio);
+                        buscar(nextFechaInicio, fechaFin, personalId, reporteGeneral);
+                      }}
                       slotProps={{
                         textField: {
                           size: "small",
@@ -288,9 +303,6 @@ export default function AttendanceReportPage() {
           }
           toolbarAction={
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => buscar()} disabled={report.isFetching} className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#B23636] px-3 text-sm font-semibold text-white hover:bg-[#96312a] disabled:opacity-50">
-                <Search className="h-4 w-4" /> Buscar
-              </button>
               <button type="button" onClick={limpiar} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                 <Eraser className="h-4 w-4" /> Limpiar
               </button>

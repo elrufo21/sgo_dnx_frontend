@@ -19,6 +19,10 @@ Un número de operación ya usado para la misma entidad bancaria no puede regist
 
 El modal **Pago Varios** incluye las pestañas **Pendientes** y **Pagos realizados**. Conserva una altura fija adaptable a la pantalla al cambiar de pestaña. La segunda replica el historial del escritorio y permite filtrar los pagos registrados por rango de fechas.
 
+Al abrir Pago Varios, la carga de productos y clientes de Ventas no muestra el indicador general encima del modal; la lista conserva su propio mensaje de carga. Al cerrar el modal, el indicador general vuelve a mostrarse si esas consultas aún continúan. Las cargas de registro, captura y reenvío mantienen su indicador habitual.
+
+Los pendientes se consultan al abrir Pago Varios y cuando se notifica una actualización, evitando iniciar otra consulta solo por montar la pantalla de Ventas. La apertura desde el acceso del encabezado se procesa una vez por navegación, incluso con los efectos repetidos de desarrollo.
+
 En pantallas de poca altura, el formulario lateral tiene desplazamiento vertical y las acciones **Pagar seleccionados**, **Eliminar pago** y **Nuevo** permanecen fuera de esa zona para evitar que se recorten. En pantallas angostas, los documentos y el formulario se apilan y el contenido del modal permite desplazarse verticalmente. La altura se adapta al espacio visible del navegador.
 
 Verificación del 24/10/2026: modal real renderizado con datos simulados y CSS compilado en 1366×600, 1280×500, 1024×400 y 390×640. Se comprobó el botón visible en escritorio, su acceso mediante desplazamiento en móvil, una lista de 30 documentos, el aviso por conceptos distintos, las acciones del detalle y el historial vacío. `npm run build:vercel` pasó; `npm run build` sigue bloqueado por los mismos 272 diagnósticos de TypeScript del registro `sgo_dnx_backend/artifacts/typecheck-responsive-20261022.log`, comparados sin números de línea. No se registraron ni eliminaron pagos.
@@ -33,4 +37,4 @@ En el detalle, las columnas **Total**, **Efectivo** y **Depósito** muestran res
 
 El acceso Caja chica de Ventas y su ruta anterior redirigen a esta misma pantalla.
 
-En **Movimiento de Caja Chica**, los datos de un movimiento registrado son de solo lectura. Al abrir un movimiento manual sin imagen se puede seleccionar una imagen JPG, PNG o WEBP de hasta 5 MB y revisar la vista previa; se guarda únicamente al pulsar **Guardar comprobante**. Antes de guardarla se puede elegir otra imagen. Un movimiento que ya tiene imagen no permite reemplazarla ni borrarla. El movimiento todavía puede eliminarse conforme a las reglas existentes.
+En **Movimiento de Caja Chica**, los datos de un movimiento registrado son de solo lectura. Al abrir un movimiento manual o automático sin imagen se puede seleccionar una imagen JPG, PNG o WEBP de hasta 5 MB y revisar la vista previa; se guarda únicamente al pulsar **Guardar comprobante**. Antes de guardarla se puede elegir otra imagen. Un movimiento que ya tiene imagen no permite reemplazarla ni borrarla. El movimiento todavía puede eliminarse conforme a las reglas existentes.

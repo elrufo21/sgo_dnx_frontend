@@ -266,7 +266,7 @@ export default function EmployeeFormBase({
       personalApellidos: values.personalApellidos?.toUpperCase() ?? "",
       personalNacimiento: normalizeDateForApi(values.personalNacimiento),
       personalIngreso: normalizeDateForApi(values.personalIngreso),
-      personalBajaFecha: normalizeDateForApi(values.personalBajaFecha),
+      personalBajaFecha: values.personalBajaFecha ?? null,
       personalSueldo:
         values.personalSueldo === "" || values.personalSueldo == null
           ? null
@@ -474,11 +474,6 @@ export default function EmployeeFormBase({
                 />
 
                 <HookFormInput<Personal>
-                  name="personalTelefonoAsi"
-                  label="Telefono asistente"
-                />
-
-                <HookFormInput<Personal>
                   name="personalNacimiento"
                   label="Fecha nacimiento"
                   type="date"
@@ -497,11 +492,6 @@ export default function EmployeeFormBase({
                 <HookFormInput<Personal>
                   name="personalDireccion"
                   label="Direccion"
-                />
-
-                <HookFormInput<Personal>
-                  name="personalRuc"
-                  label="RUC"
                 />
 
                 <HookFormInput<Personal>
@@ -540,19 +530,6 @@ export default function EmployeeFormBase({
                   name="personalIngreso"
                   label="Fecha ingreso"
                   type="date"
-                />
-
-                <HookFormInput<Personal>
-                  name="personalBajaFecha"
-                  label="Fecha de baja"
-                  type="date"
-                />
-
-                <HookFormInput<Personal>
-                  name="personalSueldo"
-                  label="Sueldo"
-                  type="number"
-                  inputMode="decimal"
                 />
 
                 <HookFormSelect<Personal>

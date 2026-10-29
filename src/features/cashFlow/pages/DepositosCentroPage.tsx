@@ -358,7 +358,7 @@ export default function DepositosCentroPage() {
         accessorKey: "importe",
         header: "Importe",
         meta: { align: "right" },
-        cell: ({ row }) => `S/ ${money(row.original.importe)}`,
+        cell: ({ row }) => `${money(row.original.importe)}`,
       },
       { accessorKey: "usuario", header: "Usuario" },
       {
@@ -633,7 +633,7 @@ export default function DepositosCentroPage() {
                     Depósitos: <b>{rows.length}</b>
                   </span>
                   <span>
-                    Total: <b>S/ {money(total)}</b>
+                    Total: <b> {money(total)}</b>
                   </span>
                 </div>
               }

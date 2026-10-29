@@ -737,6 +737,7 @@ export default function HtmlCaptureSalePage() {
   const draftPersistenceEnabledRef = useRef(true);
   const recordLoadVersionRef = useRef(0);
   const registerSaleRef = useRef(false);
+  const handledPagoVariosRouteRef = useRef("");
   const focusedPagoVariosPaymentMethodRef = useRef("");
   const appliedClientRef = useRef<Client | null>(null);
   const capturedInvoiceApiClientRef = useRef<Client | null>(null);
@@ -1596,7 +1597,6 @@ export default function HtmlCaptureSalePage() {
   );
 
   useEffect(() => {
-    void fetchPagoVarios();
     window.addEventListener("sgo:pago-varios-updated", fetchPagoVarios);
     return () =>
       window.removeEventListener("sgo:pago-varios-updated", fetchPagoVarios);
@@ -1604,10 +1604,11 @@ export default function HtmlCaptureSalePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get("pagoVarios") !== "1") return;
+    if (params.get("pagoVarios") !== "1" || handledPagoVariosRouteRef.current === location.key) return;
+    handledPagoVariosRouteRef.current = location.key;
     openPagoVariosModal();
     navigate(location.pathname, { replace: true });
-  }, [location.pathname, location.search, navigate, openPagoVariosModal]);
+  }, [location.key, location.pathname, location.search, navigate, openPagoVariosModal]);
 
   const selectedPagoVariosItems = useMemo(
     () =>
@@ -4708,7 +4709,11 @@ export default function HtmlCaptureSalePage() {
   return (
     <div className="sale-capture-layout mx-auto w-full min-w-0 max-w-[1760px] space-y-4">
       <BlockingSpinner
-        show={loading || loadingClients || isLoadingRecord || isApplyingCapture || isResendingOse}
+        show={
+          ((!pagoVariosModalOpen && new URLSearchParams(location.search).get("pagoVarios") !== "1") &&
+            (loading || loadingClients)) ||
+          isLoadingRecord || isApplyingCapture || isResendingOse
+        }
         text={
           isResendingOse
             ? "Reenviando documento a OSE..."
