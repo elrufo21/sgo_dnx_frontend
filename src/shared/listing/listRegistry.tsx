@@ -27,7 +27,6 @@ import type {
   Category,
   Holiday,
   Provider,
-  ProviderBankAccount,
 } from "@/types/maintenance";
 import type { User } from "@/store/users/users.store";
 
@@ -214,7 +213,7 @@ const useAreaListDeps = () => {
 
 const useProviderListDeps = () => {
   const openDialog = useDialogStore((s) => s.openDialog);
-  const { addProvider, updateProvider, deleteProvider, fetchProviderAccounts } =
+  const { addProvider, updateProvider, deleteProvider } =
     useMaintenanceStore();
   const [estado, setEstado] = useState<"ACTIVO" | "INACTIVO">("ACTIVO");
   const { data = [], refetch } = useProvidersQuery(estado);
@@ -229,9 +228,7 @@ const useProviderListDeps = () => {
       maxWidth: "lg",
       fullWidth: true,
       onConfirm: async (rawData) => {
-        const data = (rawData ?? {}) as Provider & {
-          cuentasBancarias?: ProviderBankAccount[];
-        };
+        const data = (rawData ?? {}) as Provider;
         const razon = (data.razon ?? "").trim().toUpperCase();
         if (!razon) {
           toast.error("La razon social es obligatoria");
@@ -255,8 +252,7 @@ const useProviderListDeps = () => {
   }, [openDialog, addProvider, refetch]);
 
   const onEdit = useCallback(
-    async (row: Provider, id: number) => {
-      const initialAccounts = await fetchProviderAccounts(id);
+    (row: Provider, id: number) => {
       openDialog({
         title: "Editar proveedor",
         content: (
@@ -264,7 +260,6 @@ const useProviderListDeps = () => {
             variant="modal"
             mode="edit"
             initialData={row}
-            initialAccounts={initialAccounts}
             onSave={() => {}}
           />
         ),
@@ -273,9 +268,7 @@ const useProviderListDeps = () => {
         maxWidth: "lg",
         fullWidth: true,
         onConfirm: async (rawData) => {
-          const data = (rawData ?? {}) as Partial<Provider> & {
-            cuentasBancarias?: ProviderBankAccount[];
-          };
+          const data = (rawData ?? {}) as Partial<Provider>;
           const razon = (data.razon ?? "").trim().toUpperCase();
           if (!razon) {
             toast.error("La razon social es obligatoria");
@@ -297,7 +290,7 @@ const useProviderListDeps = () => {
         },
       });
     },
-    [fetchProviderAccounts, openDialog, refetch, updateProvider],
+    [openDialog, refetch, updateProvider],
   );
 
   return {

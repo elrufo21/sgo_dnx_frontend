@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Save, Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import type { Provider, ProviderBankAccount } from "@/types/maintenance";
+import type { Provider } from "@/types/maintenance";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormSelect } from "@/components/forms/HookFormSelect";
@@ -9,15 +9,11 @@ import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { useDialogStore } from "@/store/app/dialog.store";
-import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 
 interface ProviderFormProps {
   initialData?: Partial<Provider>;
-  initialAccounts?: ProviderBankAccount[];
   mode: "create" | "edit";
-  onSave: (
-    data: Provider & { cuentasBancarias?: ProviderBankAccount[] },
-  ) => void | Promise<void>;
+  onSave: (data: Provider) => void | Promise<void>;
   onNew?: () => void;
   onDelete?: () => void;
   variant?: "page" | "modal";
@@ -33,14 +29,11 @@ export default function ProviderForm({
   onSave,
   onNew,
   onDelete,
-  initialAccounts,
   variant = "page",
 }: ProviderFormProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const setDialogData = useDialogStore((s) => s.setData);
   const setMobileActions = useDialogStore((s) => s.setMobileActions);
-  const bankEntities = useMaintenanceStore((s) => s.bankEntities);
-  const fetchBankEntities = useMaintenanceStore((s) => s.fetchBankEntities);
   const isModal = variant === "modal";
 
   const defaults = useMemo<ProviderFormValues>(
@@ -73,49 +66,22 @@ export default function ProviderForm({
     formState: { isSubmitting },
   } = formMethods;
 
-  const [cuentasBancarias, setCuentasBancarias] = useState<
-    ProviderBankAccount[]
-  >(
-    (
-      initialAccounts ??
-      (initialData as any)?.cuentasBancarias ??
-      (initialData as any)?.cuentas ??
-      []
-    )?.map((c: ProviderBankAccount) => ({ ...c, action: undefined })) ?? [],
-  );
-
   useEffect(() => {
     reset(defaults);
-    setCuentasBancarias(
-      (
-        initialAccounts ??
-        (initialData as any)?.cuentasBancarias ??
-        (initialData as any)?.cuentas ??
-        []
-      ).map((c: ProviderBankAccount) => ({ ...c, action: undefined })),
-    );
-  }, [defaults, reset, initialData, initialAccounts]);
+  }, [defaults, reset]);
 
   useEffect(() => {
     focusFirstInput(containerRef.current);
   }, [mode, initialData]);
 
   useEffect(() => {
-    if (!bankEntities.length) {
-      fetchBankEntities();
-    }
-  }, [bankEntities.length, fetchBankEntities]);
-
-  useEffect(() => {
     if (!isModal) return;
     setDialogData({
       ...defaults,
-      cuentasBancarias,
     });
     const subscription = formMethods.watch((values) => {
       setDialogData({
         ...values,
-        cuentasBancarias,
         razon: values.razon?.toUpperCase() ?? "",
         contacto: values.contacto?.toUpperCase() ?? "",
         direccion: values.direccion?.toUpperCase() ?? "",
@@ -123,20 +89,7 @@ export default function ProviderForm({
       });
     });
     return () => subscription.unsubscribe();
-  }, [isModal, formMethods, setDialogData, cuentasBancarias]);
-
-  useEffect(() => {
-    if (!isModal) return;
-    const values = formMethods.getValues();
-    setDialogData({
-      ...values,
-      cuentasBancarias,
-      razon: values.razon?.toUpperCase() ?? "",
-      contacto: values.contacto?.toUpperCase() ?? "",
-      direccion: values.direccion?.toUpperCase() ?? "",
-      estado: values.estado?.toUpperCase() ?? "",
-    });
-  }, [cuentasBancarias, formMethods, isModal, setDialogData]);
+  }, [isModal, formMethods, setDialogData]);
 
   const handleNew = useCallback(() => {
     reset({
@@ -151,7 +104,6 @@ export default function ProviderForm({
       estado: "ACTIVO",
       numeroDocumento: "",
     });
-    setCuentasBancarias([]);
     onNew?.();
     focusFirstInput(containerRef.current);
   }, [onNew, reset]);
@@ -193,7 +145,7 @@ export default function ProviderForm({
       direccion: providerValues.direccion?.toUpperCase() ?? "",
       estado: providerValues.estado?.toUpperCase() ?? "",
     };
-    await onSave({ ...payload, cuentasBancarias });
+    await onSave(payload);
     if (mode === "create") {
       handleNew();
     }
@@ -283,85 +235,6 @@ export default function ProviderForm({
     { value: "ACTIVO", label: "Activo" },
     { value: "INACTIVO", label: "Inactivo" },
   ];
-
-  const bancoOptions =
-    bankEntities.length > 0
-      ? bankEntities
-      : [
-          { id: 1, nombre: "BCP" },
-          { id: 2, nombre: "Interbank" },
-          { id: 3, nombre: "Scotiabank" },
-        ];
-
-  const updateCuentaField = (
-    index: number,
-    field: keyof ProviderBankAccount,
-    value: string,
-  ) => {
-    setCuentasBancarias((prev) => {
-      if (!prev[index] || prev[index].action === "d") return prev;
-      const updated = { ...prev[index], [field]: value };
-      const nextAction =
-        updated.action === "i" || !updated.cuentaId ? "i" : "u";
-      updated.action = nextAction;
-      const copy = [...prev];
-      copy[index] = updated;
-      return copy;
-    });
-  };
-
-  const findCuentaIndex = (
-    list: ProviderBankAccount[],
-    account: ProviderBankAccount,
-  ) => {
-    if (account.cuentaId) {
-      return list.findIndex(
-        (c) => c.cuentaId && Number(c.cuentaId) === Number(account.cuentaId),
-      );
-    }
-    return list.findIndex(
-      (c) => !c.cuentaId && c.nroCuenta === account.nroCuenta,
-    );
-  };
-
-  const agregarCuenta = () => {
-    setCuentasBancarias((prev) => [
-      ...prev,
-      {
-        cuentaId: undefined,
-        proveedorId: initialData?.id,
-        entidad: "",
-        moneda: "",
-        tipoCuenta: "",
-        nroCuenta: "",
-        action: "i",
-      },
-    ]);
-  };
-
-  const eliminarCuenta = (cuenta: ProviderBankAccount) => {
-    setCuentasBancarias((prev) => {
-      const idx = findCuentaIndex(prev, cuenta);
-      if (idx === -1) return prev;
-      const target = prev[idx];
-
-      // Si ya estaba marcado para eliminar, revertimos a estado sin cambios
-      if (target.action === "d") {
-        const copy = [...prev];
-        copy[idx] = { ...target, action: undefined };
-        return copy;
-      }
-
-      if (target.action === "i" && !target.cuentaId) {
-        const copy = [...prev];
-        copy.splice(idx, 1);
-        return copy;
-      }
-      const copy = [...prev];
-      copy[idx] = { ...target, action: "d" };
-      return copy;
-    });
-  };
 
   return (
     <div
@@ -505,149 +378,6 @@ export default function ProviderForm({
                     </button>
                   </div>
                 </div>
-                {mode !== "create" && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden mt-3">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-gray-700">
-                        <tr>
-                          <th className="py-2 px-3 text-left">
-                            Entidad bancaria
-                          </th>
-                          <th className="py-2 px-3 text-left">
-                            Tipo de cuenta
-                          </th>
-                          <th className="py-2 px-3 text-left">Moneda</th>
-                          <th className="py-2 px-3 text-left">
-                            Numero de cuenta
-                          </th>
-                          <th className="py-2 px-3 text-right w-32">
-                            Acciones
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cuentasBancarias.map((cuenta, idx) => {
-                          const isDeleted = cuenta.action === "d";
-                          return (
-                            <tr
-                              key={`${cuenta.cuentaId ?? "new"}-${idx}`}
-                              className={`border-t border-gray-100 ${
-                                isDeleted ? "text-gray-400 line-through" : ""
-                              }`}
-                            >
-                              <td className="py-2 px-3">
-                                <select
-                                  value={cuenta.entidad}
-                                  onChange={(e) =>
-                                    updateCuentaField(
-                                      idx,
-                                      "entidad",
-                                      e.target.value,
-                                    )
-                                  }
-                                  disabled={isDeleted}
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                                >
-                                  <option value="">Seleccione banco</option>
-                                  {bancoOptions.map((banco) => (
-                                    <option key={banco.id} value={banco.nombre}>
-                                      {banco.nombre}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="py-2 px-3">
-                                <select
-                                  value={cuenta.tipoCuenta}
-                                  onChange={(e) =>
-                                    updateCuentaField(
-                                      idx,
-                                      "tipoCuenta",
-                                      e.target.value,
-                                    )
-                                  }
-                                  disabled={isDeleted}
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                                >
-                                  <option value="">Seleccione tipo</option>
-                                  <option value="Ahorros">Ahorros</option>
-                                  <option value="Corriente">Corriente</option>
-                                </select>
-                              </td>
-                              <td className="py-2 px-3">
-                                <select
-                                  value={cuenta.moneda}
-                                  onChange={(e) =>
-                                    updateCuentaField(
-                                      idx,
-                                      "moneda",
-                                      e.target.value,
-                                    )
-                                  }
-                                  disabled={isDeleted}
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                                >
-                                  <option value="">Seleccione moneda</option>
-                                  <option value="PEN">Soles (PEN)</option>
-                                  <option value="USD">Dolares (USD)</option>
-                                </select>
-                              </td>
-                              <td className="py-2 px-3">
-                                <input
-                                  type="text"
-                                  value={cuenta.nroCuenta}
-                                  onChange={(e) =>
-                                    updateCuentaField(
-                                      idx,
-                                      "nroCuenta",
-                                      e.target.value,
-                                    )
-                                  }
-                                  disabled={isDeleted}
-                                  placeholder="Ingrese numero de cuenta"
-                                  className="w-full px-2 py-1.5 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                                />
-                              </td>
-                              <td className="py-2 px-3">
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => eliminarCuenta(cuenta)}
-                                    className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 transition-colors ${
-                                      isDeleted
-                                        ? "text-slate-600 hover:bg-slate-100"
-                                        : "text-red-600 hover:bg-red-50"
-                                    }`}
-                                    title={isDeleted ? "Revertir" : "Eliminar"}
-                                  >
-                                    {isDeleted ? (
-                                      <span className="text-xs font-medium">
-                                        Revertir
-                                      </span>
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        <tr className="border-t bg-gray-50">
-                          <td colSpan={5} className="py-2 px-3 text-right">
-                            <button
-                              type="button"
-                              onClick={agregarCuenta}
-                              className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                            >
-                              Agregar fila
-                            </button>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </div>
             </div>
           </div>

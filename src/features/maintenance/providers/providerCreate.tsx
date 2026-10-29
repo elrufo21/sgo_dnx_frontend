@@ -2,14 +2,14 @@ import { useNavigate } from "react-router";
 import { toast } from "@/shared/ui/toast";
 import ProviderForm from "@/components/maintenance/ProviderForm";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
-import type { Provider, ProviderBankAccount } from "@/types/maintenance";
+import type { Provider } from "@/types/maintenance";
 
 export default function ProviderCreate() {
   const navigate = useNavigate();
   const { addProvider } = useMaintenanceStore();
 
   const handleSave = async (
-    data: Provider & { cuentasBancarias?: ProviderBankAccount[] }
+    data: Provider
   ) => {
     const rs = await addProvider(data);
     if (!rs) {

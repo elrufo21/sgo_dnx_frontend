@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { toast } from "@/shared/ui/toast";
 import ProviderForm from "@/components/maintenance/ProviderForm";
-import type { Provider, ProviderBankAccount } from "@/types/maintenance";
+import type { Provider } from "@/types/maintenance";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import { useProvidersQuery } from "./useProvidersQuery";
 import { useDialogStore } from "@/store/app/dialog.store";
@@ -16,14 +16,10 @@ export default function ProviderEdit() {
     updateProvider,
     deleteProvider,
     providers,
-    fetchProviderAccounts,
   } = useMaintenanceStore();
   const { data = [] } = useProvidersQuery();
 
   const [initialData, setInitialData] = useState<Provider | undefined>();
-  const [initialAccounts, setInitialAccounts] = useState<
-    ProviderBankAccount[]
-  >([]);
 
   useEffect(() => {
     const source = providers.length ? providers : data;
@@ -31,25 +27,10 @@ export default function ProviderEdit() {
     if (provider) setInitialData(provider);
   }, [providers, data, id]);
 
-  useEffect(() => {
-    const loadAccounts = async () => {
-      if (!id) return;
-      const providerId = Number(id);
-      if (Number.isNaN(providerId)) return;
-      const accounts = await fetchProviderAccounts(providerId);
-      if (Array.isArray(accounts)) {
-        setInitialAccounts(
-          accounts.map((c) => ({ ...c, action: undefined }))
-        );
-      }
-    };
-    loadAccounts();
-  }, [id, fetchProviderAccounts]);
-
   if (!initialData) return <div>Cargando proveedor...</div>;
 
   const handleSave = async (
-    formData: Provider & { cuentasBancarias?: ProviderBankAccount[] }
+    formData: Provider
   ) => {
     if (!id) return;
     const rs = await updateProvider(Number(id), formData);
@@ -86,7 +67,6 @@ export default function ProviderEdit() {
     <ProviderForm
       mode="edit"
       initialData={initialData}
-      initialAccounts={initialAccounts}
       onSave={handleSave}
       onNew={() => navigate("/maintenance/providers/create")}
       onDelete={handleDelete}

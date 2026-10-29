@@ -117,8 +117,9 @@ const BASE_INCOMES = new Set([
   "REVISTAS",
   "COPIAS Y OTROS",
 ]);
+const isIocIncome = (row: Movement) => /^IOC(?:\s*\(\s*\d+\s*\))?$/i.test(row.descripcion.trim());
 const isBaseIncome = (row: Movement) =>
-  BASE_INCOMES.has(row.descripcion.trim().toUpperCase());
+  BASE_INCOMES.has(row.descripcion.trim().toUpperCase()) || isIocIncome(row);
 const defaultCoins = (): Coin[] =>
   CASH_DENOMINATIONS.map((denominacion) => ({ denominacion, cantidad: 0 }));
 const completeCoins = (monedas: Coin[] = []) =>
@@ -282,7 +283,7 @@ export default function CashFinalReportPage() {
     );
     const sourceAmount = (name: string) =>
       incomeRows
-        .filter((row) => row.descripcion.trim().toUpperCase() === name)
+        .filter((row) => name === "IOC" && view === "detail" ? isIocIncome(row) : row.descripcion.trim().toUpperCase() === name)
         .reduce((sum, row) => sum + Number(row.importe || 0), 0);
     const fixed: Movement[] = [
       {
@@ -342,6 +343,7 @@ export default function CashFinalReportPage() {
     manualRows,
     preparation?.sencillo,
     preparation?.totalObs,
+    view,
   ]);
 
   const addMovement = () =>
@@ -402,23 +404,27 @@ export default function CashFinalReportPage() {
           cajeros: preparation.cajeros,
           totalObs: preparation.totalObs,
           observaciones,
-          ingresos: totals.incomes.map((row) => ({
-            ...row,
+          ingresos: totals.incomes.flatMap((row) => (
+            editing && reportId && row.descripcion === "IOC"
+              ? incomeRows.filter(isIocIncome)
+              : [row]
+          ).map((item) => ({
+            ...item,
             id:
-              row.id ??
+              item.id ??
               incomeRows.find(
                 (item) =>
                   item.descripcion.trim().toUpperCase() ===
                   row.descripcion.trim().toUpperCase(),
               )?.id ?? 0,
             estado:
-              row.estado ??
+              item.estado ??
               incomeRows.find(
                 (item) =>
                   item.descripcion.trim().toUpperCase() ===
                   row.descripcion.trim().toUpperCase(),
               )?.estado ?? "T",
-          })),
+          }))),
           gastos: allExpenseRows,
           monedas: coins,
         },

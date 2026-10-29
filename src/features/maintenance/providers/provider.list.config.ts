@@ -7,7 +7,7 @@ export const providerListConfig: ModuleListConfig<Provider> = {
     { key: "razon", header: "Razon social" },
     { key: "ruc", header: "RUC" },
     { key: "contacto", header: "Contacto" },
-    { key: "telefono", header: "Telefono" },
+    { key: "celular", header: "Celular" },
     { key: "correo", header: "Correo" },
     { key: "estado", header: "Estado" },
   ],
