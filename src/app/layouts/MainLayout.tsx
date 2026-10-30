@@ -696,7 +696,7 @@ export default function MainLayout() {
         icon: <CopySlashIcon size={18} />,
         state: { resetOrderNotesFilters: true, resetSearchFilter: true },
       },
-      reportes,
+
       caja,
       {
         label: "Cliente",
@@ -710,7 +710,7 @@ export default function MainLayout() {
         icon: <ReceiptText size={18} />,
         state: { resetSearchFilter: true },
       },
-
+      reportes,
       {
         label: "Compras",
         to: "/shopping",
@@ -1013,7 +1013,9 @@ export default function MainLayout() {
                 type="button"
                 className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
                 onClick={() => {
-                  if (pathname.replace(/\/+$/, "") === "/sales/html_capture/new") {
+                  if (
+                    pathname.replace(/\/+$/, "") === "/sales/html_capture/new"
+                  ) {
                     window.dispatchEvent(new Event("sgo:open-pago-varios"));
                   } else {
                     navigate("/sales/html_capture/new?pagoVarios=1");

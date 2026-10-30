@@ -111,15 +111,51 @@ const styles = StyleSheet.create({
 });
 
 const columns = [
-  { label: "FECHA", width: "9%", value: (row: AttendanceReportRow) => row.fecha },
-  { label: "DÍA", width: "9%", value: (row: AttendanceReportRow) => dayName(row.fecha) },
-  { label: "NOMBRES", width: "19%", value: (row: AttendanceReportRow) => row.nombres },
-  { label: "INGRESO", width: "9%", value: (row: AttendanceReportRow) => row.horaIngreso },
-  { label: "SALIDA REFRIGERIO", width: "12%", value: (row: AttendanceReportRow) => row.salidaRefrigerio },
-  { label: "RETORNO REFRIGERIO", width: "13%", value: (row: AttendanceReportRow) => row.retornoRefrigerio },
-  { label: "SALIDA", width: "9%", value: (row: AttendanceReportRow) => row.horaSalida },
-  { label: "N.º TARDANZAS", width: "10%", value: (row: AttendanceReportRow) => String(row.cantidadTardanzas) },
-  { label: "ASISTENCIA", width: "10%", value: (row: AttendanceReportRow) => row.estadoAsistencia },
+  {
+    label: "FECHA",
+    width: "9%",
+    value: (row: AttendanceReportRow) => row.fecha,
+  },
+  {
+    label: "DÍA",
+    width: "9%",
+    value: (row: AttendanceReportRow) => dayName(row.fecha),
+  },
+  {
+    label: "NOMBRES",
+    width: "19%",
+    value: (row: AttendanceReportRow) => row.nombres,
+  },
+  {
+    label: "INGRESO",
+    width: "9%",
+    value: (row: AttendanceReportRow) => row.horaIngreso,
+  },
+  {
+    label: "SALIDA REFRIGERIO",
+    width: "12%",
+    value: (row: AttendanceReportRow) => row.salidaRefrigerio,
+  },
+  {
+    label: "RETORNO REFRIGERIO",
+    width: "13%",
+    value: (row: AttendanceReportRow) => row.retornoRefrigerio,
+  },
+  {
+    label: "SALIDA",
+    width: "9%",
+    value: (row: AttendanceReportRow) => row.horaSalida,
+  },
+  {
+    label: "N.º TARDANZAS",
+    width: "10%",
+    value: (row: AttendanceReportRow) => String(row.cantidadTardanzas),
+  },
+  {
+    label: "ASISTENCIA",
+    width: "10%",
+    value: (row: AttendanceReportRow) => row.estadoAsistencia,
+  },
 ];
 
 export function AttendanceReportPdf({
@@ -139,16 +175,18 @@ export function AttendanceReportPdf({
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Reporte de asistencia</Text>
-            <Text style={styles.subtitle}>Control de asistencia del personal</Text>
+            <Text style={styles.subtitle}>
+              Control de asistencia del personal
+            </Text>
           </View>
-          <Text style={styles.reportTag}>{subject.toLocaleUpperCase("es-PE")}</Text>
         </View>
 
         <View style={styles.summary}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Periodo</Text>
             <Text style={styles.summaryValue}>
-              {formatDate(filters.fechaInicio)} al {formatDate(filters.fechaFin)}
+              {formatDate(filters.fechaInicio)} al{" "}
+              {formatDate(filters.fechaFin)}
             </Text>
           </View>
           <View style={styles.summaryCard}>
@@ -166,7 +204,11 @@ export function AttendanceReportPdf({
             {columns.map((column) => (
               <View
                 key={column.label}
-                style={[styles.cell, styles.headerCell, { width: column.width }]}
+                style={[
+                  styles.cell,
+                  styles.headerCell,
+                  { width: column.width },
+                ]}
               >
                 <Text style={styles.headerText}>{column.label}</Text>
               </View>
