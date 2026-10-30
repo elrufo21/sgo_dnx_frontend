@@ -71,6 +71,7 @@ import type { PosCartItem } from "@/types/pos";
 import type { ServiceInvoiceListItem } from "@/types/serviceInvoice";
 
 type CaptureData = ExternalCaptureDraftData;
+const MOSTRAR_RECUPERAR_CDR = false;
 type InvoiceDispatchNavigationState = {
   invoiceDispatch?: {
     docuId: number;
@@ -4817,7 +4818,7 @@ export default function HtmlCaptureSalePage() {
               Nuevo
             </button>
           ) : null}
-          {isExistingRoute && form.docTypeCode === "01" && viewSunatStatus?.docuId ? (
+          {MOSTRAR_RECUPERAR_CDR && isExistingRoute && form.docTypeCode === "01" && viewSunatStatus?.docuId ? (
             <ButtonComponent variant="outlined" size="small" icon={<FileDown className="h-4 w-4" />}
               disabled={isRecoveringCdr} onClick={() => void recoverCdr()}>
               {isRecoveringCdr ? "Recuperando CDR..." : "Recuperar CDR"}

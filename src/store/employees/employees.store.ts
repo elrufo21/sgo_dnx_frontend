@@ -310,20 +310,24 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
   },
 
   deleteMaintenanceEmployee: async (id) => {
-    const response = await apiRequest<string | null>({
+    const response = await apiRequest<boolean | string | null>({
       url: buildApiUrl(`/Personal/maintenance/${id}`),
       method: "DELETE",
       config: { headers: { Accept: "*/*" } },
       fallback: null,
     });
-    if (!isMaintenanceSuccess(response)) return false;
+    if (response !== true && !isMaintenanceSuccess(response)) return false;
 
     set((state) => ({
       employees: state.employees.filter(
         (employee) => String(employee.personalId) !== String(id),
       ),
     }));
-    await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    try {
+      await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    } catch (error) {
+      console.error("No se pudo actualizar la caché de personal", error);
+    }
     return true;
   },
 }));

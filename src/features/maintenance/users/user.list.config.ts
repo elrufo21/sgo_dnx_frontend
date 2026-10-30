@@ -7,9 +7,10 @@ export const userListConfig: ModuleListConfig<User> = {
   createLabel: "Anadir usuario",
   deleteMessage: "Seguro que deseas eliminar este usuario?",
   columns: [
+    { key: "Nombre", header: "Personal" },
     { key: "UsuarioAlias", header: "Usuario" },
     { key: "area", header: "Area" },
     { key: "UsuarioEstado", header: "Estado" },
   ],
-  filterKeys: ["UsuarioAlias", "area", "UsuarioEstado"],
+  filterKeys: ["Nombre", "UsuarioAlias", "area", "UsuarioEstado"],
 };

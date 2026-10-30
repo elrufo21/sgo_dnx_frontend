@@ -404,7 +404,7 @@ export default function UserFormBase({
                   />
                 )}
 
-                {fieldsMode === "full" && (
+                {fieldsMode === "full" && mode === "edit" && (
                   <HookFormInput
                     name="UsuarioSerie"
                     label="Serie"
