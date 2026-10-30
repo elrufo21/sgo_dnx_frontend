@@ -31,4 +31,6 @@ La ruta `/reports/attendance` consulta automáticamente al ingresar el reporte g
 
 Al activar Reporte General se limpia la selección de personal y se consultan los registros disponibles de todos los empleados para el rango de fechas. El reporte no aplica búsquedas guardadas anteriormente en el navegador.
 
-El reporte y su PDF ordenan las asistencias por hora de ingreso descendente, de la más reciente a la más temprana; las horas vacías quedan al final.
+El reporte y su PDF ordenan las asistencias por fecha ascendente; dentro de una misma fecha mantienen la hora de ingreso descendente, con las horas vacías al final.
+
+Los botones Limpiar e Imprimir se alinean con la parte inferior de los filtros de fecha en la barra del reporte.

@@ -28,6 +28,7 @@ import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import NavigableNumberInput from "@/components/inputs/NavigableNumberInput";
+import ButtonComponent from "@/components/inputs/addButton";
 import { SaleCaptureFormFields } from "@/components/sales/SaleCaptureFormFields";
 import { SaleProductBrowser } from "@/components/sales/SaleProductBrowser";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
@@ -790,6 +791,7 @@ export default function HtmlCaptureSalePage() {
   const [correlativeError, setCorrelativeError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isResendingOse, setIsResendingOse] = useState(false);
+  const [isRecoveringCdr, setIsRecoveringCdr] = useState(false);
   const [hasReenviadoOse, setHasReenviadoOse] = useState(false);
   const [lastTicket, setLastTicket] = useState<LastTicket>(null);
   const [viewSunatStatus, setViewSunatStatus] = useState<ViewSunatStatus>(null);
@@ -1472,6 +1474,11 @@ export default function HtmlCaptureSalePage() {
     setPagoVariosModalOpen(true);
     void fetchPagoVarios();
   }, [fetchPagoVarios]);
+
+  useEffect(() => {
+    window.addEventListener("sgo:open-pago-varios", openPagoVariosModal);
+    return () => window.removeEventListener("sgo:open-pago-varios", openPagoVariosModal);
+  }, [openPagoVariosModal]);
 
   const fetchPagoVariosHistory = useCallback(async () => {
     if (!pagoVariosHistoryStart || !pagoVariosHistoryEnd) return;
@@ -3372,6 +3379,30 @@ export default function HtmlCaptureSalePage() {
     }
   };
 
+  const recoverCdr = async () => {
+    const docuId = viewSunatStatus?.docuId;
+    if (!docuId || isRecoveringCdr) return;
+    setIsRecoveringCdr(true);
+    try {
+      const response = await apiRequest<Record<string, unknown>>({
+        url: buildApiUrl(`/Nota/documentos/${docuId}/recuperar-cdr`),
+        method: "POST",
+      });
+      const result = asRecord(response);
+      const cdrUrl = safeTrim(result?.cdrUrl);
+      if (!result?.ok || !cdrUrl) {
+        const errorResponse = asRecord(result?.response);
+        const errorData = asRecord(errorResponse?.data);
+        toast.error(safeTrim(errorData?.mensaje) || "No se pudo recuperar el CDR. Verifica la configuración y el estado de la factura.");
+        return;
+      }
+      setViewSunatStatus((current) => current ? { ...current, cdrUrl } : current);
+      toast.success(safeTrim(result.mensaje) || "CDR recuperado y guardado.");
+    } finally {
+      setIsRecoveringCdr(false);
+    }
+  };
+
   const downloadTicket = async (documentNumber: string, noteId: number) => {
     if (isTicketOutputBlocked()) {
       toast.error("No se puede descargar un comprobante anulado o rechazado.");
@@ -4785,6 +4816,12 @@ export default function HtmlCaptureSalePage() {
               <Plus className="h-4 w-4" />
               Nuevo
             </button>
+          ) : null}
+          {isExistingRoute && form.docTypeCode === "01" && viewSunatStatus?.docuId ? (
+            <ButtonComponent variant="outlined" size="small" icon={<FileDown className="h-4 w-4" />}
+              disabled={isRecoveringCdr} onClick={() => void recoverCdr()}>
+              {isRecoveringCdr ? "Recuperando CDR..." : "Recuperar CDR"}
+            </ButtonComponent>
           ) : null}
           {lastTicket ? (
             <>

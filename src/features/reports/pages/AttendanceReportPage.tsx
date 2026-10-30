@@ -14,6 +14,7 @@ import { esES } from "@mui/x-date-pickers/locales";
 import { Eraser, Printer } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import {
+  attendanceDate,
   fetchAttendancePeople,
   fetchAttendanceReportRange,
   type AttendanceReportRow,
@@ -148,7 +149,10 @@ export default function AttendanceReportPage() {
   };
 
   const reportRows = useMemo(
-    () => [...(report.data ?? [])].sort((a, b) => b.horaIngreso.localeCompare(a.horaIngreso)),
+    () => [...(report.data ?? [])].sort((a, b) =>
+      attendanceDate(a.fecha).localeCompare(attendanceDate(b.fecha)) ||
+      b.horaIngreso.localeCompare(a.horaIngreso),
+    ),
     [report.data],
   );
 
@@ -298,18 +302,16 @@ export default function AttendanceReportPage() {
                     />
                   </label>
                 </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={limpiar} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <Eraser className="h-4 w-4" /> Limpiar
+                  </button>
+                  <button type="button" onClick={abrirPdf} disabled={reportRows.length === 0 || report.isFetching || generatingPdf} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                    <Printer className="h-4 w-4" /> Imprimir
+                  </button>
+                </div>
               </div>
             </LocalizationProvider>
-          }
-          toolbarAction={
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={limpiar} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                <Eraser className="h-4 w-4" /> Limpiar
-              </button>
-              <button type="button" onClick={abrirPdf} disabled={reportRows.length === 0 || report.isFetching || generatingPdf} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                <Printer className="h-4 w-4" /> Imprimir
-              </button>
-            </div>
           }
           toolbarLayout="filters-inline"
         />

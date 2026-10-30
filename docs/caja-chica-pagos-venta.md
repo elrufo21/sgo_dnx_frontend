@@ -23,6 +23,8 @@ Al abrir Pago Varios, la carga de productos y clientes de Ventas no muestra el i
 
 Los pendientes se consultan al abrir Pago Varios y cuando se notifica una actualización, evitando iniciar otra consulta solo por montar la pantalla de Ventas. La apertura desde el acceso del encabezado se procesa una vez por navegación, incluso con los efectos repetidos de desarrollo.
 
+Si el usuario ya está en una venta nueva, el acceso Pago V del encabezado abre el modal directamente sin navegar de nuevo ni recargar el formulario o los productos. Desde otras páginas mantiene la navegación a Ventas antes de abrir el modal.
+
 En pantallas de poca altura, el formulario lateral tiene desplazamiento vertical y las acciones **Pagar seleccionados**, **Eliminar pago** y **Nuevo** permanecen fuera de esa zona para evitar que se recorten. En pantallas angostas, los documentos y el formulario se apilan y el contenido del modal permite desplazarse verticalmente. La altura se adapta al espacio visible del navegador.
 
 Verificación del 24/10/2026: modal real renderizado con datos simulados y CSS compilado en 1366×600, 1280×500, 1024×400 y 390×640. Se comprobó el botón visible en escritorio, su acceso mediante desplazamiento en móvil, una lista de 30 documentos, el aviso por conceptos distintos, las acciones del detalle y el historial vacío. `npm run build:vercel` pasó; `npm run build` sigue bloqueado por los mismos 272 diagnósticos de TypeScript del registro `sgo_dnx_backend/artifacts/typecheck-responsive-20261022.log`, comparados sin números de línea. No se registraron ni eliminaron pagos.

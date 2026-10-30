@@ -1012,7 +1012,13 @@ export default function MainLayout() {
               <button
                 type="button"
                 className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
-                onClick={() => navigate("/sales/html_capture/new?pagoVarios=1")}
+                onClick={() => {
+                  if (pathname.replace(/\/+$/, "") === "/sales/html_capture/new") {
+                    window.dispatchEvent(new Event("sgo:open-pago-varios"));
+                  } else {
+                    navigate("/sales/html_capture/new?pagoVarios=1");
+                  }
+                }}
                 title="Pago varios"
               >
                 <Bell size={17} />
