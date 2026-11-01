@@ -21,7 +21,7 @@ El modal **Pago Varios** incluye las pestañas **Pendientes** y **Pagos realizad
 
 Al abrir Pago Varios, la carga de productos y clientes de Ventas no muestra el indicador general encima del modal; la lista conserva su propio mensaje de carga. Al cerrar el modal, el indicador general vuelve a mostrarse si esas consultas aún continúan. Las cargas de registro, captura y reenvío mantienen su indicador habitual.
 
-Los pendientes se consultan al abrir Pago Varios y cuando se notifica una actualización, evitando iniciar otra consulta solo por montar la pantalla de Ventas. La apertura desde el acceso del encabezado se procesa una vez por navegación, incluso con los efectos repetidos de desarrollo.
+Los pendientes se consultan al abrir Pago Varios y cuando se notifica una actualización, evitando iniciar otra consulta solo por montar la pantalla de Ventas. El acceso del encabezado abre el modal sobre cualquier módulo sin cambiar de ruta ni desmontar la pantalla actual. Al cerrarlo se conserva el formulario o listado que estaba abierto.
 
 Si el usuario ya está en una venta nueva, el acceso Pago V del encabezado abre el modal directamente sin navegar de nuevo ni recargar el formulario o los productos. Desde otras páginas mantiene la navegación a Ventas antes de abrir el modal.
 

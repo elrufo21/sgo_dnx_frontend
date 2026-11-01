@@ -32,6 +32,7 @@ import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import UserFormBase from "@/components/UserFormBase";
+import { PagoVariosModal } from "@/components/sales/PagoVariosModal";
 import { PASSWORD_EXPIRATION_LOCK_ENABLED } from "@/config";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -83,9 +84,19 @@ export default function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pagoVariosCount, setPagoVariosCount] = useState(0);
+  const [pagoVariosModalOpen, setPagoVariosModalOpen] = useState(false);
   const userMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const [search, setSearch] = useState(""); // 🔍 buscador
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("pagoVarios") !== "1") return;
+    setPagoVariosModalOpen(true);
+    params.delete("pagoVarios");
+    const search = params.toString();
+    navigate({ pathname, search: search ? `?${search}` : "", hash: location.hash }, { replace: true, state: location.state });
+  }, [location.search, location.hash, location.state, navigate, pathname]);
   useEffect(() => {
     const desktopSidebar = window.matchMedia("(min-width: 1300px)");
     const syncSidebarWithViewport = () => setOpen(desktopSidebar.matches);
@@ -1012,15 +1023,7 @@ export default function MainLayout() {
               <button
                 type="button"
                 className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-white/20"
-                onClick={() => {
-                  if (
-                    pathname.replace(/\/+$/, "") === "/sales/html_capture/new"
-                  ) {
-                    window.dispatchEvent(new Event("sgo:open-pago-varios"));
-                  } else {
-                    navigate("/sales/html_capture/new?pagoVarios=1");
-                  }
-                }}
+                onClick={() => setPagoVariosModalOpen(true)}
                 title="Pago varios"
               >
                 <Bell size={17} />
@@ -1072,9 +1075,10 @@ export default function MainLayout() {
           </div>
         </header>
 
+        <PagoVariosModal open={pagoVariosModalOpen} onClose={() => setPagoVariosModalOpen(false)} />
         <main className="app-main-scroll min-w-0 flex-1 overflow-y-auto bg-slate-100 px-[var(--app-shell-main-px)] py-[var(--app-shell-main-py)] min-h-0">
           <div className="mx-auto min-w-0 w-full max-w-[var(--app-shell-content-max)]">
-            <Outlet />
+            <Outlet context={{ pagoVariosModalOpen }} />
           </div>
         </main>
       </div>

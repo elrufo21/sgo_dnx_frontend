@@ -1262,7 +1262,10 @@ export default function SireVentasRegistrosPage() {
       <section className="rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-          <BackArrowButton fallbackTo="/accounting" />
+            <BackArrowButton
+              fallbackTo="/accounting"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-black transition-colors hover:bg-slate-100"
+            />
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#B23636]/10 text-[#B23636]">
               <FileSpreadsheet className="h-5 w-5" />
             </div>

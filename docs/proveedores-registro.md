@@ -2,6 +2,8 @@
 
 El listado muestra la columna **Celular** con el valor `ProveedorCelular`, que es el campo editable del formulario. `ProveedorTelefono` se conserva como dato independiente y no se muestra en el listado.
 
+La consulta externa de RUC acepta solo números y requiere exactamente 11 dígitos antes de consultar.
+
 El formulario de proveedores, tanto en el módulo como al registrar desde Compras, no muestra ni consulta cuentas bancarias. Crear o editar un proveedor no envía cambios de cuentas desde este formulario. Las cuentas existentes no se eliminan de la base de datos.
 
 El formulario envía los datos a `POST /api/v1/Proveedor/register`; la API llama a `dbo.uspInsertarProveedor` con el contrato heredado `@Data`. El procedimiento de referencia crea o actualiza el proveedor y rechaza un RUC duplicado. Si el servidor falla, la pantalla muestra un error y no agrega un proveedor ficticio a la lista.

@@ -809,9 +809,9 @@ export default function PdtCompanyPage() {
   );
 
   const loadData = useCallback(
-    async (notifyEmpty = false) => {
-      const start = normalizeText(fechaInicio, "");
-      const end = normalizeText(fechaFin, "");
+    async (inicio: string, fin: string, notifyEmpty = false) => {
+      const start = normalizeText(inicio, "");
+      const end = normalizeText(fin, "");
 
       if (!start || !end) {
         toast.error("Selecciona fecha inicio y fecha fin.");
@@ -850,12 +850,12 @@ export default function PdtCompanyPage() {
         setLoading(false);
       }
     },
-    [fechaFin, fechaInicio, fetchPurchaseDocuments, fetchSalesDocuments],
+    [fetchPurchaseDocuments, fetchSalesDocuments],
   );
 
   useEffect(() => {
-    void loadData(false);
-  }, [loadData]);
+    void loadData(currentMonthRangeIso.firstDay, currentMonthRangeIso.lastDay);
+  }, [loadData, currentMonthRangeIso]);
 
   const filteredSalesRows = useMemo(
     () => applyColumnFilters(salesRows, salesFilters),
@@ -1343,13 +1343,17 @@ export default function PdtCompanyPage() {
                 type="date"
                 className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
                 value={fechaFin}
-                onChange={(event) => setFechaFin(event.target.value)}
+                onChange={(event) => {
+                  const nextDate = event.target.value;
+                  setFechaFin(nextDate);
+                  void loadData(fechaInicio, nextDate);
+                }}
               />
             </label>
 
             <button
               type="button"
-              onClick={() => void loadData(true)}
+              onClick={() => void loadData(fechaInicio, fechaFin, true)}
               disabled={loading}
               className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
             >
@@ -1359,7 +1363,7 @@ export default function PdtCompanyPage() {
 
             <button
               type="button"
-              onClick={() => void loadData(false)}
+              onClick={() => void loadData(fechaInicio, fechaFin)}
               disabled={loading}
               className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             >
@@ -1430,6 +1434,7 @@ export default function PdtCompanyPage() {
           data={filteredSalesRows}
           isLoading={loading}
           showSearch={false}
+          initialPageSize={100}
           tableMaxHeight="52vh"
           emptyMessage="No hay documentos de ventas para el rango seleccionado."
           renderHeaderFilterCell={renderSalesHeaderFilterCell}
@@ -1496,6 +1501,7 @@ export default function PdtCompanyPage() {
           data={filteredPurchaseRows}
           isLoading={loading}
           showSearch={false}
+          initialPageSize={100}
           tableMaxHeight="52vh"
           emptyMessage={
             purchaseUnavailable

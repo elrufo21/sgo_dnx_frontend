@@ -110,7 +110,7 @@ const mapMaintenancePayload = (user: Partial<User>, id = 0) => ({
   usuarioID: id,
   personalId: user.PersonalId ?? 0,
   usuarioAlias: user.UsuarioAlias ?? "",
-  usuarioClave: user.UsuarioClave ?? "",
+  ...(user.UsuarioClave ? { usuarioClave: user.UsuarioClave } : {}),
   usuarioFechaReg: user.UsuarioFechaReg ?? new Date().toISOString(),
   usuarioEstado: user.UsuarioEstado ?? "ACTIVO",
   usuarioSerie: user.UsuarioSerie ?? "",
@@ -345,13 +345,13 @@ export const useUsersStore = create<UsersState>((set, get) => ({
 
   deleteMaintenanceUser: async (id) => {
     try {
-      const response = await apiRequest<string | null>({
+      const response = await apiRequest<boolean | string | null>({
         url: `${API_BASE_URL}/UsuariosCrud/maintenance/${id}`,
         method: "DELETE",
         config: { headers: { Accept: "*/*" } },
         fallback: null,
       });
-      if (!isMaintenanceSuccess(response)) {
+      if (response !== true && !isMaintenanceSuccess(response)) {
         showMaintenanceError(response, "No se pudo eliminar el usuario.");
         return false;
       }

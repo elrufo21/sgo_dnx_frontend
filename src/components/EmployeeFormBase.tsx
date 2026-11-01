@@ -103,6 +103,7 @@ export default function EmployeeFormBase({
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageSrc, setModalImageSrc] = useState<string | null>(null);
   const [consultaDni, setConsultaDni] = useState("");
+  const [consultaDniError, setConsultaDniError] = useState("");
   const consultaDniInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -150,6 +151,7 @@ export default function EmployeeFormBase({
   useEffect(() => {
     reset(buildDefaults(initialData));
     setConsultaDni(String(initialData?.personalDni ?? ""));
+    setConsultaDniError("");
     setImageFile(null);
     setImageRemoved(false);
   }, [initialData, reset]);
@@ -280,7 +282,11 @@ export default function EmployeeFormBase({
   const handleConsultarDni = async () => {
     const dni = consultaDni.replace(/\D/g, "").slice(0, 8);
     setConsultaDni(dni);
-    if (dni.length !== 8) return;
+    if (dni.length !== 8) {
+      setConsultaDniError("Ingrese los 8 digitos del DNI.");
+      return;
+    }
+    setConsultaDniError("");
 
     setValue("personalDni", dni, { shouldDirty: true });
 
@@ -410,11 +416,12 @@ export default function EmployeeFormBase({
                       inputMode="numeric"
                       maxLength={8}
                       value={consultaDni}
-                      onChange={(e) =>
-                        setConsultaDni(
-                          e.target.value.replace(/\D/g, "").slice(0, 8),
-                        )
-                      }
+                      onChange={(e) => {
+                        setConsultaDni(e.target.value.replace(/\D/g, "").slice(0, 8));
+                        setConsultaDniError("");
+                      }}
+                      aria-invalid={Boolean(consultaDniError)}
+                      aria-describedby={consultaDniError ? "consulta-dni-error" : undefined}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
@@ -434,6 +441,9 @@ export default function EmployeeFormBase({
                       <Search className="h-4 w-4" />
                     </button>
                   </div>
+                  {consultaDniError && (
+                    <p id="consulta-dni-error" role="alert" className="mt-1 text-xs text-red-600">{consultaDniError}</p>
+                  )}
                 </div>
 
                 <HookFormInput<Personal>

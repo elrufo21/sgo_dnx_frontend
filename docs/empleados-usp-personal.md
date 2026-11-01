@@ -12,6 +12,8 @@ El backend elimina la fotografía solo después de que se confirme la eliminaci�
 
 El registro conserva los datos del formulario: nombres, apellidos, área, código, fechas, DNI, dirección, teléfonos, correo, sueldo, estado, fecha de baja, RUC, imagen y compañía. La huella es opcional y se envía como archivo cuando exista.
 
+La consulta de DNI acepta únicamente números y requiere exactamente 8 dígitos; si está incompleto, muestra un mensaje y no llama al servicio externo.
+
 La fecha de ingreso es de solo lectura en el formulario por auditoría. Al crear se muestra la fecha actual y al editar se conserva la fecha registrada; el campo mantiene su valor al guardar. Esta restricción se aplica en la interfaz web.
 
 Los controles Teléfono asistente, RUC, Fecha de baja y Sueldo no se muestran en el formulario. Sus valores existentes se mantienen en los datos del formulario y se envían al guardar, sin modificarlos desde estos controles.

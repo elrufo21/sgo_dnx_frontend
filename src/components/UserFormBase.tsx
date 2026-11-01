@@ -53,8 +53,8 @@ const buildDefaults = (
 ): UserFormValues => ({
   PersonalId: initialData?.PersonalId ?? "",
   UsuarioAlias: initialData?.UsuarioAlias ?? "",
-  UsuarioClave: initialData?.UsuarioClave ?? "",
-  ConfirmClave: initialData?.UsuarioClave ?? "",
+  UsuarioClave: "",
+  ConfirmClave: "",
   UsuarioEstado: mode === "create" ? "ACTIVO" : initialData?.UsuarioEstado ?? "ACTIVO",
   UsuarioSerie: initialData?.UsuarioSerie ?? "B001",
   EnviaBoleta: 1,
@@ -154,12 +154,13 @@ export default function UserFormBase({
   const onSubmit = async (values: UserFormValues) => {
     const clave = values.UsuarioClave ?? "";
 
-    if (!PASSWORD_POLICY_REGEX.test(clave)) {
+    const requiresPassword = mode === "create" || fieldsMode === "password-only";
+    if ((requiresPassword || clave) && !PASSWORD_POLICY_REGEX.test(clave)) {
       toast.error(PASSWORD_POLICY_MESSAGE);
       return;
     }
 
-    if (clave !== (values.ConfirmClave ?? "")) {
+    if ((requiresPassword || clave) && clave !== (values.ConfirmClave ?? "")) {
       toast.error("Las contrasenas no coinciden");
       return;
     }
@@ -299,6 +300,7 @@ export default function UserFormBase({
                     name="PersonalId"
                     label="Personal"
                     placeholder="Buscar personal"
+                    disabled={mode === "edit"}
                     options={employees.map((p) => ({
                       label:
                         `${p.personalNombres ?? ""} ${p.personalApellidos ?? ""}`.trim() ||
@@ -341,8 +343,10 @@ export default function UserFormBase({
                   autoComplete="one-time-code"
                   placeholder="Ingrese contrasena"
                   rules={{
-                    required: "La contrasena es obligatoria",
+                    required: mode === "create" || fieldsMode === "password-only"
+                      ? "La contrasena es obligatoria" : false,
                     validate: (value) =>
+                      (!value && mode === "edit" && fieldsMode !== "password-only") ||
                       PASSWORD_POLICY_REGEX.test(value ?? "") ||
                       PASSWORD_POLICY_MESSAGE,
                   }}
@@ -365,11 +369,8 @@ export default function UserFormBase({
                   autoComplete="one-time-code"
                   placeholder="Repita la contrasena"
                   rules={{
-                    required: "La confirmacion de contrasena es obligatoria",
                     validate: (value) => {
-                      if (!PASSWORD_POLICY_REGEX.test(value ?? "")) {
-                        return PASSWORD_POLICY_MESSAGE;
-                      }
+                      if (!watch("UsuarioClave") && mode === "edit" && fieldsMode !== "password-only") return true;
                       return (
                         value === watch("UsuarioClave") ||
                         "Las contrasenas no coinciden"
@@ -401,15 +402,6 @@ export default function UserFormBase({
                       { value: "INACTIVO", label: "Inactivo" },
                     ]}
                     disabled={mode === "create"}
-                  />
-                )}
-
-                {fieldsMode === "full" && mode === "edit" && (
-                  <HookFormInput
-                    name="UsuarioSerie"
-                    label="Serie"
-                    placeholder="Ej: B001"
-                    maxLength={4}
                   />
                 )}
 

@@ -10,6 +10,7 @@ import { fetchUncapturedObsSales } from "@/features/cashFlow/api/uncapturedObsSa
 import { fetchAttendanceReport } from "@/features/reports/api/attendanceReport";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { formatDate } from "@/shared/helpers/formatDate";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
@@ -109,6 +110,8 @@ const moneyWithThousands = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+const fetchPdfData = (date: string) =>
+  Promise.all([fetchAttendanceReport(date), fetchUncapturedObsSales(date)]);
 const BASE_INCOMES = new Set([
   "TOTAL EFECTIVO",
   "VITRINA",
@@ -161,6 +164,12 @@ export default function CashFinalReportPage() {
   const [openedReport, setOpenedReport] = useState<SavedReport | null>(null);
   const [reports, setReports] = useState<SavedReport[]>([]);
   const preparationRequest = useRef(0);
+  const listRequest = useRef(0);
+  const prefetchedPdfData = useRef<{
+    fecha: string;
+    startedAt: number;
+    promise: ReturnType<typeof fetchPdfData>;
+  } | null>(null);
   const columnHelper = createColumnHelper<SavedReport>();
 
   const load = async (date: string) => {
@@ -197,28 +206,30 @@ export default function CashFinalReportPage() {
   };
 
   const loadList = useCallback(async () => {
+    const requestId = ++listRequest.current;
     setLoading(true);
     try {
       const response = await apiRequest<SavedReport[]>({
         url: `${API_BASE_URL}/CierreCajaFinal?fechaInicio=${listRange.fechaInicio}&fechaFin=${listRange.fechaFin}`,
         fallback: [],
       });
-      setReports(Array.isArray(response) ? response : []);
+      if (requestId === listRequest.current)
+        setReports(Array.isArray(response) ? response : []);
     } finally {
-      setLoading(false);
+      if (requestId === listRequest.current) setLoading(false);
     }
   }, [listRange]);
 
-  const searchReports = () => {
-    if (!fechaInicio || !fechaFin) {
+  const searchReports = (endDate = fechaFin) => {
+    if (!fechaInicio || !endDate) {
       toast.error("Selecciona fecha inicio y fecha fin.");
       return;
     }
-    if (fechaInicio > fechaFin) {
+    if (fechaInicio > endDate) {
       toast.error("La fecha inicio no puede ser mayor que la fecha fin.");
       return;
     }
-    setListRange({ fechaInicio, fechaFin });
+    setListRange({ fechaInicio, fechaFin: endDate });
   };
 
   const refreshObs = async () => {
@@ -345,6 +356,8 @@ export default function CashFinalReportPage() {
     preparation?.totalObs,
     view,
   ]);
+
+  const displayedDifference = Number(totals.difference.toFixed(2));
 
   const addMovement = () =>
     setManualRows((rows) => [
@@ -477,6 +490,9 @@ export default function CashFinalReportPage() {
   };
 
   const viewReport = async (report: SavedReport) => {
+    const promise = fetchPdfData(report.fecha);
+    void promise.catch(() => {});
+    prefetchedPdfData.current = { fecha: report.fecha, startedAt: Date.now(), promise };
     setLoading(true);
     try {
       const [response, preparationResponse] = await Promise.all([
@@ -560,7 +576,10 @@ export default function CashFinalReportPage() {
         </button>
       ),
     }),
-    columnHelper.accessor("fecha", { header: "Fecha" }),
+    columnHelper.accessor("fecha", {
+      header: "Fecha",
+      cell: (info) => formatDate(info.getValue()),
+    }),
     columnHelper.accessor("cajeros", { header: "Cajeros" }),
     columnHelper.accessor("totalObs", {
       header: "Sistema OBS",
@@ -602,6 +621,7 @@ export default function CashFinalReportPage() {
       : row;
   const readOnly = view === "detail" && !editing;
   const resetToNew = () => {
+    prefetchedPdfData.current = null;
     setReportId(null);
     setReportUser("");
     setOpenedReport(null);
@@ -616,10 +636,13 @@ export default function CashFinalReportPage() {
   const generatePdf = async () => {
     if (!preparation || !reportId)
       throw new Error("No se pudo identificar el informe.");
-    const [asistencias, ventasNoCapturadas] = await Promise.all([
-      fetchAttendanceReport(fecha),
-      fetchUncapturedObsSales(fecha),
-    ]);
+    const prefetched = prefetchedPdfData.current;
+    prefetchedPdfData.current = null;
+    const [asistencias, ventasNoCapturadas] = await (
+      prefetched?.fecha === fecha && Date.now() - prefetched.startedAt < 60_000
+        ? prefetched.promise
+        : fetchPdfData(fecha)
+    );
     return pdf(
       <CashFlowReportPdf
         cajaId={reportId}
@@ -795,6 +818,7 @@ export default function CashFinalReportPage() {
             <DataTable
               columns={columns}
               data={reports}
+              initialPageSize={50}
               isLoading={loading}
               emptyMessage="No hay informes finales registrados."
               searchPlaceholder="Buscar informe..."
@@ -838,9 +862,16 @@ export default function CashFinalReportPage() {
                       <DatePicker
                         format="DD/MM/YY"
                         value={fechaFin ? dayjs(fechaFin) : null}
-                        onChange={(value: Dayjs | null) =>
-                          setFechaFin(value?.format("YYYY-MM-DD") ?? "")
-                        }
+                        onChange={(value: Dayjs | null) => {
+                          if (!value) {
+                            setFechaFin("");
+                            return;
+                          }
+                          if (!value.isValid()) return;
+                          const endDate = value.format("YYYY-MM-DD");
+                          setFechaFin(endDate);
+                          searchReports(endDate);
+                        }}
                         slotProps={{
                           textField: {
                             size: "small",
@@ -858,7 +889,7 @@ export default function CashFinalReportPage() {
                     </label>
                     <button
                       type="button"
-                      onClick={searchReports}
+                      onClick={() => searchReports()}
                       disabled={loading}
                       className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
                       aria-label="Buscar por fecha"
@@ -940,7 +971,7 @@ export default function CashFinalReportPage() {
                                 {money(coin.denominacion)}
                               </td>
                               <td className="px-2 py-0.5 text-right font-semibold text-slate-800">
-                                {money(coin.cantidad * coin.denominacion)}
+                                {moneyWithThousands(coin.cantidad * coin.denominacion)}
                               </td>
                             </tr>
                           ))}
@@ -1137,9 +1168,9 @@ export default function CashFinalReportPage() {
                         Diferencial:
                       </span>
                       <div
-                        className={`w-32 rounded border px-2 py-1 text-right font-semibold ${totals.difference === 0 ? "text-slate-800" : "text-red-600"}`}
+                        className={`w-32 rounded border px-2 py-1 text-right font-semibold ${displayedDifference > 0 ? "text-blue-600" : displayedDifference < 0 ? "text-red-600" : "text-black"}`}
                       >
-                        {moneyWithThousands(totals.difference)}
+                        {moneyWithThousands(displayedDifference)}
                       </div>
                     </div>
                   </div>

@@ -520,11 +520,11 @@ const useUserListDeps = () => {
             toast.error("El alias es obligatorio");
             return false;
           }
-          if (!clave || !confirm || clave !== confirm) {
+          if (clave && clave !== confirm) {
             toast.error("Las contrasenas no coinciden");
             return false;
           }
-          if (!PASSWORD_POLICY_REGEX.test(clave)) {
+          if (clave && !PASSWORD_POLICY_REGEX.test(clave)) {
             toast.error(PASSWORD_POLICY_MESSAGE);
             return false;
           }

@@ -24,6 +24,15 @@ export const consultarDocumentoCliente = async (
   tipoDocumento: DocumentLookupType,
   numeroDocumento: string,
 ): Promise<DocumentLookupResult> => {
+  const valid = tipoDocumento === "dni"
+    ? /^\d{8}$/.test(numeroDocumento)
+    : /^\d{11}$/.test(numeroDocumento);
+  if (!valid) {
+    return { ok: false, message: tipoDocumento === "dni"
+      ? "El DNI debe tener 8 digitos numericos."
+      : "El RUC debe tener 11 digitos numericos." };
+  }
+
   const token = String(import.meta.env.VITE_API_DOCUMENTO ?? "").trim();
   if (!token) {
     console.error("Falta VITE_API_DOCUMENTO en .env");

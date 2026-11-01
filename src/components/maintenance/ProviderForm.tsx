@@ -357,9 +357,13 @@ export default function ProviderForm({
                       <HookFormInput<ProviderFormValues>
                         name="numeroDocumentoConsulta"
                         label="Numero de documento"
-                        type="number"
+                        type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
+                        maxLength={11}
+                        onInput={(event) => {
+                          event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "").slice(0, 11);
+                        }}
                         placeholder="Ingrese RUC"
                         rules={{
                           pattern: {

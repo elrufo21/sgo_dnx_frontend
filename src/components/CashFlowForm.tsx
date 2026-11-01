@@ -6,6 +6,7 @@ import { CashFlowReportPdf } from "@/features/cashFlow/components/CashFlowReport
 import { fetchUncapturedObsSales, type UncapturedObsSale } from "@/features/cashFlow/api/uncapturedObsSales";
 import { attendanceDate, fetchAttendanceReport, type AttendanceReportRow } from "@/features/reports/api/attendanceReport";
 import { useAuthStore } from "@/store/auth/auth.store";
+import { useBoletaBatchConfigStore } from "@/store/configuration/boletaBatchConfig.store";
 import { useCashFlowStore } from "@/store/cashFlow/cashFlow.store";
 import { useUsersStore } from "@/store/users/users.store";
 import { useCashFlowProductsWebStore } from "@/store/cashFlowProductsWeb/cashFlowProductsWeb.store";
@@ -185,6 +186,7 @@ export default function CashFlowForm({
   const { cajaId } = useParams();
   const openDialog = useDialogStore((state) => state.openDialog);
   const sessionUser = useAuthStore((state) => state.user);
+  const flagCaja = useBoletaBatchConfigStore((state) => state.flagCaja);
   const {
     openCashFlow,
     closeCashFlow,
@@ -1002,6 +1004,7 @@ export default function CashFlowForm({
               <Trash2 className="h-4 w-4" />
             </button>
           )}
+          {!flagCaja && <>
           <button
             type="button"
             onClick={() => void imprimirCaja()}
@@ -1032,6 +1035,7 @@ export default function CashFlowForm({
           >
             <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
+          </>}
         </div>
       </div>
 

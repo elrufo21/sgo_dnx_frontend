@@ -5,7 +5,7 @@ import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 type ObsRow = {
   id: number;
@@ -304,16 +304,6 @@ export default function ObsCashierCapturePage() {
               <Search className="h-4 w-4" />
             </button>
           </div>
-        }
-        toolbarAction={
-          <button
-            type="button"
-            onClick={() => void load(true)}
-            disabled={loading || saving}
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Actualizar
-          </button>
         }
         footerContent={
           <div className="flex flex-wrap justify-end gap-2">

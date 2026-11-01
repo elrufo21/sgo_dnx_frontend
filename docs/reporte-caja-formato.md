@@ -24,7 +24,9 @@ El módulo independiente **Generar informe de caja final** aparece en el sidebar
 
 En el listado de informes finales, **Sistema OBS** y **Salidas** muestran separador de miles y dos decimales (por ejemplo, `10,000.00`).
 
-En el formulario del informe final, los totales del conteo, ingresos, gastos, billetes y monedas, así como OBS, salidas y diferencial, se muestran con separador de miles y dos decimales. El formato solo cambia la presentación; los cálculos y los importes editables permanecen numéricos. El PDF ya utiliza el mismo formato.
+En el formulario del informe final, la columna **Monto** del conteo y los totales del conteo, ingresos, gastos, billetes y monedas, así como OBS, salidas y diferencial, se muestran con separador de miles y dos decimales. El formato solo cambia la presentación; los cálculos y los importes editables permanecen numéricos. El PDF ya utiliza el mismo formato.
+
+El diferencial del formulario se muestra en azul si hay sobrante, rojo si hay faltante y negro si el importe mostrado es cero. El color se determina con el valor redondeado a dos decimales.
 
 Los importes mostrados como texto en las tablas de ingresos y gastos también usan separador de miles y dos decimales, incluido TOTAL EFECTIVO. Los movimientos manuales se mantienen como campos numéricos al editar y se muestran con el mismo formato en modo lectura.
 
@@ -36,7 +38,7 @@ Desde el listado, el botón **Ver** abre un informe guardado en modo lectura con
 
 En un informe guardado, los conceptos `IOC` e `IOC (n)` se muestran en una única fila, con la suma de sus importes originales. Si hay cantidades guardadas en las descripciones, se suman y muestran como **IOC (n)**; si no hay cantidades, se muestra **IOC**. Los totales y el PDF usan esa misma fila; no se infiere que dos importes iguales sean duplicados. Al editar y guardar se conservan los movimientos originales, con su descripción, importe, estado e identificador, sin crear un IOC adicional. Las demás filas manuales no se modifican.
 
-El listado permite buscar informes por **Fecha Inicio** y **Fecha Fin**. Por defecto muestra el mes en curso hasta la fecha actual; ambos límites son obligatorios y la fecha inicial no puede ser posterior a la final.
+El listado permite buscar informes por **Fecha Inicio** y **Fecha Fin**. Al seleccionar una fecha fin válida, busca automáticamente con el rango indicado; también se puede usar el botón de búsqueda. Por defecto muestra el mes en curso hasta la fecha actual; ambos límites son obligatorios y la fecha inicial no puede ser posterior a la final. La fecha del listado se presenta como `DD/MM/AAAA` y se muestran 50 filas por página inicialmente; si el usuario cambia ese número, se conserva su preferencia.
 
 Al ver un informe, el candado habilita su edición y el mismo control vuelve a bloquearlo descartando cambios que aún no se guardaron. El botón **Nuevo** de la barra abre una preparación nueva sin alterar el informe consultado.
 
@@ -51,3 +53,5 @@ Los ingresos adicionales guardados se distinguen de los seis conceptos base y vu
 El botón junto a **Sistema (OBS)** actualiza únicamente ese total para la fecha del informe, sin borrar el conteo ni los movimientos que se estén editando.
 
 En modo lectura se habilitan **PDF** y **Enviar correo**. El PDF del informe final reutiliza el formato de cierre de caja e incluye una página aparte con los productos vendidos de la fecha cuando hay filas. Ambos PDF incluyen las ventas de `uspCruzeOBS` para la fecha consultada (transacción, código, cliente e importe) y el reporte de asistencia del día, con nombre, ingreso, salida a refrigerio, retorno, estado de asistencia y cantidad de tardanzas. El procedimiento identifica las ventas por `NotaPedido.CajaId IS NULL`.
+
+Al abrir un informe guardado se inicia en segundo plano la consulta de asistencia y ventas no capturadas, en paralelo con el detalle. La primera generación del PDF o envío de correo reutiliza esas consultas si se iniciaron hace menos de un minuto; las siguientes vuelven a consultar para mantener los datos actualizados. Si una consulta falla, la generación informa el error y puede reintentarse.

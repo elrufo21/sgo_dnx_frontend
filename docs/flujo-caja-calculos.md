@@ -38,6 +38,8 @@ El PDF de cierre muestra al final las asistencias registradas para la fecha de c
 
 Los botones para imprimir el informe PDF y enviarlo por correo se habilitan solo cuando la caja está cerrada y el formulario está bloqueado. Durante la edición permanecen deshabilitados; al bloquearla, se pueden usar nuevamente.
 
+Cuando está activo **Permitir múltiples cajas abiertas** (`FlagCaja`), el formulario de control de flujo de caja oculta los botones de imprimir, descargar y enviar correo. El envío automático al cerrar o actualizar una caja cerrada mantiene su comportamiento habitual.
+
 En una caja existente, el candado permite entrar a edición una vez. Mientras el formulario está editándose, el botón queda deshabilitado; vuelve a habilitarse después de guardar correctamente.
 
 Al guardar una caja, el botón se deshabilita, cambia su etiqueta a **Guardando...** y muestra un spinner hasta que termina toda la operación. Un bloqueo inmediato también evita que dos clics rápidos envíen dos guardados.
