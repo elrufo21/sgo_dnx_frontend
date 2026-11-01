@@ -77,34 +77,6 @@ const getHolidayError = (result: unknown) =>
 const asCategories = (items: unknown): Category[] =>
   Array.isArray(items) ? items : [];
 
-const isDuplicateCategoryResponse = (result: unknown) =>
-  typeof result === "string" && result.toLowerCase().includes("existe");
-
-const parseLegacyCategoryResponse = (
-  result: unknown,
-  fallback: { id: number; nombreSublinea: string; codigoSunat: string },
-): Category => {
-  if (typeof result === "string") {
-    const [idRaw = "", nameRaw = ""] = result.trim().split("|");
-    const parsedId = Number(idRaw.trim());
-    if (Number.isFinite(parsedId) && parsedId > 0) {
-      return {
-        id: parsedId,
-        idSubLinea: parsedId,
-        nombreSublinea: nameRaw.trim() || fallback.nombreSublinea,
-        codigoSunat: fallback.codigoSunat,
-      };
-    }
-  }
-
-  return {
-    id: fallback.id,
-    idSubLinea: fallback.id,
-    nombreSublinea: fallback.nombreSublinea,
-    codigoSunat: fallback.codigoSunat,
-  };
-};
-
 const mapProviderAccount = (
   item: any,
   fallbackProviderId?: number
@@ -379,35 +351,12 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
 
     // CRUD
     addCategory: async (data) => {
-      const fallbackId = Date.now();
-      const fallbackCategory = {
-        id: fallbackId,
-        nombreSublinea: data.nombreSublinea,
-        codigoSunat: data.codigoSunat,
-      };
-      const created = await apiRequest<unknown>({
-        url: `${API_BASE_URL}/Linea/registerlinea`,
-        method: "POST",
-        data: {
-          idSubLinea: 0,
-          nombreSublinea: data.nombreSublinea,
-          codigoSunat: data.codigoSunat,
-        },
-        config: { headers: { Accept: "*/*", "Content-Type": "application/json" } },
-        fallback: fallbackCategory,
-      });
-
-      if (isDuplicateCategoryResponse(created)) {
-        toast.error("Ya existe esa categoria");
+      const created = await saveCategoryApi(data);
+      if ("error" in created) {
+        toast.error(created.error);
         return false;
       }
-
-      set((state) => ({
-        categories: [
-          ...asCategories(state.categories),
-          parseLegacyCategoryResponse(created, fallbackCategory),
-        ],
-      }));
+      set((state) => ({ categories: [...asCategories(state.categories), created] }));
       await queryClient.invalidateQueries({ queryKey: legacyCategoriesQueryKey });
       return true;
     },
@@ -416,34 +365,22 @@ export const useMaintenanceStore = create<MaintenanceState>((set, get) => {
       const previousCategory = asCategories(get().categories).find(
         (category) => String(category.id ?? category.idSubLinea) === String(id),
       );
-      const fallbackCategory = {
+      const updated = await saveCategoryApi({
+        ...previousCategory,
+        ...data,
         id,
-        nombreSublinea:
-          data.nombreSublinea ?? data.nombre ?? previousCategory?.nombreSublinea ?? "",
+        idSubLinea: id,
+        nombreSublinea: data.nombreSublinea ?? data.nombre ?? previousCategory?.nombreSublinea ?? "",
         codigoSunat: data.codigoSunat ?? previousCategory?.codigoSunat ?? "",
-      };
-      const updated = await apiRequest<unknown>({
-        url: `${API_BASE_URL}/Linea/registerlinea`,
-        method: "POST",
-        data: {
-          idSubLinea: id,
-          nombreSublinea: fallbackCategory.nombreSublinea,
-          codigoSunat: fallbackCategory.codigoSunat,
-        },
-        config: { headers: { Accept: "*/*", "Content-Type": "application/json" } },
-        fallback: fallbackCategory,
       });
-
-      if (isDuplicateCategoryResponse(updated)) {
-        toast.error("Ya existe esa categoria");
+      if ("error" in updated) {
+        toast.error(updated.error);
         return false;
       }
-
-      const nextCategory = parseLegacyCategoryResponse(updated, fallbackCategory);
       set((state) => ({
         categories: asCategories(state.categories).map((category) =>
           String(category.id ?? category.idSubLinea) === String(id)
-            ? { ...category, ...data, ...nextCategory }
+            ? { ...category, ...data, ...updated }
             : category,
         ),
       }));

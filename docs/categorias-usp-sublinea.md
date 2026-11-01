@@ -1,15 +1,7 @@
 # Mantenimiento de categorías
 
-El módulo `/maintenance/categories` usa el mismo procedimiento de escritorio, `dbo.uspInsertarCategoria`, a través de `/api/v1/Linea`.
+El listado consulta `Sublinea` y conserva ID, nombre y código SUNAT. El registro y la edición, tanto desde mantenimiento como desde productos, envían estos datos a `/Linea/registerlinea`. La API utiliza `dbo.uspInsertarCategoriaWeb`; la eliminación mantiene `/Linea/maintenance/{id}` y `uspEliminarCategoria`. El formulario no solicita línea.
 
-## Operaciones
+Los dos formularios comprueban la respuesta antes de informar éxito o actualizar la lista: muestran un error ante una respuesta inválida o un fallo de la API, y reconocen los nombres duplicados.
 
-- El listado consulta `Sublinea` y conserva `IdSublinea`, `NombreSublinea` y `CodigoSUNAT`.
-- El registro y la edición envían `IdSublinea|NombreSublinea|CodigoSUNAT` a `uspInsertarCategoria`.
-- La eliminación usa `uspEliminarCategoria`.
-
-Las rutas utilizadas son `/Linea/maintenance/list`, `/Linea/registerlinea` y `/Linea/maintenance/{id}`.
-
-El formulario solo solicita categoría y código SUNAT. No muestra ni envía líder de línea porque el procedimiento de categorías no lo requiere.
-
-Este cambio conserva las rutas de mantenimiento para listar y eliminar, pero el guardado usa el procedimiento de categorías del escritorio.
+El responsable de SQL debe revisar y ejecutar el [script web compatible con SQL Server 2008](../../sgo_dnx_backend/scripts/sql/20261101_instalar_usp_insertar_categoria_web.sql) en la base correspondiente antes de publicar la API. El procedimiento se crea solo si falta y no modifica el del escritorio.

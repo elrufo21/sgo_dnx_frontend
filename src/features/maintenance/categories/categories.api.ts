@@ -90,7 +90,7 @@ export const saveCategoryApi = async (
   const nombre = payload.nombreSublinea?.trim() ?? "";
   const codigo = payload.codigoSunat?.trim() ?? "";
 
-  const response = await apiRequest<string | CategoryApiResponse | null>({
+  const response = await apiRequest<string | CategoryApiResponse | null, unknown, null>({
     url: buildApiUrl("/Linea/registerlinea"),
     method: "POST",
     data: {
@@ -103,7 +103,12 @@ export const saveCategoryApi = async (
   });
 
   if (response === null) return { error: "No se pudo guardar la sublinea." };
-  if (typeof response !== "string") return mapCategory(response, payload);
+  if (typeof response !== "string") {
+    const responseId = Number(response?.id ?? response?.idSubLinea);
+    return Number.isFinite(responseId) && responseId > 0
+      ? mapCategory(response, payload)
+      : { error: "No se pudo guardar la categoria." };
+  }
 
   const [value = ""] = response.split("|").map((part) => part.trim());
   if (!Number(value)) {
