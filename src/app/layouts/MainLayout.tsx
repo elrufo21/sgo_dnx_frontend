@@ -95,7 +95,10 @@ export default function MainLayout() {
     setPagoVariosModalOpen(true);
     params.delete("pagoVarios");
     const search = params.toString();
-    navigate({ pathname, search: search ? `?${search}` : "", hash: location.hash }, { replace: true, state: location.state });
+    navigate(
+      { pathname, search: search ? `?${search}` : "", hash: location.hash },
+      { replace: true, state: location.state },
+    );
   }, [location.search, location.hash, location.state, navigate, pathname]);
   useEffect(() => {
     const desktopSidebar = window.matchMedia("(min-width: 1300px)");
@@ -681,11 +684,7 @@ export default function MainLayout() {
           to: "/reports/products",
           icon: <PackageSearch size={18} />,
         },
-        {
-          label: "Resumen PVS",
-          to: "/reports/pvs",
-          icon: <BarChart3 size={18} />,
-        },
+
         {
           label: "Reporte de asistencia Web",
           to: "/reports/attendance",
@@ -727,6 +726,11 @@ export default function MainLayout() {
         state: { resetSearchFilter: true },
       },
       reportes,
+      {
+        label: "Resumen PVS",
+        to: "/reports/pvs",
+        icon: <BarChart3 size={18} />,
+      },
       {
         label: "Compras",
         to: "/shopping",
@@ -1082,7 +1086,10 @@ export default function MainLayout() {
           </div>
         </header>
 
-        <PagoVariosModal open={pagoVariosModalOpen} onClose={() => setPagoVariosModalOpen(false)} />
+        <PagoVariosModal
+          open={pagoVariosModalOpen}
+          onClose={() => setPagoVariosModalOpen(false)}
+        />
         <main className="app-main-scroll min-w-0 flex-1 overflow-y-auto bg-slate-100 px-[var(--app-shell-main-px)] py-[var(--app-shell-main-py)] min-h-0">
           <div className="mx-auto min-w-0 w-full max-w-[var(--app-shell-content-max)]">
             <Outlet context={{ pagoVariosModalOpen }} />
