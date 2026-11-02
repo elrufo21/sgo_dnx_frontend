@@ -3069,6 +3069,7 @@ export default function HtmlCaptureSalePage() {
                 }
               : {
                   DOCU_ID: viewSunatStatus?.docuId || undefined,
+                  MachineName: isInvoice ? machineName : undefined,
                   NRO_DOCUMENTO_MODIFICA: documentNumber,
                   DESCRIPCION_MOTIVO: "ANULACION DE LA OPERACION",
                   FECHA_DOCUMENTO: localDate(),

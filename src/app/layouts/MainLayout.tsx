@@ -119,7 +119,7 @@ export default function MainLayout() {
       "/depositos-centro",
     ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
     setOpenMenuGroup(
-      inCash ? "caja" : pathname.startsWith("/reports") ? "reportes" : null,
+      inCash ? "caja" : pathname.startsWith("/reports") && pathname !== "/reports/pvs" ? "reportes" : null,
     );
   }, [pathname]);
   const openDialog = useDialogStore((state) => state.openDialog);

@@ -591,15 +591,7 @@ export default function CashFinalReportPage() {
     }),
     columnHelper.accessor("diferencia", {
       header: "Diferencia",
-      cell: (info) => (
-        <span
-          className={
-            info.getValue() === 0 ? "text-emerald-700" : "text-red-600"
-          }
-        >
-          {money(info.getValue())}
-        </span>
-      ),
+      cell: (info) => money(info.getValue()),
     }),
     columnHelper.accessor("usuario", { header: "Registró" }),
   ] as unknown as ColumnDef<SavedReport, unknown>[];

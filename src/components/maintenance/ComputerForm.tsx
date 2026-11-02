@@ -124,7 +124,7 @@ export default function ComputerForm({
         ? normalizeSerie(data.serieFactura, "FA", "FA01")
         : nextSerieFactura,
       serieNc: data?.serieNc
-        ? normalizeSerie(data.serieNc, "FZ", "FZ01")
+        ? data.serieNc.trim().toUpperCase()
         : "FZ01",
       serieBoleta: data?.serieBoleta
         ? normalizeSerie(data.serieBoleta, "BA", "BA01")
@@ -175,10 +175,10 @@ export default function ComputerForm({
     focusFirstInput(containerRef.current);
   };
 
-  const isUnique = (value: string, field: "maquina" | "serieFactura") =>
+  const isUnique = (value: string | number, field: "maquina" | "serieFactura") =>
     !computers.some((computer) =>
       computer.id !== initialData?.id &&
-      computer[field]?.trim().toUpperCase() === value.trim().toUpperCase(),
+      computer[field]?.trim().toUpperCase() === String(value).trim().toUpperCase(),
     );
 
   return (
@@ -290,10 +290,10 @@ export default function ComputerForm({
                 placeholder="Ej: FZ01"
                 maxLength={4}
                 rules={{
-                  required: "La serie de FZ es obligatoria",
+                  required: "La serie de nota de crédito es obligatoria",
                   pattern: {
-                    value: /^FZ/i,
-                    message: "Debe iniciar con FZ",
+                    value: /^F[A-Z0-9]{3}$/i,
+                    message: "Debe iniciar con F y tener cuatro caracteres alfanuméricos",
                   },
                   maxLength: {
                     value: 4,

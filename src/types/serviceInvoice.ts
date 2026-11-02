@@ -126,6 +126,8 @@ export interface ServiceInvoiceCreditNoteDetail {
 }
 
 export interface ServiceInvoiceCreditNotePayload {
+  MachineName?: string;
+  COMPANIA_ID?: number;
   DOCU_ID: number;
   COD_TIPO_DOCUMENTO: "07";
   TIPO_PROCESO: number;

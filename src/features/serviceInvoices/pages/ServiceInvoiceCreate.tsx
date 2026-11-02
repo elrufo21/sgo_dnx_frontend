@@ -16,6 +16,7 @@ import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { toast } from "@/shared/ui/toast";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
+import { getCreditNoteMachineName } from "@/shared/helpers/creditNoteMachine";
 import { numberToWords } from "@/shared/helpers/numberToWords";
 import {
   IGV_FACTOR,
@@ -1040,6 +1041,7 @@ export default function ServiceInvoiceCreate() {
 
       return {
         DOCU_ID: resolveRecordDocuId(),
+        COMPANIA_ID: resolveCompanyId(user?.companyId),
         COD_TIPO_DOCUMENTO: "07",
         TIPO_PROCESO: processTypeValue,
         NRO_DOCUMENTO_EMPRESA: safeText(user?.companyRuc, "10464869978"),
@@ -1143,6 +1145,14 @@ export default function ServiceInvoiceCreate() {
       return;
     }
 
+    let machineName: string;
+    try {
+      machineName = await getCreditNoteMachineName();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo identificar la computadora.");
+      return;
+    }
+
     const confirmed = await confirmWithAppDialog({
       title: "Anular factura",
       content: <p>¿Está seguro que desea anular la factura?</p>,
@@ -1151,7 +1161,7 @@ export default function ServiceInvoiceCreate() {
     if (!confirmed) return;
 
     const values = methods.getValues();
-    const payload = buildCreditNotePayload(values);
+    const payload = { ...buildCreditNotePayload(values), MachineName: machineName };
 
     try {
       const response = await sendCreditNote(payload);
@@ -1192,7 +1202,8 @@ export default function ServiceInvoiceCreate() {
       toast.success(message || "Nota de crédito enviada y aceptada.");
     } catch (error) {
       console.error("No se pudo enviar la nota de crédito", error);
-      toast.error("No se pudo enviar la nota de crédito.");
+      const data = resolveResponseRecord(resolveResponseRecord(error).response);
+      toast.error(resolveResponseMessage(data.data) || "No se pudo enviar la nota de crédito.");
     }
   }, [
     applyViewInvoice,

@@ -508,7 +508,6 @@ export const useServiceInvoicesStore = create<ServiceInvoicesState>((set) => ({
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       if (isAxiosLikeError(response)) {

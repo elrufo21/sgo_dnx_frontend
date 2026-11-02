@@ -23,7 +23,7 @@ export default [
   {
     path: "reports/pvs",
     element: <PvsReportPage />,
-    handle: { breadcrumb: [{ label: "Reportes" }, { label: "Resumen PVS" }] },
+    handle: { breadcrumb: [{ label: "Resumen PVS" }] },
   },
   {
     path: "reports/attendance",

@@ -40,6 +40,8 @@ En un informe guardado, los conceptos `IOC` e `IOC (n)` se muestran en una únic
 
 El listado permite buscar informes por **Fecha Inicio** y **Fecha Fin**. Al seleccionar una fecha fin válida, busca automáticamente con el rango indicado; también se puede usar el botón de búsqueda. Por defecto muestra el mes en curso hasta la fecha actual; ambos límites son obligatorios y la fecha inicial no puede ser posterior a la final. La fecha del listado se presenta como `DD/MM/AAAA` y se muestran 50 filas por página inicialmente; si el usuario cambia ese número, se conserva su preferencia.
 
+En el listado de informes finales, la columna **Diferencia** usa el color normal de la tabla para cualquier importe. El diferencial del detalle y del PDF mantiene sus colores propios.
+
 Al ver un informe, el candado habilita su edición y el mismo control vuelve a bloquearlo descartando cambios que aún no se guardaron. El botón **Nuevo** de la barra abre una preparación nueva sin alterar el informe consultado.
 
 Las filas manuales de ingresos y salidas conservan el foco y su descripción al escribir espacios o modificar el importe.

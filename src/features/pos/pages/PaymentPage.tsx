@@ -20,6 +20,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { usePosStore, selectTotals } from "@/store/pos/pos.store";
 import { toast } from "@/shared/ui/toast";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
+import { getCreditNoteMachineName } from "@/shared/helpers/creditNoteMachine";
 import { getAutomaticPaymentBank } from "@/shared/helpers/paymentBank";
 import TicketDocument from "@/components/Ticket";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
@@ -465,7 +466,7 @@ const PaymentPage = () => {
     if (!normalized) return "";
     if (normalized.startsWith("FA")) return "01";
     if (normalized.startsWith("BA")) return "03";
-    if (normalized.startsWith("FN") || normalized.startsWith("BN")) return "07";
+    if (/^[FB][A-Z0-9]{3}$/.test(normalized)) return "07";
     return "";
   };
   const resolveDocTypeCodeFromName = (name: unknown) => {
@@ -4519,12 +4520,16 @@ const PaymentPage = () => {
         : resolvedDocTypeCodeForResend === "03"
           ? "Boleta"
           : "Nota de crédito";
+    if (resolvedDocTypeCodeForResend === "07" && !safeTrim(documentNumber)) {
+      toast.error("No se encontró el número original de la nota de crédito para reenviarla.");
+      return;
+    }
     const serieFallback =
       resolvedDocTypeCodeForResend === "01"
         ? "FA01"
         : resolvedDocTypeCodeForResend === "03"
           ? "BA01"
-          : "FN01";
+          : "";
     const documento =
       safeTrim(documentNumber) ||
       `${safeTrim(notaSerie) || serieFallback}-${safeTrim(paddedNotaNumero) || "00000000"}`;
@@ -4749,7 +4754,7 @@ const PaymentPage = () => {
               "",
           ) ||
           resolveTipoComprobanteModifica(documentoModifica) ||
-          (serieDocumento.toUpperCase().startsWith("FN") ? "01" : "03");
+          (serieDocumento.toUpperCase().startsWith("F") ? "01" : "03");
         payload.TIPO_COMPROBANTE_MODIFICA = tipoComprobanteModifica;
         payload.NRO_DOCUMENTO_MODIFICA = documentoModifica;
         payload.COD_TIPO_MOTIVO =
@@ -4878,8 +4883,13 @@ const PaymentPage = () => {
     const originalDoc =
       safeTrim(documentNumber) ||
       `${safeTrim(notaSerie) || "FA01"}-${safeTrim(paddedNotaNumero) || "00000000"}`;
-    const docuSerieNc = "FN01";
-    const nroComprobanteNc = `${docuSerieNc}-${safeTrim(paddedNotaNumero) || "00000000"}`;
+    let machineName: string;
+    try {
+      machineName = await getCreditNoteMachineName();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo identificar la computadora.");
+      return;
+    }
 
     const clienteDocumento = safeTrim(selectedDocument) || safeTrim(customerId);
     const tipoDocumentoCliente =
@@ -4960,10 +4970,13 @@ const PaymentPage = () => {
     });
 
     const payload = {
-      DOCU_ID: ticketIdNumber,
+      DOCU_ID: Number(docuIdActual) > 0 ? Number(docuIdActual) : undefined,
+      NOTA_ID: ticketIdNumber,
+      COMPANIA_ID: companyId,
       TIPO_OPERACION: "0101",
       HORA_REGISTRO: horaRegistro,
-      NRO_COMPROBANTE: nroComprobanteNc,
+      NRO_COMPROBANTE: "",
+      MachineName: machineName,
       FECHA_DOCUMENTO: fechaIso,
       FECHA_VTO: fechaIso,
       COD_TIPO_DOCUMENTO: "07",
@@ -5017,9 +5030,6 @@ const PaymentPage = () => {
       TOTAL_LETRAS: numberToWords(documentTotalWithIgv, "SOLES"),
       FORMA_PAGO: formaPagoNc,
       formaPago: formaPagoNc,
-      docuSerie: docuSerieNc,
-      DocuSerie: docuSerieNc,
-      DOCU_SERIE: docuSerieNc,
       DocuConcepto: "ANULACION DE LA OPERACION",
       docuConcepto: "ANULACION DE LA OPERACION",
       GLOSA: "ANULACION DE LA OPERACION",
@@ -5047,7 +5057,6 @@ const PaymentPage = () => {
             "Content-Type": "application/json",
           },
         },
-        fallback: null,
       });
 
       const responseObj =
