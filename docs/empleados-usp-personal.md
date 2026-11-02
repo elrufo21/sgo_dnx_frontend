@@ -14,7 +14,7 @@ El registro conserva los datos del formulario: nombres, apellidos, área, códig
 
 La consulta de DNI acepta únicamente números y requiere exactamente 8 dígitos; si está incompleto, muestra un mensaje y no llama al servicio externo.
 
-La fecha de ingreso es de solo lectura en el formulario por auditoría. Al crear se muestra la fecha actual y al editar se conserva la fecha registrada; el campo mantiene su valor al guardar. Esta restricción se aplica en la interfaz web.
+La fecha de ingreso se muestra deshabilitada en el formulario por auditoría. Al crear se muestra la fecha actual y al editar se conserva la fecha registrada; el campo mantiene su valor al guardar. Esta restricción se aplica en la interfaz web.
 
 Los controles Teléfono asistente, RUC, Fecha de baja y Sueldo no se muestran en el formulario. Sus valores existentes se mantienen en los datos del formulario y se envían al guardar, sin modificarlos desde estos controles.
 

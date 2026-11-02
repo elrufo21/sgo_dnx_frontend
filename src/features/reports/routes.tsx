@@ -2,6 +2,7 @@ import { Navigate } from "react-router";
 import ProductSalesReportPage from "./pages/ProductSalesReportPage";
 import SalesReportPage from "./pages/SalesReportPage";
 import AttendanceReportPage from "./pages/AttendanceReportPage";
+import PvsReportPage from "./pages/PvsReportPage";
 
 export default [
   {
@@ -18,6 +19,11 @@ export default [
     path: "reports/products",
     element: <ProductSalesReportPage />,
     handle: { breadcrumb: [{ label: "Reportes" }, { label: "Productos" }] },
+  },
+  {
+    path: "reports/pvs",
+    element: <PvsReportPage />,
+    handle: { breadcrumb: [{ label: "Reportes" }, { label: "Resumen PVS" }] },
   },
   {
     path: "reports/attendance",

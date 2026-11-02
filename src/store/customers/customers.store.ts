@@ -25,6 +25,7 @@ interface ClientsState {
     estado?: "ACTIVO" | "INACTIVO" | "",
     pageSize?: number,
     rucOnly?: boolean,
+    minLength?: number,
   ) => Promise<Client[]>;
   fetchClientById: (id: number) => Promise<Client | null>;
   fetchClientByCodigo: (codigo: string) => Promise<Client | null>;
@@ -229,7 +230,7 @@ const parseParams = (params: FetchClientsParams = "ACTIVO") =>
 const buildClientListUrl = (params: FetchClientsParams = "ACTIVO") => {
   const parsed = parseParams(params);
   const query = new URLSearchParams();
-  if (parsed.estado) query.set("estado", parsed.estado);
+  query.set("estado", parsed.estado);
   if (parsed.search.trim()) query.set("search", parsed.search.trim());
   if (parsed.rucOnly) query.set("rucOnly", "true");
   query.set("page", String(parsed.page));
@@ -344,9 +345,9 @@ export const useClientsStore = create<ClientsState>((set, get) => ({
     }
   },
 
-  searchClients: async (search, estado = "ACTIVO", pageSize = 20, rucOnly = false) => {
+  searchClients: async (search, estado = "ACTIVO", pageSize = 20, rucOnly = false, minLength = 2) => {
     const term = search.trim();
-    if (term.length < 2) return [];
+    if (term.length < minLength) return [];
     const current = get().clients;
     if (get().allClientsLoaded) {
       const matches = rucOnly

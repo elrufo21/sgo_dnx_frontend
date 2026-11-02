@@ -175,6 +175,12 @@ export default function ComputerForm({
     focusFirstInput(containerRef.current);
   };
 
+  const isUnique = (value: string, field: "maquina" | "serieFactura") =>
+    !computers.some((computer) =>
+      computer.id !== initialData?.id &&
+      computer[field]?.trim().toUpperCase() === value.trim().toUpperCase(),
+    );
+
   return (
     <div ref={containerRef} className="h-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-visible">
@@ -230,7 +236,10 @@ export default function ComputerForm({
                 name="maquina"
                 label="Maquina *"
                 placeholder="Ej: PC-001"
-                rules={{ required: "La maquina es obligatoria" }}
+                rules={{
+                  required: "La maquina es obligatoria",
+                  validate: (value) => isUnique(value, "maquina") || "Ya existe una máquina con ese nombre",
+                }}
               />
               <HookFormInput<ComputerFormValues>
                 name="serieFactura"
@@ -239,6 +248,7 @@ export default function ComputerForm({
                 maxLength={4}
                 rules={{
                   required: "La serie de factura es obligatoria",
+                  validate: (value) => isUnique(value, "serieFactura") || "La serie de factura ya está asignada a otra máquina",
                   pattern: {
                     value: /^FA/i,
                     message: "Debe iniciar con FA",
@@ -301,9 +311,8 @@ export default function ComputerForm({
                 placeholder="Ej: TICKET-01"
               />
               <p className="text-sm text-slate-500">
-                Las series y el nombre de la impresora pueden repetirse. Las
-                máquinas que comparten una serie también comparten la numeración
-                de sus comprobantes.
+                El nombre y la serie de factura deben ser únicos. Las series
+                de boleta y nota de crédito y la impresora pueden repetirse.
               </p>
             </div>
           </div>

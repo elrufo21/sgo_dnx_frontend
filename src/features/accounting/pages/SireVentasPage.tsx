@@ -15,6 +15,7 @@ import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { formatDate } from "@/shared/helpers/formatDate";
 import { toast } from "@/shared/ui/toast";
 
 type SireRegistroKey = `col${string}`;
@@ -633,7 +634,7 @@ export default function SireVentasRegistrosPage() {
       }),
       compareColumnHelper.accessor("fecha", {
         header: "Fecha",
-        cell: (info) => safeText(info.getValue()) || "-",
+        cell: (info) => formatDate(safeText(info.getValue())) || safeText(info.getValue()) || "-",
       }),
       compareColumnHelper.accessor("tipoDocumento", {
         header: "Tipo",
@@ -714,7 +715,7 @@ export default function SireVentasRegistrosPage() {
       sunatColumnHelper.display({
         id: "fechaEmision",
         header: "Fecha",
-        cell: ({ row }) => safeText(row.original.documento?.fechaEmision) || "-",
+        cell: ({ row }) => formatDate(safeText(row.original.documento?.fechaEmision)) || safeText(row.original.documento?.fechaEmision) || "-",
       }),
       sunatColumnHelper.display({
         id: "monto",

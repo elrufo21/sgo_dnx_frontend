@@ -198,6 +198,12 @@ export default function CategoriaForm({
                   name="codigoSunat"
                   label="Codigo SUNAT"
                   placeholder="Ej: 1232"
+                  onKeyDown={(event) => {
+                    if (!isModal || event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    event.currentTarget.closest('[role="dialog"]')
+                      ?.querySelector<HTMLButtonElement>('[data-dialog-confirm]')?.click();
+                  }}
                 />
               </div>
             </div>

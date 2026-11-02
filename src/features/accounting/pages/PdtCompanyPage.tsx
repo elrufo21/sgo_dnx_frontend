@@ -2,6 +2,7 @@ import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { formatDate } from "@/shared/helpers/formatDate";
 import { toast } from "@/shared/ui/toast";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Workbook } from "exceljs";
@@ -1183,7 +1184,7 @@ export default function PdtCompanyPage() {
     () => [
       salesColumnHelper.accessor("fecha", {
         header: "Fecha",
-        cell: (info) => info.getValue() || "-",
+        cell: (info) => formatDate(info.getValue()) || info.getValue() || "-",
       }),
       salesColumnHelper.accessor("documento", {
         header: "Documento",
@@ -1260,7 +1261,7 @@ export default function PdtCompanyPage() {
     () => [
       purchaseColumnHelper.accessor("fecha", {
         header: "Fecha",
-        cell: (info) => info.getValue() || "-",
+        cell: (info) => formatDate(info.getValue()) || info.getValue() || "-",
       }),
       purchaseColumnHelper.accessor("documento", {
         header: "Documento",

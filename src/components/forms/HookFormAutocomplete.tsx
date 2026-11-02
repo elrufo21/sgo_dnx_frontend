@@ -60,6 +60,8 @@ interface HookFormAutocompleteProps<
   autoComplete?: string;
   control?: Control<T>;
   disabled?: boolean;
+  loading?: boolean;
+  noOptionsText?: string;
   syncInputToValue?: boolean;
   inputProps?: InputHTMLAttributes<HTMLInputElement>;
 
@@ -97,6 +99,8 @@ export function HookFormAutocomplete<
   className,
   control,
   disabled = false,
+  loading = false,
+  noOptionsText,
   syncInputToValue = false,
   inputProps,
 
@@ -338,6 +342,9 @@ export function HookFormAutocomplete<
               freeSolo={allowCreate}
               autoHighlight
               disabled={disabled}
+              loading={loading}
+              loadingText="Buscando..."
+              noOptionsText={noOptionsText ?? "Sin resultados"}
               disableClearable={disableClearable}
               getOptionLabel={(option) => {
                 const optionWithInput = option as TOption & CreateOption;

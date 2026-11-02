@@ -11,6 +11,7 @@ import "dayjs/locale/es";
 import { Eye, FilePlus2, Search } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
+import { formatDate } from "@/shared/helpers/formatDate";
 import { toast } from "@/shared/ui/toast";
 import { useServiceInvoicesStore } from "@/store/serviceInvoices/serviceInvoices.store";
 import type { ServiceInvoiceListItem } from "@/types/serviceInvoice";
@@ -139,7 +140,7 @@ export default function ServiceInvoiceList() {
         columnHelper.accessor((row) => row.compra.fechaEmision, {
           id: "fecha",
           header: "Fecha",
-          cell: (info) => info.getValue() || "-",
+          cell: (info) => formatDate(info.getValue()) || info.getValue() || "-",
         }),
         columnHelper.accessor((row) => row.compra.compraConcepto, {
           id: "concepto",

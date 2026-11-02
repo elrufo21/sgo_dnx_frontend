@@ -682,6 +682,11 @@ export default function MainLayout() {
           icon: <PackageSearch size={18} />,
         },
         {
+          label: "Resumen PVS",
+          to: "/reports/pvs",
+          icon: <BarChart3 size={18} />,
+        },
+        {
           label: "Reporte de asistencia Web",
           to: "/reports/attendance",
           icon: <ClipboardCheck size={18} />,
@@ -756,6 +761,7 @@ export default function MainLayout() {
       "/reports/sales": "VENTAS.VER",
       "/reports/products": "VENTAS.VER",
       "/reports/attendance": "VENTAS.VER",
+      "/reports/pvs": "VENTAS.VER",
       "/sales/obs_capture": "VENTAS.OBS",
       "/cash_flow_control": "CAJA.CONTROL",
       "/cash-final-report": "CAJA.INFORME_FINAL",
@@ -807,6 +813,7 @@ export default function MainLayout() {
       { path: "/reports/sales", title: "Reporte de ventas" },
       { path: "/reports/products", title: "Reporte de productos" },
       { path: "/reports/attendance", title: "Reporte de asistencia Web" },
+      { path: "/reports/pvs", title: "Resumen PVS" },
       { path: "/sales/order_notes", title: "Nota Pedido" },
     ];
     const override = overrides.find(

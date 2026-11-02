@@ -3,6 +3,7 @@ import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { formatDate } from "@/shared/helpers/formatDate";
 import { toast } from "@/shared/ui/toast";
 import { useAuthStore } from "@/store/auth/auth.store";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
@@ -245,7 +246,7 @@ export default function InvoiceDispatchPage() {
       }),
       columnHelper.accessor("fechaEmision", {
         header: "Fecha",
-        cell: (info) => info.getValue(),
+        cell: (info) => formatDate(info.getValue()) || info.getValue() || "-",
       }),
       columnHelper.accessor("cliente", {
         header: "Cliente",

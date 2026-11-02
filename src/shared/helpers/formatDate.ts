@@ -5,6 +5,14 @@ const parseDate = (value: string | number | Date) => {
 
   if (typeof value === "string") {
     const trimmed = value.trim();
+    const spanishDateMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s|$)/);
+    if (spanishDateMatch) {
+      const [, d, m, y] = spanishDateMatch;
+      const date = new Date(Number(y), Number(m) - 1, Number(d));
+      return date.getFullYear() === Number(y) && date.getMonth() === Number(m) - 1 && date.getDate() === Number(d)
+        ? date
+        : new Date(NaN);
+    }
     // Avoid timezone shifts when the API returns "YYYY-MM-DD"
     const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (dateOnlyMatch) {
@@ -32,7 +40,7 @@ export const formatDateTime = (value?: string | number | Date | null) => {
   if (typeof value === "string") {
     const trimmed = value.trim();
     const localDateTime = trimmed.match(
-      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::|\s)(\d{2}))?$/,
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?:(?::|\s)(\d{2}))?)?$/,
     );
     if (localDateTime) {
       const [
@@ -66,6 +74,7 @@ export const formatDateTime = (value?: string | number | Date | null) => {
         if (!localDateTime[4]) return datePart;
         return `${datePart} ${pad(hour)}:${pad(minute)}:${pad(second)}`;
       }
+      return "";
     }
   }
 

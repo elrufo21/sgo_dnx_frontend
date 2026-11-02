@@ -1,6 +1,7 @@
 import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { toast } from "@/shared/ui/toast";
+import { formatDate, formatDateTime } from "@/shared/helpers/formatDate";
 import { useBoletasSummaryStore } from "@/store/boletasSummary/boletasSummary.store";
 import type {
   BoletaSummaryDocument,
@@ -843,7 +844,7 @@ export default function BoletasSummaryPage() {
       }),
       columnHelper.accessor("fechaEmision", {
         header: "FechaEmision",
-        cell: (info) => info.getValue(),
+        cell: (info) => formatDate(info.getValue()) || info.getValue() || "-",
       }),
       columnHelper.display({
         id: "numero",
@@ -934,11 +935,11 @@ export default function BoletasSummaryPage() {
       }),
       sentColumnHelper.accessor("fechaEmision", {
         header: "Fecha Emisión",
-        cell: (info) => info.getValue(),
+        cell: (info) => formatDate(info.getValue()) || info.getValue() || "-",
       }),
       sentColumnHelper.accessor("fechaEnvio", {
         header: "Fecha Envío",
-        cell: (info) => info.getValue(),
+        cell: (info) => formatDateTime(info.getValue()) || info.getValue() || "-",
         meta: {
           thClassName: "min-w-[11rem] whitespace-nowrap",
           tdClassName: "min-w-[11rem] whitespace-nowrap",

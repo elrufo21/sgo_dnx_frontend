@@ -20,6 +20,7 @@ import {
   type AttendanceReportRow,
 } from "@/features/reports/api/attendanceReport";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
+import { formatDate } from "@/shared/helpers/formatDate";
 import { AttendanceReportPdf } from "@/features/reports/components/AttendanceReportPdf";
 import dayjs, { type Dayjs } from "dayjs";
 import { toast } from "sonner";
@@ -35,7 +36,7 @@ type ReportFilters = {
 };
 
 const dayName = (value: string) => {
-  const [day, month, year] = value.split("/").map(Number);
+  const [day, month, year] = formatDate(value).split("/").map(Number);
   if (!day || !month || !year) return "-";
   return new Date(year, month - 1, day).toLocaleDateString("es-PE", {
     weekday: "long",
@@ -84,7 +85,7 @@ export default function AttendanceReportPage() {
 
   const columns = useMemo<ColumnDef<AttendanceReportRow, unknown>[]>(
     () => [
-      column.accessor("fecha", { header: "Fecha" }),
+      column.accessor("fecha", { header: "Fecha", cell: (info) => formatDate(info.getValue()) || info.getValue() || "-" }),
       column.display({ id: "dia", header: "Día", cell: ({ row }) => dayName(row.original.fecha) }),
       column.accessor("nombres", { header: "Nombres" }),
       column.accessor("horaIngreso", { header: "Ingreso", meta: { align: "center" } }),

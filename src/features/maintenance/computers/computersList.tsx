@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { CrudList } from "@/components/ListView";
 import { useMaintenanceStore } from "@/store/maintenance/maintenance.store";
 import type { Computer, Area } from "@/types/maintenance";
+import { formatDateTime } from "@/shared/helpers/formatDate";
 
 const ComputerList = () => {
   const { computers, areas, fetchComputers, fetchAreas, deleteComputer } =
@@ -14,7 +15,7 @@ const ComputerList = () => {
 
   const computerColumns = [
     { key: "maquina", header: "Máquina" },
-    { key: "registro", header: "Registro" },
+    { key: "registro", header: "Registro", render: (row: Computer) => formatDateTime(row.registro) || row.registro || "-" },
     {
       key: "serieFactura",
       header: "Serie Factura",
@@ -39,7 +40,7 @@ const ComputerList = () => {
 
   return (
     <CrudList
-      data={computers}
+      data={[...computers].sort((a, b) => b.id - a.id)}
       fetchData={fetchData}
       deleteItem={deleteComputer}
       columns={computerColumns}

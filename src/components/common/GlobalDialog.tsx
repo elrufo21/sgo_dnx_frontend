@@ -154,6 +154,7 @@ export function GlobalDialog() {
                 {onConfirm && (
                   <Button
                     onClick={handleConfirm}
+                    data-dialog-confirm
                     variant="contained"
                     disabled={loading}
                     size="small"
@@ -225,6 +226,7 @@ export function GlobalDialog() {
           {onConfirm && (
             <Button
               onClick={handleConfirm}
+              data-dialog-confirm
               variant="contained"
               disabled={loading}
               startIcon={loading ? <CircularProgress size={18} /> : undefined}

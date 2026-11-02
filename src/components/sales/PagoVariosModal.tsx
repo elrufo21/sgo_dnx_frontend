@@ -834,7 +834,7 @@ export function PagoVariosModal({ open, onClose }: { open: boolean; onClose: () 
                     <div className="border-b border-slate-100 px-5 py-3 text-sm">
                       <p className="text-xs text-slate-400">Fecha</p>
                       <p className="font-semibold text-slate-700">
-                        {pagoVariosDetail.fechaEmision}
+                        {formatDateTime(pagoVariosDetail.fechaEmision) || pagoVariosDetail.fechaEmision}
                       </p>
                     </div>
                     <table className="w-full min-w-[900px] border-collapse text-sm">
@@ -1010,7 +1010,7 @@ export function PagoVariosModal({ open, onClose }: { open: boolean; onClose: () 
                               className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
                             >
                               <td className="px-5 py-3 text-slate-600">
-                                {item.fechaEmision}
+                                {formatDateTime(item.fechaEmision) || item.fechaEmision}
                               </td>
                               <td className="px-3 py-3 font-semibold text-slate-700">
                                 {item.descripcion}

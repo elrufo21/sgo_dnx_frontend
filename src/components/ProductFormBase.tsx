@@ -708,6 +708,7 @@ export default function ProductFormBase({
 }: ProductFormBaseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const categoryFieldRef = useRef<HTMLDivElement>(null);
+  const defaultCategoryApplied = useRef(false);
   const authUser = useAuthStore((s) => s.user);
   const { categories, fetchCategories, addCategory, updateCategory } =
     useMaintenanceStore();
@@ -716,6 +717,13 @@ export default function ProductFormBase({
     () => (Array.isArray(categories) ? categories : []),
     [categories],
   );
+  const defaultCategoryId = useMemo(() => {
+    const category = safeCategories.find((item) =>
+      item.nombreSublinea.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase() === "SUSTITUTO DE CAFE",
+    );
+    const id = Number(category?.idSubLinea ?? category?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }, [safeCategories]);
   const fallbackUser = useMemo(
     () => authUser?.displayName ?? authUser?.username ?? buildUserDate(),
     [authUser],
@@ -969,6 +977,13 @@ export default function ProductFormBase({
       fetchCategories();
     }
   }, [safeCategories.length, fetchCategories]);
+
+  useEffect(() => {
+    if (mode !== "create" || defaultCategoryApplied.current || defaultCategoryId === null) return;
+    defaultCategoryApplied.current = true;
+    if (dirtyFields.idSubLinea || getValues("idSubLinea") != null) return;
+    setValue("idSubLinea", defaultCategoryId, { shouldValidate: true });
+  }, [mode, defaultCategoryId, dirtyFields.idSubLinea, getValues, setValue]);
 
   useEffect(() => {
     if (!products.length) {
@@ -1459,6 +1474,7 @@ export default function ProductFormBase({
     if (mode === "create") {
       reset({
         ...defaults,
+        idSubLinea: defaultCategoryId,
         codigo: generateCode(),
         fechaRegistro: getLocalDateISO(),
       });
@@ -1545,6 +1561,7 @@ export default function ProductFormBase({
 
       reset({
         ...defaults,
+        idSubLinea: defaultCategoryId,
         codigo: nextCode,
       });
       focusCategoryField();

@@ -10,4 +10,6 @@ El formulario envía los datos a `POST /api/v1/Proveedor/register`; la API llama
 
 El error SQL 2812 indica que el procedimiento no existe en la base conectada. El responsable de SQL puede revisar [el script preparado](../../sgo_dnx_backend/scripts/sql/20261028_instalar_usp_insertar_proveedor.sql), extraído de `scripts/sql/bdactual.sql`; solo crea el procedimiento si falta y no reemplaza uno existente. Debe verificar la base de destino y la compatibilidad de la tabla `Proveedor` antes de ejecutarlo. El script no se ha ejecutado ni se ha comprobado el registro en una base real.
 
+La eliminación usa `dbo.uspEliminarProveedor` con `@Id` y devuelve éxito cuando se eliminó una fila. El 2026-11-02 se instaló y verificó en la instancia local `DESKTOP-B6B71UA\SQLEXPRESS01`, base `DXNCOMAS2610`, con autorización del usuario, mediante el [script de instalación](../../sgo_dnx_backend/scripts/sql/20261102_instalar_usp_eliminar_proveedor.sql) basado en `bdactual.sql`. No se ejecutó el procedimiento ni se eliminaron proveedores; otras bases no fueron modificadas. Las relaciones existentes con Compras y Letras impiden eliminar proveedores referenciados.
+
 La definición heredada devuelve `true` al crear, sin identificador.

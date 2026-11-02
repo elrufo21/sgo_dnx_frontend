@@ -541,6 +541,7 @@ export default function EmployeeFormBase({
                   label="Fecha ingreso"
                   type="date"
                   readOnly
+                  disabled
                 />
 
                 <HookFormSelect<Personal>
