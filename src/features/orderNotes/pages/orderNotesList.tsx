@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import DataTable from "@/components/DataTable";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
@@ -16,6 +17,7 @@ import { Workbook } from "exceljs";
 import { FileSpreadsheet, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { TotalsSummary } from "@/components/common/TotalsSummary";
 
 const columnHelper = createColumnHelper<OrderNote>();
 const ORDER_NOTES_RANGE_STORAGE_KEY = "sgo.orderNotes.range";
@@ -529,15 +531,7 @@ const OrderNotesList = () => {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
 
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `notas-pedido_${fileFrom}_${fileTo}.xlsx`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-
-      window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+      if (!await saveAgentFile(blob, `notas-pedido_${fileFrom}_${fileTo}.xlsx`)) return;
       toast.success("Excel generado correctamente.");
     } catch (error) {
       console.error("Error al exportar Excel de notas de pedido", error);
@@ -858,36 +852,11 @@ const OrderNotesList = () => {
           </LocalizationProvider>
         }
         footerContent={
-          <div className="flex justify-end">
-            <div className="grid w-full max-w-3xl grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-3">
-              <div className="border-b border-slate-200 px-4 py-3 text-right sm:border-b-0 sm:border-r">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  EFECTIVO
-                </p>
-                <p className="text-xl font-semibold text-slate-800">
-                  {formatAmount(solesTotals.efectivo)}
-                </p>
-              </div>
-
-              <div className="border-b border-slate-200 px-4 py-3 text-right sm:border-b-0 sm:border-r">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  DEPOSITO
-                </p>
-                <p className="text-xl font-semibold text-slate-800">
-                  {formatAmount(solesTotals.depTarYape)}
-                </p>
-              </div>
-
-              <div className="px-4 py-3 text-right">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  TOTAL
-                </p>
-                <p className="text-xl font-semibold text-slate-900">
-                  {formatAmount(solesTotals.total)}
-                </p>
-              </div>
-            </div>
-          </div>
+          <TotalsSummary items={[
+            { label: "Efectivo", value: formatAmount(solesTotals.efectivo) },
+            { label: "Deposito", value: formatAmount(solesTotals.depTarYape) },
+            { label: "Total", value: formatAmount(solesTotals.total) },
+          ]} />
         }
       />
     </div>

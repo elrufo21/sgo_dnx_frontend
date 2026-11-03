@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import { useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { useQuery } from "@tanstack/react-query";
@@ -170,10 +171,7 @@ export default function AttendanceReportPage() {
       if (reportWindow) {
         reportWindow.location.href = url;
       } else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Reporte_asistencia_${appliedFilters.fechaInicio}_${appliedFilters.fechaFin}.pdf`;
-        link.click();
+        await saveAgentFile(blob, `Reporte_asistencia_${appliedFilters.fechaInicio}_${appliedFilters.fechaFin}.pdf`);
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {

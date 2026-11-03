@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import DataTable from "@/components/DataTable";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
@@ -104,6 +105,8 @@ function AdminKeyDialogContent() {
 }
 
 const today = () => getLocalDateISO();
+let movementSequence = 0;
+const nextMovementId = () => `movement-${++movementSequence}`;
 const money = (value: number) => `${Number(value || 0).toFixed(2)}`;
 const moneyWithThousands = (value: number) =>
   Number(value || 0).toLocaleString("en-US", {
@@ -366,7 +369,7 @@ export default function CashFinalReportPage() {
         descripcion: "",
         importe: 0,
         manual: true,
-        clientId: crypto.randomUUID(),
+        clientId: nextMovementId(),
         tipo: tab,
       },
     ]);
@@ -545,7 +548,7 @@ export default function CashFinalReportPage() {
             ...row,
             manual: true,
             tipo: "income",
-            clientId: crypto.randomUUID(),
+            clientId: nextMovementId(),
           })),
       );
       setObservaciones(report.observaciones);
@@ -664,13 +667,11 @@ export default function CashFinalReportPage() {
     const reportWindow = window.open("", "_blank");
     setPrinting(true);
     try {
-      const url = URL.createObjectURL(await generatePdf());
+      const blob = await generatePdf();
+      const url = URL.createObjectURL(blob);
       if (reportWindow) reportWindow.location.href = url;
       else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Informe_final_caja_${reportId}.pdf`;
-        link.click();
+        await saveAgentFile(blob, `Informe_final_caja_${reportId}.pdf`);
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {

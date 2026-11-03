@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
 import { pdf, PDFViewer } from "@react-pdf/renderer";
@@ -589,6 +590,10 @@ export default function CashFlowForm({
     setIsPrinting(true);
     try {
       const blob = await generarPdfCaja(fechaCierre);
+      if (!printAfterLoad && !reportWindow) {
+        await saveAgentFile(blob, `${nombreArchivoCaja(fechaCierre)}.pdf`);
+        return;
+      }
       const url = URL.createObjectURL(blob);
 
       if (printAfterLoad) {
@@ -613,11 +618,6 @@ export default function CashFlowForm({
         document.body.append(printFrame);
       } else if (reportWindow) {
         reportWindow.location.href = `${url}#toolbar=0`;
-      } else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${nombreArchivoCaja(fechaCierre)}.pdf`;
-        link.click();
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {

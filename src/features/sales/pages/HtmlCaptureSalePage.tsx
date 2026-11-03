@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import { pdf } from "@react-pdf/renderer";
 import {
   ArrowLeft,
@@ -2837,14 +2838,7 @@ export default function HtmlCaptureSalePage() {
       return;
     }
     const blob = await buildTicketBlob(documentNumber, noteId);
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${documentNumber || `TICKET_${Date.now()}`}.pdf`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+    await saveAgentFile(blob, `${documentNumber || `TICKET_${Date.now()}`}.pdf`);
   };
 
   const printTicket = async (ticket = lastTicket) => {

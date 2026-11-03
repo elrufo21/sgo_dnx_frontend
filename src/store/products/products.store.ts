@@ -44,7 +44,7 @@ interface ProductsState {
       imageRemoved?: boolean;
       unidadImagenAlternaFile?: File | null;
     },
-  ) => Promise<boolean>;
+  ) => Promise<ProductSaveResult>;
   updateProduct: (
     id: number,
     data: Omit<Product, "id"> & {
@@ -52,9 +52,11 @@ interface ProductsState {
       imageRemoved?: boolean;
       unidadImagenAlternaFile?: File | null;
     },
-  ) => Promise<boolean>;
+  ) => Promise<ProductSaveResult>;
   deleteProduct: (id: number) => Promise<boolean>;
 }
+
+type ProductSaveResult = { ok: true } | { ok: false; error: string };
 
 const toNumberValue = (value: unknown, fallback = 0) => {
   if (typeof value === "number") {
@@ -143,6 +145,38 @@ const isAxiosLikeError = (value: unknown): boolean => {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
   return Boolean(record.isAxiosError) || ("response" in record && "config" in record);
+};
+
+const productSaveError = (response: unknown, fallback: string): string | null => {
+  const record = response && typeof response === "object" ? response as Record<string, unknown> : null;
+  const httpResponse = record?.response && typeof record.response === "object"
+    ? record.response as Record<string, unknown>
+    : null;
+  const body = httpResponse?.data ?? response;
+  if (hasExistsMessage(body)) {
+    const detail = typeof body === "string" ? body : Object.values(body as Record<string, unknown>).join(" ");
+    if (/c[oó]digo/i.test(detail)) return "El código de producto ya existe.";
+    if (/nombre/i.test(detail)) return "Ya existe un producto con ese nombre.";
+    return "Ya existe un producto con estos datos.";
+  }
+  if (isAxiosLikeError(response)) {
+    const status = Number(httpResponse?.status ?? 0);
+    if (status >= 400 && status < 500) {
+      if (typeof body === "string" && body.trim()) return body.trim();
+      if (body && typeof body === "object") {
+        const message = (body as Record<string, unknown>).mensaje ?? (body as Record<string, unknown>).message;
+        if (typeof message === "string" && message.trim()) return message.trim();
+      }
+    }
+    return fallback;
+  }
+  if (typeof response === "string" && !parseScalarId(response)) {
+    return response.trim() && response.trim().toLowerCase() !== "error" ? response.trim() : fallback;
+  }
+  if (!response || (typeof response !== "object" && typeof response !== "number" && typeof response !== "string")) return fallback;
+  const result = record && (record.idProducto ?? record.IdProducto ?? record.id);
+  if (!parseScalarId(result ?? response)) return fallback;
+  return null;
 };
 
 const normalizeEstado = (value: unknown): Product["estado"] => {
@@ -559,7 +593,8 @@ const toSavedApiProduct = (
   idFallback = 0,
 ): ApiProduct => {
   if (response && typeof response === "object" && !Array.isArray(response)) {
-    return response as ApiProduct;
+    const item = response as ApiProduct & { IdProducto?: number; id?: number };
+    return { ...payload, ...item, idProducto: Number(item.idProducto ?? item.IdProducto ?? item.id) || idFallback };
   }
 
   const idFromResponse = parseScalarId(response);
@@ -606,24 +641,17 @@ export const useProductsStore = create<ProductsState>((set) => ({
         url: `${baseUrl}/register`,
         method: "POST",
         data: formData,
-        fallback: payload,
       });
-
-      if (isAxiosLikeError(created)) {
-        return false;
-      }
-
-      if (hasExistsMessage(created)) {
-        return false;
-      }
+      const error = productSaveError(created, "No se pudo crear el producto.");
+      if (error) return { ok: false, error };
 
       const apiSaved = toSavedApiProduct(created, payload);
       const newItem = mapApiToProduct(apiSaved);
       set((state) => ({ products: [...state.products, newItem] }));
-      return true;
+      return { ok: true };
     } catch (error) {
       console.error("Error creating product", error);
-      return false;
+      return { ok: false, error: "No se pudo crear el producto." };
     } finally {
       set({ loading: false });
     }
@@ -637,26 +665,19 @@ export const useProductsStore = create<ProductsState>((set) => ({
         url: `${baseUrl}/register`,
         method: "POST",
         data: formData,
-        fallback: payload,
       });
-
-      if (isAxiosLikeError(updated)) {
-        return false;
-      }
-
-      if (hasExistsMessage(updated)) {
-        return false;
-      }
+      const error = productSaveError(updated, "No se pudo guardar el producto.");
+      if (error) return { ok: false, error };
 
       const apiSaved = toSavedApiProduct(updated, payload, id);
       const updatedItem = mapApiToProduct(apiSaved);
       set((state) => ({
         products: state.products.map((p) => (p.id === id ? updatedItem : p)),
       }));
-      return true;
+      return { ok: true };
     } catch (error) {
       console.error("Error updating product", error);
-      return false;
+      return { ok: false, error: "No se pudo guardar el producto." };
     } finally {
       set({ loading: false });
     }

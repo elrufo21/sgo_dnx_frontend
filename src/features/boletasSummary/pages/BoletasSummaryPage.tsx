@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { toast } from "@/shared/ui/toast";
@@ -657,14 +658,7 @@ export default function BoletasSummaryPage() {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `resumenes-enviados_${sentDateFrom}_${sentDateTo}.xlsx`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+      if (!await saveAgentFile(blob, `resumenes-enviados_${sentDateFrom}_${sentDateTo}.xlsx`)) return;
       toast.success("Excel generado correctamente.");
     } catch (error) {
       console.error("Error al exportar Excel de resúmenes enviados", error);
@@ -673,7 +667,7 @@ export default function BoletasSummaryPage() {
   }, [filteredSentRows, sentDateFrom, sentDateTo]);
 
   const downloadCdr = useCallback(
-    (cdrValue: string, row: BoletaSummarySentRecord) => {
+    async (cdrValue: string, row: BoletaSummarySentRecord) => {
       const cdr = safeTrim(cdrValue);
       if (!cdr) {
         toast.info("Este registro no tiene CDR para descargar.");
@@ -706,14 +700,7 @@ export default function BoletasSummaryPage() {
         fileName = `cdr_${safeSerie}_${safeTicket}.txt`;
       }
 
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+      await saveAgentFile(blob, fileName);
     },
     [],
   );

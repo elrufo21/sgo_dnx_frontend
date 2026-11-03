@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import DataTable from "@/components/DataTable";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
@@ -196,18 +197,9 @@ export default function InvoiceDispatchPage() {
     rows.forEach((row) => worksheet.addRow(row));
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const objectUrl = URL.createObjectURL(
-      new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-    );
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = "pendientes-ose.xlsx";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+    if (!await saveAgentFile(new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }), "pendientes-ose.xlsx")) return;
     toast.success("Excel generado correctamente.");
   }, [rows]);
 

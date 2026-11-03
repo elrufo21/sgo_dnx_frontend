@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { buildApiUrl } from "@/config";
@@ -1148,14 +1149,7 @@ export default function PdtCompanyPage() {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
 
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = objectUrl;
-      anchor.download = `${exportFileBaseName}.xlsx`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+      if (!await saveAgentFile(blob, `${exportFileBaseName}.xlsx`)) return;
 
       toast.success("Excel generado correctamente.");
     } catch (error) {

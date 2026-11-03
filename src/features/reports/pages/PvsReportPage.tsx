@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useForm } from "react-hook-form";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Search } from "lucide-react";
 import axios from "axios";
 import Alert from "@mui/material/Alert";
 import DataTable from "@/components/DataTable";
+import { TotalsSummary } from "@/components/common/TotalsSummary";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
 import { HookFormAutocomplete } from "@/components/forms/HookFormAutocomplete";
@@ -35,6 +36,7 @@ export default function PvsReportPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
+  const searchInProgress = useRef(false);
 
   useEffect(() => {
     const query = term.trim();
@@ -64,6 +66,7 @@ export default function PvsReportPage() {
   const totals = useMemo(() => rows.reduce((sum, row) => ({ pv: sum.pv + Math.round(row.pv * 100), sv: sum.sv + Math.round(row.sv * 100), importe: sum.importe + Math.round(row.importe * 100) }), { pv: 0, sv: 0, importe: 0 }), [rows]);
 
   const submit = async (values: Filters) => {
+    if (searchInProgress.current) return;
     setRows([]);
     setSearched(false);
     setError("");
@@ -71,6 +74,7 @@ export default function PvsReportPage() {
       setError("Seleccione un cliente y un rango de fechas válido.");
       return;
     }
+    searchInProgress.current = true;
     setLoading(true);
     try {
       const query = new URLSearchParams({ clienteId: String(values.clienteId), fechaInicio: values.fechaInicio, fechaFin: values.fechaFin });
@@ -88,7 +92,20 @@ export default function PvsReportPage() {
       }
       setRows(response);
       setSearched(true);
-    } finally { setLoading(false); }
+    } finally { searchInProgress.current = false; setLoading(false); }
+  };
+
+  const searchOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+    if (event.currentTarget.getAttribute("aria-expanded") === "true") {
+      queueMicrotask(() => {
+        if (!searchInProgress.current) void submit(methods.getValues());
+      });
+      return;
+    }
+    if (event.defaultPrevented) return;
+    event.preventDefault();
+    void methods.handleSubmit(submit)();
   };
 
   return (
@@ -98,14 +115,16 @@ export default function PvsReportPage() {
           <div className="min-w-[230px] flex-1">
             <HookFormAutocomplete<Filters> name="clienteId" label="Cliente (código, DNI o nombre)" options={options} disabled={loading}
               placeholder="Escriba o seleccione un cliente" loading={loadingClients} noOptionsText="No se encontraron clientes"
+              onInputKeyDown={searchOnEnter}
               onInputValueChange={(value) => { setClients([]); setLoadingClients(true); setTerm(value); }}
               onOptionSelected={(option) => {
                 setSelected(clients.find((client) => client.id === option?.value) ?? (selected?.id === option?.value ? selected : null));
+                if (option) void submit({ ...methods.getValues(), clienteId: Number(option.value) });
                 if (!option && term !== "") { setLoadingClients(true); setTerm(""); }
               }} />
           </div>
-          <div className="w-44"><HookFormInput<Filters> name="fechaInicio" label="Fecha inicio" type="date" disabled={loading} /></div>
-          <div className="w-44"><HookFormInput<Filters> name="fechaFin" label="Fecha fin" type="date" disabled={loading} /></div>
+          <div className="w-44"><HookFormInput<Filters> name="fechaInicio" label="Fecha inicio" type="date" disabled={loading} onKeyDown={searchOnEnter} /></div>
+          <div className="w-44"><HookFormInput<Filters> name="fechaFin" label="Fecha fin" type="date" disabled={loading} onKeyDown={searchOnEnter} /></div>
           <button type="submit" disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"><Search size={17} /> Buscar</button>
         </div>
       </HookForm>
@@ -113,7 +132,18 @@ export default function PvsReportPage() {
       {searched && <p className="text-sm text-slate-600">Se muestran los resultados de la última búsqueda.</p>}
       <DataTable data={rows} columns={columns} isLoading={loading} showSearch={false} initialPageSize={50} persistPageSize={false}
         emptyMessage={searched ? "No hay notas con estado CANCELADO y fecha de pago dentro del período seleccionado." : "Seleccione un cliente y un período para consultar."}
-        footerContent={<span className="font-semibold">Registros: {rows.length} · PV: {formatAmount(totals.pv / 100)} · SV: {formatAmount(totals.sv / 100)} · Importe: {formatAmount(totals.importe / 100)}</span>} />
+        footerContent={
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <span className="text-sm font-semibold text-slate-700">Registros: {rows.length}</span>
+            <div className="w-full sm:min-w-0 sm:flex-1">
+              <TotalsSummary items={[
+                { label: "PV", value: formatAmount(totals.pv / 100) },
+                { label: "SV", value: formatAmount(totals.sv / 100) },
+                { label: "Total", value: formatAmount(totals.importe / 100) },
+              ]} />
+            </div>
+          </div>
+        } />
     </div>
   );
 }

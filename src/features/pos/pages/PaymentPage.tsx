@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useLocation, useNavigate, useParams, Link } from "react-router";
@@ -5353,14 +5354,7 @@ const PaymentPage = () => {
       setIsDownloadingComprobante(true);
       const blob = await createComprobanteBlob();
       const fileName = getComprobanteFileName();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+      await saveAgentFile(blob, fileName);
     } catch (error) {
       console.error("No se pudo descargar comprobante", error);
       toast.error("No se pudo descargar el comprobante.");

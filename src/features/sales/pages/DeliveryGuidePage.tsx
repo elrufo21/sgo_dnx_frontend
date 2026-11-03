@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import { pdf } from "@react-pdf/renderer";
 import JSZip from "jszip";
 import { Archive, Download, FileCode2, FilePlus2, Plus, Trash2 } from "lucide-react";
@@ -91,20 +92,13 @@ export default function DeliveryGuidePage() {
     };
   };
 
-  const descargar = (file: Blob, fileName: string) => {
-    const url = URL.createObjectURL(file);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  const descargar = saveAgentFile;
 
-  const descargarXml = (values: DeliveryGuideValues) => {
+  const descargarXml = async (values: DeliveryGuideValues) => {
     const archivo = prepararXml(values);
     if (!archivo) return;
 
-    descargar(new Blob([archivo.xml], { type: "application/xml;charset=utf-8" }), archivo.fileName);
+    if (!await descargar(new Blob([archivo.xml], { type: "application/xml;charset=utf-8" }), archivo.fileName)) return;
     toast.success("XML GRE generado. Valídalo con SFS antes de usarlo.");
   };
 
@@ -116,10 +110,10 @@ export default function DeliveryGuidePage() {
     try {
       const zip = new JSZip();
       zip.file(archivo.fileName, archivo.xml);
-      descargar(
+      if (!await descargar(
         await zip.generateAsync({ type: "blob", compression: "DEFLATE" }),
         greZipFileName(user?.companyRuc ?? "", values.serie, values.number),
-      );
+      )) return;
       toast.success("ZIP GRE generado. Contiene el XML local sin firma.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo generar el ZIP.");
@@ -155,10 +149,7 @@ export default function DeliveryGuidePage() {
       const url = URL.createObjectURL(blob);
       if (guideWindow) guideWindow.location.href = url;
       else {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Guia_remision_${documentNumber}.pdf`;
-        link.click();
+        await saveAgentFile(blob, `Guia_remision_${documentNumber}.pdf`);
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {

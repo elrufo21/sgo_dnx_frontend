@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useProductsStore } from "@/store/products/products.store";
 import type { Product } from "@/types/product";
@@ -28,14 +28,16 @@ export default function ProductEdit() {
 
   if (!form) return <div>Cargando producto...</div>;
 
-  const handleSave = async (frm) => {
-    if (!id) return;
-    const ok = await updateProduct(Number(id), frm);
-    if (ok) {
+  const handleSave = async (frm: Omit<Product, "id">) => {
+    if (!id) return false;
+    const result = await updateProduct(Number(id), frm);
+    if (result.ok) {
       toast.success("Producto guardado correctamente");
       navigate("/maintenance/products");
+      return true;
     } else {
-      toast.error("El codigo de producto ya existe.");
+      toast.error(result.error);
+      return false;
     }
   };
 

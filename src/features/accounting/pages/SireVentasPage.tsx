@@ -1,3 +1,4 @@
+import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Workbook } from "exceljs";
 import Checkbox from "@mui/material/Checkbox";
@@ -880,15 +881,7 @@ export default function SireVentasRegistrosPage() {
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = fileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
-    toast.success(successMessage);
+    if (await saveAgentFile(blob, fileName)) toast.success(successMessage);
   };
 
   const buildSimpleWorkbook = <T,>(
@@ -1065,14 +1058,7 @@ export default function SireVentasRegistrosPage() {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `sire-ventas-${toPeriodParam(period)}_${dateFrom}_${dateTo}.xlsx`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+      if (!await saveAgentFile(blob, `sire-ventas-${toPeriodParam(period)}_${dateFrom}_${dateTo}.xlsx`)) return;
       toast.success("Excel generado correctamente.");
     } catch (error) {
       console.error("Error exporting SIRE sales Excel", error);
