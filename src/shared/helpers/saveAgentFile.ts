@@ -1,5 +1,6 @@
 import { PRINT_AGENT_BASE_URL, PRINT_AGENT_TOKEN } from "@/config";
-import { toast } from "sonner";
+import { toast } from "@/shared/ui/toast";
+import { createElement } from "react";
 
 export async function saveAgentFile(blob: Blob, fileName: string): Promise<boolean> {
   try {
@@ -22,7 +23,13 @@ export async function saveAgentFile(blob: Blob, fileName: string): Promise<boole
     }
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.path) throw new Error(result.error || "Actualiza el agente DNX para guardar archivos.");
-    toast.success(`Archivo guardado: ${result.path}`, { duration: 10000 });
+    toast.success(`Archivo guardado: ${result.path}`, {
+      duration: 20000,
+      description: createElement("a", {
+        href: "dnxdescargas://abrir",
+        className: "inline-flex rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700",
+      }, "Ver carpeta"),
+    });
     return true;
   } catch (error) {
     toast.error(error instanceof Error ? error.message : "No se pudo guardar el archivo.");
