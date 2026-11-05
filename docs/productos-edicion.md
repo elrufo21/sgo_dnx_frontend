@@ -6,6 +6,8 @@ Esto evita que un formato de fecha visual o heredado bloquee una actualización 
 
 Al crear un producto o iniciar uno nuevo desde el formulario, la sublínea predeterminada es **SUSTITUTO DE CAFÉ** si existe en el catálogo. Se identifica por nombre, sin depender de un ID fijo ni del acento; el usuario puede cambiarla. Si no existe, el campo queda sin selección para elegirlo manualmente. Al editar se conserva la sublínea del producto.
 
+Al abrir el formulario de creación o pulsar **Nuevo** dentro de él, el foco queda en **Código del Producto**, con el cursor al final del código generado.
+
 La selección predeterminada se aplica cuando termina de cargar el catálogo y también después de un reinicio de los valores iniciales del formulario, para que el orden de carga no la deje vacía. Una selección manual no se reemplaza al llegar el catálogo.
 
 El selector de sublínea sincroniza el texto de la opción seleccionada aunque el campo ya tenga el foco; esto permite ver el valor predeterminado cuando el catálogo llega después de abrir el formulario desde el listado.

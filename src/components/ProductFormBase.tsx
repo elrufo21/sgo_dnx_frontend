@@ -980,10 +980,19 @@ export default function ProductFormBase({
     });
   }, [setFocus]);
 
+  const focusProductCode = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const input = containerRef.current?.querySelector<HTMLInputElement>('[data-product-code]');
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  }, []);
+
   useEffect(() => {
     if (mode === "edit") focusFirstInput(containerRef.current);
-    else focusCategoryField();
-  }, [mode, initialData, focusCategoryField]);
+    else focusProductCode();
+  }, [mode, initialData, focusProductCode]);
 
   useEffect(() => {
     if (!safeCategories.length) {
@@ -1494,7 +1503,8 @@ export default function ProductFormBase({
     } else {
       reset(defaults);
     }
-    focusCategoryField();
+    if (mode === "create") focusProductCode();
+    else focusCategoryField();
   };
 
   const onSubmit = async (values: ProductFormValues) => {
