@@ -8,6 +8,8 @@ Al crear un producto o iniciar uno nuevo desde el formulario, la sublínea prede
 
 La selección predeterminada se aplica cuando termina de cargar el catálogo y también después de un reinicio de los valores iniciales del formulario, para que el orden de carga no la deje vacía. Una selección manual no se reemplaza al llegar el catálogo.
 
+El selector de sublínea sincroniza el texto de la opción seleccionada aunque el campo ya tenga el foco; esto permite ver el valor predeterminado cuando el catálogo llega después de abrir el formulario desde el listado.
+
 Al crear o editar, la respuesta `existe Codigo` se presenta como **«El código de producto ya existe»**, conserva los datos ingresados y sitúa el cursor en el código para corregirlo. Los errores de conexión o respuestas inválidas se muestran como fallos de guardado y no agregan un producto ficticio a la lista. Cuando la API devuelve un mensaje de validación HTTP 4xx, se muestra ese mensaje.
 
 ## Valores numéricos

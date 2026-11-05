@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { allPermissionCodes } from "@/shared/security/permissions";
 
 const STORAGE_KEY = "sgo.auth.session";
 const SESSION_EXPIRED_MESSAGE = "Tu sesión expiró. Ingresa nuevamente.";
@@ -342,13 +343,36 @@ export const useAuthStore = create<AuthState>((set, get) => {
     });
   };
 
-  const hydrate = () => {
-    if (get().hydrated) return;
+  let hydrating = false;
+  const refreshSessionPermissions = async (session: AuthSession) => {
+    const user = normalizeAuthUser(session.user);
+    const result = await apiRequest<{ permisos?: unknown; administrador?: boolean; gestionIndividual?: boolean }>({
+      url: `${API_BASE_URL}/Permisos/mis-permisos`,
+      config: { timeout: 10000 },
+      fallback: null,
+    });
+    if (readSessionFromStorage()?.token !== session.token) return null;
+    if (result && Array.isArray(result.permisos)) {
+      user.permissions = result.administrador === true && result.gestionIndividual === undefined && result.permisos.length === 0
+        ? [...allPermissionCodes]
+        : normalizePermissions(result.permisos);
+      persistSession({ ...session, user });
+    }
+    return user;
+  };
+  const hydrate = async () => {
+    if (get().hydrated || hydrating) return;
+    hydrating = true;
     const session = readSessionFromStorage();
     if (session && !isExpired(session.expiresAt)) {
       const passwordExpiresAt = session.passwordExpiresAt ?? null;
+      const user = await refreshSessionPermissions(session);
+      if (!user) {
+        hydrating = false;
+        return;
+      }
       set({
-        user: normalizeAuthUser(session.user),
+        user,
         token: session.token,
         isAuthenticated: true,
         passwordExpiresAt,
@@ -359,6 +383,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     } else {
       logout(session ? SESSION_EXPIRED_MESSAGE : undefined);
     }
+    hydrating = false;
   };
 
   return {
@@ -616,10 +641,12 @@ export const useAuthStore = create<AuthState>((set, get) => {
       };
 
       persistSession(session);
+      const refreshedUser = await refreshSessionPermissions(session);
+      if (!refreshedUser) return false;
       set({
         loading: false,
         isAuthenticated: true,
-        user: session.user,
+        user: refreshedUser,
         token: session.token,
         passwordExpiresAt: session.passwordExpiresAt,
         isPasswordExpired: hasPasswordExpired(session.passwordExpiresAt),

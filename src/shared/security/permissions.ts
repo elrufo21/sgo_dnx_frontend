@@ -75,4 +75,4 @@ export const allPermissionCodes = permissionGroups.flatMap((group) =>
 );
 
 export const hasPermission = (user: AuthUser | null, code: string): boolean =>
-  Boolean(user?.isAdministrator || user?.permissions.includes(code));
+  Boolean((user?.isAdministrator && !/^\d+$/.test(user.id)) || user?.permissions.includes(code));

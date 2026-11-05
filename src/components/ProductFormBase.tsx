@@ -1686,6 +1686,7 @@ export default function ProductFormBase({
                     <HookFormAutocomplete<ProductFormValues>
                       name="idSubLinea"
                       label="SubLinea"
+                      syncSelectedWhileFocused
                       options={[
                         { value: "", label: "Seleccionar..." },
                         ...safeCategories.map((cat) => ({

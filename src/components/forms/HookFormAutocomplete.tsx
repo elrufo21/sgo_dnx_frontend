@@ -63,6 +63,7 @@ interface HookFormAutocompleteProps<
   loading?: boolean;
   noOptionsText?: string;
   syncInputToValue?: boolean;
+  syncSelectedWhileFocused?: boolean;
   inputProps?: InputHTMLAttributes<HTMLInputElement>;
 
   allowCreate?: boolean;
@@ -102,6 +103,7 @@ export function HookFormAutocomplete<
   loading = false,
   noOptionsText,
   syncInputToValue = false,
+  syncSelectedWhileFocused = false,
   inputProps,
 
   allowCreate = false,
@@ -226,10 +228,10 @@ export function HookFormAutocomplete<
       setInputValue("");
       return;
     }
-    if (isInputFocused) return;
-
     const selectedOption =
       options.find((opt) => defaultIsEqual(opt, watchedValue)) ?? null;
+
+    if (isInputFocused && !(syncSelectedWhileFocused && selectedOption)) return;
 
     if (selectedOption) {
       const selectedLabel = defaultGetOptionLabel(selectedOption);
@@ -257,6 +259,7 @@ export function HookFormAutocomplete<
     options,
     watchedValue,
     syncInputToValue,
+    syncSelectedWhileFocused,
   ]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
