@@ -48,6 +48,7 @@ import {
   type SaleRow,
 } from "@/features/sales/helpers/saleRows";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { cleanCustomerName as sanitizeCustomerName } from "@/shared/helpers/cleanCustomerName";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
 import {
   focusNextInput,
@@ -202,13 +203,13 @@ const normalizeDocumentText = (value: unknown) =>
 const isCustomerLabel = (value: unknown) =>
   /^(senores|senor\(a\)|cliente)\s*:?/.test(normalizeLabelText(value));
 const cleanCustomerName = (value: unknown) =>
-  normalizeCaptureText(value)
+  sanitizeCustomerName(normalizeCaptureText(value)
     .replace(/^(Señores|Senores|Señor\(a\)|Senor\(a\)|Cliente)\s*:?\s*/i, "")
     .replace(
       /\b(Fecha|Domicilio|Direcci[oó]n|Email|R\.?\s*U\.?\s*C|DNI)\s*:.*$/i,
       "",
     )
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, ""))
     .replace(/\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b/g, "")
     .trim();
 const readValueAfterCustomerLabel = (section: Element | null) => {
@@ -641,6 +642,7 @@ export default function HtmlCaptureSalePage() {
   const [isCashbillSale, setIsCashbillSale] = useState(false);
   const [isPaidPagoVarios, setIsPaidPagoVarios] = useState(false);
   const [viewedEmissionDateTime, setViewedEmissionDateTime] = useState("");
+  const [viewedSeller, setViewedSeller] = useState("");
   const [pendingExternalCapture, setPendingExternalCapture] =
     useState<CaptureData | null>(null);
   const [isApplyingCapture, setIsApplyingCapture] = useState(false);
@@ -788,6 +790,7 @@ export default function HtmlCaptureSalePage() {
       setLoadedRecordId(null);
       setLoadedRecordClient(null);
       setViewedEmissionDateTime("");
+      setViewedSeller("");
       try {
         const {
           nota,
@@ -944,6 +947,7 @@ export default function HtmlCaptureSalePage() {
         appliedClientRef.current = client;
         formMethods.reset(formFromDatabase);
         setViewedEmissionDateTime(safeTrim(nota.notaFecha ?? nota.NotaFecha));
+        setViewedSeller(safeTrim(nota.notaUsuario ?? nota.NotaUsuario));
         setIsPaidPagoVarios(
           condition === "PAGO/VARIOS" &&
             safeTrim(nota.notaEstado ?? nota.NotaEstado).toUpperCase() ===
@@ -2193,7 +2197,7 @@ export default function HtmlCaptureSalePage() {
             const lookupClient = lookup?.ok ? lookup.client : null;
             formMethods.setValue(
               "customerName",
-              lookupClient?.nombreRazon || data.customerName,
+              sanitizeCustomerName(lookupClient?.nombreRazon || data.customerName).trim(),
               { shouldDirty: true },
             );
             if (lookupClient?.direccionFiscal) {
@@ -3580,7 +3584,7 @@ export default function HtmlCaptureSalePage() {
               Volver
             </button>
             <span className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
-              Fecha y hora de emisión: {viewedEmissionDateTimeLabel}
+              Fecha: {viewedEmissionDateTimeLabel} · Vendedor: {viewedSeller || "-"}
             </span>
             {isPendingInvoiceDispatch ? (
               <button
@@ -3604,7 +3608,7 @@ export default function HtmlCaptureSalePage() {
               <ArrowLeft className="h-4 w-4" />
             </button>
             <span className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
-              Fecha y hora de emisión: {viewedEmissionDateTimeLabel}
+              Fecha: {viewedEmissionDateTimeLabel} · Vendedor: {viewedSeller || "-"}
             </span>
           </div>
         ) : null}

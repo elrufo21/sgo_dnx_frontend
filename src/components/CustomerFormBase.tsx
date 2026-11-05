@@ -8,6 +8,7 @@ import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { focusFirstInput } from "@/shared/helpers/focusFirstInput";
 import { consultarDocumentoCliente } from "@/shared/helpers/documentLookup";
+import { cleanCustomerName } from "@/shared/helpers/cleanCustomerName";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
@@ -44,7 +45,7 @@ const buildDefaults = (
   registradoPor?: string | null,
 ): CustomerFormValues => ({
   clienteCodigo: data?.clienteCodigo ?? "",
-  nombreRazon: data?.nombreRazon ?? "",
+  nombreRazon: cleanCustomerName(data?.nombreRazon ?? ""),
   ruc: data?.ruc ?? "",
   dni: data?.dni ?? "",
   direccionFiscal: data?.direccionFiscal ?? "",
@@ -230,7 +231,7 @@ export default function CustomerFormBase({
   }, [variant, formMethods, setDialogData, defaults]);
 
   const handleSave = async (values: CustomerFormValues) => {
-    const nombreRazonUpper = values.nombreRazon?.toUpperCase() ?? "";
+    const nombreRazonUpper = cleanCustomerName(values.nombreRazon ?? "").trim().toUpperCase();
     const payload: Omit<Client, "id"> = {
       clienteCodigo: values.clienteCodigo,
       nombreRazon: nombreRazonUpper,
@@ -424,7 +425,13 @@ export default function CustomerFormBase({
                       name="nombreRazon"
                       label="Nombre o Razon Social"
                       placeholder="Ingrese nombre o razon social"
-                      rules={{ required: "El nombre es obligatorio" }}
+                      rules={{ required: "El nombre es obligatorio", validate: (value) => Boolean(cleanCustomerName(String(value)).trim()) || "El nombre es obligatorio" }}
+                      onBlur={(event) => {
+                        const cleaned = cleanCustomerName(event.target.value);
+                        if (cleaned !== event.target.value) {
+                          setValue("nombreRazon", cleaned, { shouldDirty: true, shouldValidate: true });
+                        }
+                      }}
                     />
                   </div>
 
@@ -597,6 +604,11 @@ export default function CustomerFormBase({
                             .slice(0, documentMaxLength);
                         }}
                         name="numeroDocumentoConsulta"
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                          event.preventDefault();
+                          void handleConsultarDocumento();
+                        }}
                         label="Numero de documento"
                         placeholder={
                           selectedTipoDocumento === "dni"

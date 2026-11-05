@@ -1,4 +1,5 @@
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { cleanCustomerName } from "@/shared/helpers/cleanCustomerName";
 
 export type DocumentLookupType = "ruc" | "dni";
 
@@ -123,7 +124,7 @@ export const consultarDocumentoCliente = async (
       client: {
         tipoDocumento,
         numeroDocumento,
-        nombreRazon,
+        nombreRazon: cleanCustomerName(nombreRazon),
         ruc: "",
         dni,
         direccionFiscal: "-",
@@ -158,7 +159,7 @@ export const consultarDocumentoCliente = async (
     client: {
       tipoDocumento,
       numeroDocumento,
-      nombreRazon,
+      nombreRazon: cleanCustomerName(nombreRazon),
       ruc,
       dni: "",
       direccionFiscal: direccion || "-",

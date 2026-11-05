@@ -339,7 +339,9 @@ export default function MainLayout() {
     }
 
     let cancelled = false;
+    let latestCountRequest = 0;
     const fetchCount = async () => {
+      const requestId = ++latestCountRequest;
       const query = new URLSearchParams({
         usuarioId: String(usuarioId),
         usuario: user?.displayName ?? user?.username ?? "",
@@ -348,7 +350,9 @@ export default function MainLayout() {
         url: buildApiUrl(`/Nota/pago-varios/count?${query.toString()}`),
         fallback: { count: 0 },
       })) as { count?: number };
-      if (!cancelled) setPagoVariosCount(Number(result?.count ?? 0) || 0);
+      if (!cancelled && requestId === latestCountRequest) {
+        setPagoVariosCount(Number(result?.count ?? 0) || 0);
+      }
     };
 
     void fetchCount();
@@ -684,6 +688,11 @@ export default function MainLayout() {
           to: "/reports/products",
           icon: <PackageSearch size={18} />,
         },
+        {
+          label: "Ventas vs. Compras",
+          to: "/reports/sales-vs-purchases",
+          icon: <BarChart3 size={18} />,
+        },
 
         {
           label: "Reporte de asistencia Web",
@@ -713,6 +722,11 @@ export default function MainLayout() {
       },
 
       caja,
+      {
+        label: "Apertura y cierre de almacén",
+        to: "/warehouse",
+        icon: <StoreIcon />,
+      },
       {
         label: "Cliente",
         to: "/customers",
@@ -764,11 +778,13 @@ export default function MainLayout() {
       "/reports": "VENTAS.VER",
       "/reports/sales": "VENTAS.VER",
       "/reports/products": "VENTAS.VER",
+      "/reports/sales-vs-purchases": "VENTAS.VER",
       "/reports/attendance": "VENTAS.VER",
       "/reports/pvs": "VENTAS.VER",
       "/sales/obs_capture": "VENTAS.OBS",
       "/cash_flow_control": "CAJA.CONTROL",
       "/cash-final-report": "CAJA.INFORME_FINAL",
+      "/warehouse": "MANTENIMIENTO.PRODUCTOS",
       "/petty-cash-movements": "CAJA.CHICA",
       "/depositos-centro": "CAJA.VER",
       "/shopping": "COMPRAS.GESTIONAR",
@@ -815,7 +831,9 @@ export default function MainLayout() {
   const pageTitle = useMemo(() => {
     const overrides = [
       { path: "/reports/sales", title: "Reporte de ventas" },
+      { path: "/warehouse", title: "Apertura y cierre de almacén" },
       { path: "/reports/products", title: "Reporte de productos" },
+      { path: "/reports/sales-vs-purchases", title: "Ventas vs. Compras" },
       { path: "/reports/attendance", title: "Reporte de asistencia Web" },
       { path: "/reports/pvs", title: "Resumen PVS" },
       { path: "/sales/order_notes", title: "Nota Pedido" },

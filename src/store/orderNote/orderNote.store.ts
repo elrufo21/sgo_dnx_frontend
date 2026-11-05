@@ -16,7 +16,7 @@ interface OrderNoteState {
   loading: boolean;
   viewedOrderNoteId: number | null;
   setViewedOrderNoteId: (noteId: number | null) => void;
-  fetchNotes: (params?: FetchOrderNotesParams) => Promise<void>;
+  fetchNotes: (params?: FetchOrderNotesParams, refresh?: boolean) => Promise<void>;
   fetchNoteDetail: (noteId: number | string) => Promise<SendNote | null>;
   deleteNote: (
     noteId: number | string,
@@ -498,19 +498,23 @@ const parseResultStringToSendNote = (resultString: string): SendNote | null => {
   };
 };
 
-export const useOrderNoteStore = create<OrderNoteState>((set) => ({
+export const useOrderNoteStore = create<OrderNoteState>((set, get) => ({
   notes: [],
   totalNotes: 0,
   loading: false,
   viewedOrderNoteId: null,
   setViewedOrderNoteId: (noteId) => set({ viewedOrderNoteId: noteId }),
-  fetchNotes: (params) => {
+  fetchNotes: (params, refresh = false) => {
     const today = getLocalDateISO();
     const fechaInicio = String(params?.fechaInicio ?? "").trim() || today;
     const fechaFin = String(params?.fechaFin ?? "").trim() || today;
     const requestKey = `${getNotesRequestUserKey()}|${fechaInicio}|${fechaFin}`;
     const pendingRequest = inFlightNotesRequests.get(requestKey);
-    if (pendingRequest) return pendingRequest;
+    if (pendingRequest) {
+      return refresh
+        ? pendingRequest.then(() => get().fetchNotes(params))
+        : pendingRequest;
+    }
 
     const query = new URLSearchParams();
     query.set("fechaInicio", fechaInicio);

@@ -185,6 +185,12 @@ export default function AreaForm({
                   name="area"
                   label="Nombre del area"
                   placeholder="Ingrese area"
+                  onKeyDown={(event) => {
+                    if (!isModal || event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    event.currentTarget.closest('[role="dialog"]')
+                      ?.querySelector<HTMLButtonElement>('[data-dialog-confirm]')?.click();
+                  }}
                   rules={{ required: "El nombre del area es obligatorio" }}
                 />
               </div>

@@ -97,6 +97,12 @@ function PagoVariosDeleteDialogContent() {
   const formMethods = useForm<PagoVariosDeleteKeyForm>({
     defaultValues: { clave: "" },
   });
+  const { setFocus } = formMethods;
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setFocus("clave"));
+    return () => window.cancelAnimationFrame(frame);
+  }, [setFocus]);
 
   return (
     <HookForm
@@ -304,6 +310,8 @@ export function PagoVariosModal({ open, onClose }: { open: boolean; onClose: () 
   useEffect(() => {
     if (open) {
       setPagoVariosTab("PENDIENTES");
+      setPagoVariosDetail(null);
+      setPagoVariosDetailItems([]);
       void fetchPagoVarios();
     }
   }, [open, fetchPagoVarios]);
@@ -406,6 +414,7 @@ export function PagoVariosModal({ open, onClose }: { open: boolean; onClose: () 
       }
 
       toast.success(response.mensaje || "Pago realizado eliminado.");
+      window.dispatchEvent(new Event("sgo:pago-varios-updated"));
       await fetchPagoVariosHistory();
       await fetchPagoVarios();
       return true;

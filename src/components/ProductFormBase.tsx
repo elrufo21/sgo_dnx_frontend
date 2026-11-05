@@ -35,7 +35,7 @@ interface ProductFormBaseProps {
       imageFile?: File | null;
       unidadImagenAlternaFile?: File | null;
     },
-  ) => Promise<boolean | void> | boolean | void;
+  ) => Promise<boolean | void | "duplicate-code"> | boolean | void | "duplicate-code";
   onNew?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
@@ -709,6 +709,7 @@ export default function ProductFormBase({
   const containerRef = useRef<HTMLDivElement>(null);
   const categoryFieldRef = useRef<HTMLDivElement>(null);
   const defaultCategoryApplied = useRef(false);
+  const focusDuplicateCode = useRef(false);
   const authUser = useAuthStore((s) => s.user);
   const { categories, fetchCategories, addCategory, updateCategory } =
     useMaintenanceStore();
@@ -913,6 +914,7 @@ export default function ProductFormBase({
     setValue,
     watch,
     getValues,
+    getFieldState,
     setError,
     clearErrors,
     formState: { isSubmitting, errors, dirtyFields },
@@ -921,6 +923,14 @@ export default function ProductFormBase({
   const setDialogData = useDialogStore((s) => s.setData);
 
   useEffect(() => {
+    if (!isSubmitting && focusDuplicateCode.current) {
+      focusDuplicateCode.current = false;
+      setFocus("codigo");
+    }
+  }, [isSubmitting, setFocus]);
+
+  useEffect(() => {
+    defaultCategoryApplied.current = false;
     reset(defaults);
   }, [defaults, reset]);
 
@@ -981,9 +991,9 @@ export default function ProductFormBase({
   useEffect(() => {
     if (mode !== "create" || defaultCategoryApplied.current || defaultCategoryId === null) return;
     defaultCategoryApplied.current = true;
-    if (dirtyFields.idSubLinea || getValues("idSubLinea") != null) return;
+    if (getFieldState("idSubLinea").isDirty || getValues("idSubLinea") != null) return;
     setValue("idSubLinea", defaultCategoryId, { shouldValidate: true });
-  }, [mode, defaultCategoryId, dirtyFields.idSubLinea, getValues, setValue]);
+  }, [mode, defaultCategoryId, defaults, getFieldState, getValues, setValue]);
 
   useEffect(() => {
     if (!products.length) {
@@ -1549,6 +1559,10 @@ export default function ProductFormBase({
         : null,
     };
     const saved = await Promise.resolve(onSave(payload));
+    if (saved === "duplicate-code") {
+      focusDuplicateCode.current = true;
+      return;
+    }
     if (saved === false) return;
 
     if (mode === "create") {
@@ -1920,17 +1934,16 @@ export default function ProductFormBase({
                         name="cantidad"
                         label="Cantidad en Stock"
                         type="number"
+                        step="1"
                         disabled={isServiceProduct}
                         rules={{
                           valueAsNumber: true,
                           validate: (v) => {
                             if (isServiceProduct) return true;
-                            return (
-                              (v !== undefined &&
-                                v !== null &&
-                                !Number.isNaN(v as number)) ||
-                              "La cantidad es obligatoria"
-                            );
+                            if (v === undefined || v === null || String(v).trim() === "") {
+                              return "La cantidad es obligatoria";
+                            }
+                            return Number.isInteger(Number(v)) || "La cantidad debe ser un número entero";
                           },
                         }}
                       />

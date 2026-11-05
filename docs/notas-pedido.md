@@ -22,4 +22,6 @@ Al abrir una nota existente, la acción **Anular** se oculta si `NotaEstado`, `E
 
 ## Carga del listado y vista
 
+Al registrar un Pago Varios mientras el listado está abierto, este vuelve a consultar el último rango solicitado para mostrar el estado actualizado de las notas. Si ya había una consulta de ese rango en curso, espera a que termine antes de solicitar los datos nuevamente. Se conservan el rango y la búsqueda del usuario.
+
 Las solicitudes concurrentes del listado para el mismo rango de fechas comparten una única consulta. Si la consulta falla, se conservan las filas que ya estaban cargadas en vez de reemplazarlas por una lista vacía. Al abrir una venta, las consultas de cabecera, detalle y archivos CPE también comparten una sola carga concurrente; la vista no descarga los catálogos completos de productos y clientes ni consulta el acumulado mensual de PVS, que solo usa el modo de edición. Las validaciones de anulación y la carga de Pago Varios concurrentes comparten una consulta por documento o usuario.

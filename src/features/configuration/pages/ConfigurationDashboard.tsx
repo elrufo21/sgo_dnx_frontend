@@ -37,10 +37,17 @@ export default function ConfigurationDashboard() {
       permission: "CONFIGURACION.CAJA",
     },
     {
-      title: "Permisos",
-      desc: "Define accesos por área y excepciones por usuario.",
+      title: "Permisos por área",
+      desc: "Define el perfil de acceso de cada área.",
       icon: <ShieldCheck className="w-10 h-10 text-[#B23636]" />,
       route: "/configuration/permissions",
+      permission: "CONFIGURACION.PERMISOS",
+    },
+    {
+      title: "Permisos por usuario",
+      desc: "Define permisos individuales sobre el perfil de su área.",
+      icon: <ShieldCheck className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/permissions-users",
       permission: "CONFIGURACION.PERMISOS",
     },
     {

@@ -3,6 +3,7 @@ import ProductSalesReportPage from "./pages/ProductSalesReportPage";
 import SalesReportPage from "./pages/SalesReportPage";
 import AttendanceReportPage from "./pages/AttendanceReportPage";
 import PvsReportPage from "./pages/PvsReportPage";
+import SalesVsPurchasesPage from "./pages/SalesVsPurchasesPage";
 
 export default [
   {
@@ -19,6 +20,11 @@ export default [
     path: "reports/products",
     element: <ProductSalesReportPage />,
     handle: { breadcrumb: [{ label: "Reportes" }, { label: "Productos" }] },
+  },
+  {
+    path: "reports/sales-vs-purchases",
+    element: <SalesVsPurchasesPage />,
+    handle: { breadcrumb: [{ label: "Reportes" }, { label: "Ventas vs. Compras" }] },
   },
   {
     path: "reports/pvs",

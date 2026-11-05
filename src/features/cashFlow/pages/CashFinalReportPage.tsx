@@ -6,6 +6,7 @@ import NavigableNumberInput from "@/components/inputs/NavigableNumberInput";
 import {
   CashFlowReportPdf,
   type CashProductReportRow,
+  type CashFlowReportPdfProps,
 } from "@/features/cashFlow/components/CashFlowReportPdf";
 import { fetchUncapturedObsSales } from "@/features/cashFlow/api/uncapturedObsSales";
 import { fetchAttendanceReport } from "@/features/reports/api/attendanceReport";
@@ -173,6 +174,21 @@ export default function CashFinalReportPage() {
     startedAt: number;
     promise: ReturnType<typeof fetchPdfData>;
   } | null>(null);
+  const prefetchedPdf = useRef<{
+    key: string;
+    startedAt: number;
+    promise: Promise<Blob>;
+    blob: Blob | null;
+    url: string | null;
+  } | null>(null);
+  const clearPrefetchedPdf = useCallback(() => {
+    const current = prefetchedPdf.current;
+    prefetchedPdf.current = null;
+    if (current?.url) {
+      const url = current.url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    }
+  }, []);
   const columnHelper = createColumnHelper<SavedReport>();
 
   const load = async (date: string) => {
@@ -622,8 +638,58 @@ export default function CashFinalReportPage() {
       ? { ...row, descripcion: iocLabel }
       : row;
   const readOnly = view === "detail" && !editing;
+  const pdfSnapshot = useMemo(() => {
+    if (!readOnly || !preparation || !reportId) return null;
+    return {
+      cajaId: reportId,
+      encargado: preparation.cajeros,
+      usuario: reportUser,
+      fechaApertura: fecha,
+      fechaCierre: fecha,
+      products: preparation.productos,
+      sistemaObs: preparation.totalObs,
+      gastos: allExpenseRows,
+      ingresos: totals.incomes.map((row) =>
+        !row.manual && row.descripcion === "IOC" ? { ...row, descripcion: iocLabel } : row,
+      ),
+      conteoMonedas: coins,
+      totalEfectivo: totals.counted,
+      totalBilletes: totals.bills,
+      totalSencillo: totals.counted - totals.bills,
+      totalIngresos: totals.expected,
+      diferencial: totals.difference,
+      observaciones,
+      documentTitle: `Informe final de caja ${reportId}`,
+    } satisfies Omit<CashFlowReportPdfProps, "asistencias" | "ventasNoCapturadas">;
+  }, [readOnly, preparation, reportId, reportUser, fecha, allExpenseRows, totals, iocLabel, coins, observaciones]);
+  const pdfSnapshotKey = useMemo(() => pdfSnapshot ? JSON.stringify(pdfSnapshot) : "", [pdfSnapshot]);
+
+  useEffect(() => {
+    clearPrefetchedPdf();
+    if (!pdfSnapshot) return;
+    const data = prefetchedPdfData.current;
+    if (!data || data.fecha !== fecha || Date.now() - data.startedAt >= 60_000) return;
+    const timer = window.setTimeout(() => {
+      if (prefetchedPdfData.current !== data) return;
+      const promise = data.promise.then(([asistencias, ventasNoCapturadas]) =>
+        pdf(<CashFlowReportPdf {...pdfSnapshot} asistencias={asistencias} ventasNoCapturadas={ventasNoCapturadas} />).toBlob(),
+      );
+      const prepared = { key: pdfSnapshotKey, startedAt: data.startedAt, promise, blob: null as Blob | null, url: null as string | null };
+      prefetchedPdf.current = prepared;
+      void promise.then((blob) => {
+        if (prefetchedPdf.current !== prepared) return;
+        prepared.blob = blob;
+        prepared.url = URL.createObjectURL(blob);
+      }).catch(() => {});
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      clearPrefetchedPdf();
+    };
+  }, [clearPrefetchedPdf, fecha, pdfSnapshot, pdfSnapshotKey]);
   const resetToNew = () => {
     prefetchedPdfData.current = null;
+    clearPrefetchedPdf();
     setReportId(null);
     setReportUser("");
     setOpenedReport(null);
@@ -636,9 +702,20 @@ export default function CashFinalReportPage() {
     else setEditing(true);
   };
   const generatePdf = async () => {
-    if (!preparation || !reportId)
+    if (!pdfSnapshot || !reportId)
       throw new Error("No se pudo identificar el informe.");
+    const readyPdf = prefetchedPdf.current;
     const prefetched = prefetchedPdfData.current;
+    if (readyPdf?.key === pdfSnapshotKey && Date.now() - readyPdf.startedAt < 60_000) {
+      try {
+        return await readyPdf.promise;
+      } catch (error) {
+        if (prefetchedPdf.current === readyPdf) clearPrefetchedPdf();
+        prefetchedPdfData.current = null;
+        throw error;
+      }
+    }
+    clearPrefetchedPdf();
     prefetchedPdfData.current = null;
     const [asistencias, ventasNoCapturadas] = await (
       prefetched?.fecha === fecha && Date.now() - prefetched.startedAt < 60_000
@@ -647,31 +724,25 @@ export default function CashFinalReportPage() {
     );
     return pdf(
       <CashFlowReportPdf
-        cajaId={reportId}
-        encargado={preparation.cajeros}
-        usuario={reportUser}
-        fechaApertura={fecha}
-        fechaCierre={fecha}
-        products={preparation.productos}
-        sistemaObs={preparation.totalObs}
-        gastos={allExpenseRows}
-        ingresos={totals.incomes.map(displayIncome)}
-        conteoMonedas={coins}
-        totalEfectivo={totals.counted}
-        totalBilletes={totals.bills}
-        totalSencillo={totals.counted - totals.bills}
-        totalIngresos={totals.expected}
-        diferencial={totals.difference}
-        observaciones={observaciones}
+        {...pdfSnapshot}
         asistencias={asistencias}
         ventasNoCapturadas={ventasNoCapturadas}
-        documentTitle={`Informe final de caja ${reportId}`}
       />,
     ).toBlob();
   };
   const printReport = async () => {
     if (printing) return;
+    const readyPdf = prefetchedPdf.current;
+    if (readyPdf?.key === pdfSnapshotKey && readyPdf.url && readyPdf.blob && Date.now() - readyPdf.startedAt < 60_000) {
+      const reportWindow = window.open(readyPdf.url, "_blank");
+      if (!reportWindow) await saveAgentFile(readyPdf.blob, `Informe_final_caja_${reportId}.pdf`);
+      return;
+    }
     const reportWindow = window.open("", "_blank");
+    if (reportWindow) {
+      reportWindow.document.title = "Preparando informe";
+      reportWindow.document.body.textContent = "Preparando el informe PDF...";
+    }
     setPrinting(true);
     try {
       const blob = await generatePdf();

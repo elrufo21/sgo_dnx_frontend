@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { formatDateTime } from "@/shared/helpers/formatDate";
+import { cleanCustomerName } from "@/shared/helpers/cleanCustomerName";
 import type { ApiClient, Client } from "@/types/customer";
 import { create } from "zustand";
 
@@ -91,7 +92,7 @@ const toApiDateTime = (value?: string | null) => {
 const mapClientToApi = (client: Partial<Client>): ApiClient => ({
   clienteId: client.id ?? 0,
   clienteCodigo: client.clienteCodigo ?? "",
-  clienteRazon: client.nombreRazon ?? "",
+  clienteRazon: cleanCustomerName(client.nombreRazon ?? "").trim(),
   clienteRuc: client.ruc ?? "",
   clienteDni: client.dni ?? "",
   clienteDireccion: client.direccionFiscal ?? "",
@@ -419,6 +420,9 @@ export const useClientsStore = create<ClientsState>((set, get) => ({
     try {
       set({ loading: true });
       const payload = mapClientToApi(client);
+      if (!payload.clienteRazon) {
+        return { ok: false, error: "El nombre o razón social es obligatorio." };
+      }
       const created = await apiRequest<unknown>({
         url: `${API_BASE_URL}/Cliente/register`,
         method: "POST",
@@ -463,6 +467,9 @@ export const useClientsStore = create<ClientsState>((set, get) => ({
     try {
       set({ loading: true });
       const payload = mapClientToApi({ ...data, id });
+      if (!payload.clienteRazon) {
+        return { ok: false, error: "El nombre o razón social es obligatorio." };
+      }
       const updated = await apiRequest<unknown>({
         url: `${API_BASE_URL}/Cliente/register`,
         method: "POST",

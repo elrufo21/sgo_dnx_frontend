@@ -18,7 +18,7 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 
 - El borrador no se envía al servidor ni crea una venta por sí solo.
 - Al elegir una entidad bancaria válida, el foco pasa a **Nro Operación** para continuar el registro del pago.
-- Al visualizar una venta registrada desde el listado o el despacho de facturas, su fecha y hora de emisión aparece junto al botón **Volver**.
+- Al visualizar una venta registrada desde el listado o el despacho de facturas, junto al botón **Volver** se muestran **Fecha** con la fecha y hora de emisión y **Vendedor** con el usuario registrado en la nota. Si no hay usuario registrado, se muestra `-`.
 - Una captura de **boleta** conserva el cliente y su DNI registrado; no carga RUC. Las facturas conservan su RUC.
 - En el resumen OBS/IOC, el estado **ANULADO** se muestra en rojo.
 - En el resumen OBS/IOC, los importes se actualizan con la búsqueda activa: **Subtotal** incluye todas las filas, **Anulados** suma solo las anuladas y **Total** las excluye.

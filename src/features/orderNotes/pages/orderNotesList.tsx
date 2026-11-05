@@ -271,6 +271,17 @@ const OrderNotesList = () => {
   }, [requestNotesByRange]);
 
   useEffect(() => {
+    const refreshNotes = () => {
+      const range = lastFetchedRangeRef.current;
+      if (range) {
+        void fetchNotes({ fechaInicio: range.from, fechaFin: range.to }, true);
+      }
+    };
+    window.addEventListener("sgo:pago-varios-updated", refreshNotes);
+    return () => window.removeEventListener("sgo:pago-varios-updated", refreshNotes);
+  }, [fetchNotes]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const from = String(fechaInicio ?? "").trim();
     const to = String(fechaFin ?? "").trim();

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { useProductsStore } from "@/store/products/products.store";
+import { DUPLICATE_PRODUCT_CODE_ERROR, useProductsStore } from "@/store/products/products.store";
 import type { Product } from "@/types/product";
 import ProductFormBase from "@/components/ProductFormBase";
 import { toast } from "@/shared/ui/toast";
@@ -37,7 +37,9 @@ export default function ProductEdit() {
       return true;
     } else {
       toast.error(result.error);
-      return false;
+      return result.error === DUPLICATE_PRODUCT_CODE_ERROR
+        ? "duplicate-code" as const
+        : false;
     }
   };
 

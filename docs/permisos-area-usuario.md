@@ -1,27 +1,13 @@
 # Permisos por área y usuario
 
-La ruta `/configuration/permissions` configura un perfil base por área y una excepción opcional por usuario. La persistencia usa únicamente `dbo.Indicador`; no se crea una tabla de permisos adicional.
+Configuración ofrece **Permisos por área** (`/configuration/permissions`) y **Permisos por usuario** (`/configuration/permissions-users`). El primero define el perfil base; el segundo permite elegir, para cada permiso, **Heredar**, **Permitir** o **Denegar**, mostrando el permiso del área y el resultado efectivo. Si no existe perfil de área el valor base es denegado. Las excepciones tienen prioridad sobre el área. Los administradores conservan acceso total; la pantalla avisa y no permite editar excepciones para ellos.
 
-## Estructura en `Indicador`
+Los perfiles se guardan en `dbo.Indicador` y los resuelve `dbo.usp_PermisoIndicador`. **Heredar** elimina únicamente la excepción de ese permiso. Las excepciones siguen al usuario si cambia de área dentro de la misma compañía; el perfil de área se toma de la nueva área al iniciar sesión otra vez. Si existen varios perfiles históricos del mismo usuario en la compañía, se usa el de mayor ID: el responsable SQL debe revisar duplicados antes de aplicar el cambio.
 
-1. Raíz de área: `PERMISOS_AREA_{AreaId}` (`TipoIndicador = 90`).
-2. Raíz de usuario: `USUARIO_{UsuarioId}`, hija de su área (`TipoIndicador = 91`).
-3. Permiso: `PERMISO.{CODIGO}`, hijo del área o del usuario (`TipoIndicador = 92`). `ValorNum = 1` concede y `0` deniega.
+Los permisos individuales ya guardados se conservan tal como están, incluso si coinciden con el perfil de área. Esto evita alterar accesos existentes, pero esos valores no heredarán cambios hasta que se elija **Heredar** explícitamente. La instalación no modifica los perfiles existentes.
 
-El catálogo cubre módulos y submódulos de Ventas (POS, captura, listado, OBS, guías, notas y resúmenes), Caja, Compras, Facturas de servicio, Clientes, Contabilidad, Mantenimiento y Configuración. Cada submódulo tiene su propio código para poder ocultarlo y bloquear su ruta de forma independiente.
+La API usa `GET /Permisos/areas` y `GET /Permisos/usuarios` para listar áreas y usuarios activos de la compañía, `GET /Permisos/perfil` para cargar el perfil, `PUT /Permisos/perfil` para guardarlo y `GET /Permisos/mis-permisos` para los efectivos de sesión. Los perfiles solo pueden administrarse por administradores o usuarios con `CONFIGURACION.PERMISOS`. La pantalla bloquea el guardado si no puede cargar el perfil o el contrato actualizado.
 
-La evaluación es: administrador (`Usuarios.Administrador = 1`), excepción del usuario, perfil del área y, si no existe definición, denegar. La excepción puede tanto conceder como quitar un permiso del área.
+Para desplegar, el responsable SQL debe respaldar y revisar `Indicador`, los usuarios administradores y el script [20261104_permisos_herencia.sql](../../sgo_dnx_backend/scripts/sql/20261104_permisos_herencia.sql), y aplicarlo en cada base correspondiente antes de publicar frontend y backend. No se ha ejecutado. El script requiere el catálogo y esquema existentes y no determina quién debe ser administrador.
 
-## API y seguridad
-
-`dbo.usp_PermisoIndicador` es el único punto de lectura/escritura de estos registros. Valida el catálogo y admite `OBTENER`, `EFECTIVOS` y `GUARDAR`. Internamente recibe los permisos como `CODIGO=0|CODIGO=1`, lo que mantiene compatibilidad con la versión de SQL Server de esta instalación.
-
-- `GET /api/v1/Permisos/perfil` carga el perfil de área o usuario.
-- `PUT /api/v1/Permisos/perfil` guarda el catálogo completo.
-- `GET /api/v1/Permisos/mis-permisos` devuelve los permisos efectivos del usuario autenticado.
-
-Solo administradores pueden leer o cambiar perfiles. El login incluye el contexto de usuario, compañía, área y administrador dentro del token, y devuelve los permisos efectivos para que el frontend oculte las opciones protegidas. Después de actualizar el backend, cada usuario debe cerrar sesión e ingresar nuevamente.
-
-La primera cobertura de API protege Ventas (`NotaController`), Caja (`CashFlowController`), áreas y usuarios de mantenimiento. Los accesos directos a la pantalla de permisos también se redirigen si falta `MANTENIMIENTO.USUARIOS`.
-
-El área `GERENCIA Y ADMINISTRACION` (ID 6) se inicializa con todos los permisos mediante el script de despliegue de Gerencia. Los usuarios de esta área que no sean administradores heredan ese perfil; los administradores conservan acceso total sin depender de los flags.
+El formulario de mantenimiento crea usuarios nuevos sin acceso de administrador y conserva el indicador existente al editar. No cambia usuarios existentes. La designación de administradores existentes debe revisarse y gestionarse por el responsable autorizado; hasta que se haga, siguen teniendo acceso total. Tras modificar perfiles o el área del personal, los usuarios deben cerrar sesión e ingresar nuevamente: el menú y el área se incluyen en la sesión. La API valida permisos en los controladores que tienen la protección correspondiente; la cobertura de todos los endpoints no está completa y debe revisarse antes de considerar estos perfiles como restricción integral de seguridad.

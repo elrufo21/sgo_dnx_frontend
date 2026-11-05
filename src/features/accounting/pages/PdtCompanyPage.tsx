@@ -3,6 +3,7 @@ import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
+import { cleanCustomerName } from "@/shared/helpers/cleanCustomerName";
 import { formatDate } from "@/shared/helpers/formatDate";
 import { toast } from "@/shared/ui/toast";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -501,7 +502,7 @@ const salesFilterFields: Array<{ key: keyof SalesDocument; label: string }> = [
   { key: "total", label: "Total" },
   { key: "usuario", label: "Usuario" },
   { key: "estado", label: "Estado" },
-  { key: "referencia", label: "Referencia" },
+  { key: "referencia", label: "Documento relacionado" },
 ];
 
 const purchaseFilterFields: Array<{
@@ -886,11 +887,13 @@ export default function PdtCompanyPage() {
           const isCredit = isCreditNoteDocument(row.documento);
           const subTotal = parseMoney(row.subTotal);
           const igv = parseMoney(row.igv);
+          const icbper = parseMoney(row.icbper);
           const total = parseMoney(row.total);
 
           acc.count += 1;
           acc.baseImp += isCredit ? -Math.abs(subTotal) : subTotal;
           acc.igv += isCredit ? -Math.abs(igv) : igv;
+          acc.icbper += isCredit ? -Math.abs(icbper) : icbper;
           acc.total += isCredit ? -Math.abs(total) : total;
           return acc;
         },
@@ -898,6 +901,7 @@ export default function PdtCompanyPage() {
           count: 0,
           baseImp: 0,
           igv: 0,
+          icbper: 0,
           total: 0,
         },
       ),
@@ -1010,27 +1014,28 @@ export default function PdtCompanyPage() {
         });
 
         worksheet.columns = [
-          { header: "Fecha", key: "fecha", width: 13 },
+          { header: "Emision", key: "fecha", width: 13 },
           { header: "Documento", key: "documento", width: 20 },
           { header: "NroDoc", key: "nroDoc", width: 48 },
-          { header: "Cliente", key: "cliente", width: 42 },
+          { header: "RazonSocial", key: "cliente", width: 42 },
           { header: "RUC", key: "ruc", width: 14 },
           { header: "DNI", key: "dni", width: 14 },
           { header: "BaseImp", key: "subTotal", width: 14 },
           { header: "IGV", key: "igv", width: 14 },
+          { header: "ICBPER", key: "icbper", width: 14 },
           { header: "Total", key: "total", width: 14 },
-          { header: "Usuario", key: "usuario", width: 16 },
+          { header: "Referencia", key: "referencia", width: 24 },
           { header: "Estado", key: "estado", width: 14 },
-          { header: "Codigo", key: "codigo", width: 10 },
+          { header: "CDSunat", key: "codigo", width: 10 },
           { header: "Mensaje", key: "mensaje", width: 35 },
           { header: "Condicion", key: "condicion", width: 14 },
           { header: "FormaPago", key: "formaPago", width: 14 },
-          { header: "Entidad", key: "entidad", width: 16 },
+          { header: "EntidadBancaria", key: "entidad", width: 16 },
           { header: "NroOperacion", key: "nroOperacion", width: 18 },
           { header: "Efectivo", key: "efectivo", width: 14 },
           { header: "Deposito", key: "deposito", width: 14 },
         ];
-        ["subTotal", "igv", "total", "efectivo", "deposito"].forEach(
+        ["subTotal", "igv", "icbper", "total", "efectivo", "deposito"].forEach(
           (columnKey) => {
             worksheet.getColumn(columnKey).numFmt = EXCEL_AMOUNT_NUMFMT;
           },
@@ -1062,18 +1067,24 @@ export default function PdtCompanyPage() {
           const totalValue = isCredit
             ? toCreditNoteExcelNumber(row.total)
             : toExcelSafeNumber(row.total);
+          const icbperValue = isCredit
+            ? toCreditNoteExcelNumber(row.icbper)
+            : toExcelSafeNumber(row.icbper);
 
           const rowRef = worksheet.addRow({
             ...row,
+            cliente: cleanCustomerName(row.cliente).trim(),
+            referencia: isCredit ? normalizeText(row.referencia, "-") : "-",
             subTotal: subTotalValue,
             igv: igvValue,
+            icbper: icbperValue,
             total: totalValue,
             efectivo: toExcelSafeNumber(row.efectivo),
             deposito: toExcelSafeNumber(row.deposito),
           });
 
           if (isCredit) {
-            ["subTotal", "igv", "total"].forEach((columnKey) => {
+            ["subTotal", "igv", "icbper", "total"].forEach((columnKey) => {
               const cell = rowRef.getCell(columnKey);
               cell.font = {
                 ...(cell.font ?? {}),
@@ -1088,6 +1099,7 @@ export default function PdtCompanyPage() {
           fecha: `Items: ${salesExcelTotals.count}`,
           subTotal: Number(salesExcelTotals.baseImp.toFixed(2)),
           igv: Number(salesExcelTotals.igv.toFixed(2)),
+          icbper: Number(salesExcelTotals.icbper.toFixed(2)),
           total: Number(salesExcelTotals.total.toFixed(2)),
         });
 
@@ -1127,6 +1139,7 @@ export default function PdtCompanyPage() {
         filteredPurchaseRows.forEach((row) => {
           worksheet.addRow({
             ...row,
+            proveedor: cleanCustomerName(row.proveedor).trim(),
             subTotal: toExcelSafeNumber(row.subTotal),
             igv: toExcelSafeNumber(row.igv),
             total: toExcelSafeNumber(row.total),
@@ -1170,6 +1183,7 @@ export default function PdtCompanyPage() {
     salesExcelTotals.baseImp,
     salesExcelTotals.count,
     salesExcelTotals.igv,
+    salesExcelTotals.icbper,
     salesExcelTotals.total,
     salesRowsForExcel,
   ]);
@@ -1246,6 +1260,13 @@ export default function PdtCompanyPage() {
             </span>
           );
         },
+      }),
+      salesColumnHelper.accessor("referencia", {
+        header: "Documento relacionado",
+        meta: { tdClassName: "min-w-[160px]" },
+        cell: (info) => isCreditNoteDocument(info.row.original.documento)
+          ? normalizeText(info.getValue(), "-")
+          : "-",
       }),
     ],
     [],

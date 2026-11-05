@@ -3,6 +3,7 @@ import { useAuthStore } from "@/store/auth/auth.store";
 import { hasPermission } from "./permissions";
 
 const routePermissions: [string, string][] = [
+  ["/warehouse", "MANTENIMIENTO.PRODUCTOS"],
   ["/reports", "VENTAS.VER"],
   ["/sales/pos/payment", "VENTAS.POS"],
   ["/sales/pos", "VENTAS.POS"],
@@ -48,6 +49,7 @@ const routePermissions: [string, string][] = [
   ["/configuration/boleta-batch", "CONFIGURACION.VENTAS_BOLETAS"],
   ["/configuration/caja", "CONFIGURACION.CAJA"],
   ["/configuration/permissions", "CONFIGURACION.PERMISOS"],
+  ["/configuration/permissions-users", "CONFIGURACION.PERMISOS"],
   ["/configuration", "CONFIGURACION.VER"],
 ];
 

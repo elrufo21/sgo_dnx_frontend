@@ -356,6 +356,11 @@ export default function ProviderForm({
                     <div className="flex-1">
                       <HookFormInput<ProviderFormValues>
                         name="numeroDocumentoConsulta"
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                          event.preventDefault();
+                          void handleConsultarDocumento();
+                        }}
                         label="Numero de documento"
                         type="text"
                         inputMode="numeric"

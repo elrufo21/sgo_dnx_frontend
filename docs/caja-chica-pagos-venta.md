@@ -19,9 +19,13 @@ Un número de operación ya usado para la misma entidad bancaria no puede regist
 
 El modal **Pago Varios** incluye las pestañas **Pendientes** y **Pagos realizados**. Conserva una altura fija adaptable a la pantalla al cambiar de pestaña. La segunda replica el historial del escritorio y permite filtrar los pagos registrados por rango de fechas.
 
+Cada vez que se abre el modal, muestra la lista de **Pendientes**, incluso si se cerró desde el historial o desde el detalle de un pago realizado.
+
 Al abrir Pago Varios, la carga de productos y clientes de Ventas no muestra el indicador general encima del modal; la lista conserva su propio mensaje de carga. Al cerrar el modal, el indicador general vuelve a mostrarse si esas consultas aún continúan. Las cargas de registro, captura y reenvío mantienen su indicador habitual.
 
 Los pendientes se consultan al abrir Pago Varios y cuando se notifica una actualización, evitando iniciar otra consulta solo por montar la pantalla de Ventas. El acceso del encabezado abre el modal sobre cualquier módulo sin cambiar de ruta ni desmontar la pantalla actual. Al cerrarlo se conserva el formulario o listado que estaba abierto.
+
+El indicador de Pago V se actualiza al registrar o eliminar un pago y también se consulta cada 30 segundos. Si coinciden varias consultas, solo se muestra el resultado de la más reciente. Al eliminar un pago también se actualiza el listado de notas de pedido que esté abierto.
 
 Si el usuario ya está en una venta nueva, el acceso Pago V del encabezado abre el modal directamente sin navegar de nuevo ni recargar el formulario o los productos. Desde otras páginas mantiene la navegación a Ventas antes de abrir el modal.
 
@@ -34,6 +38,8 @@ Los montos pendientes se reciben como números desde la API. El backend interpre
 La descripción del pago es un borrador del modal: se conserva al seleccionar documentos o modificar los demás campos y se limpia al registrar, eliminar o elegir **Nuevo**. Se muestra y se registra siempre en mayúsculas. Al eliminar un pago, el formulario vuelve a sus valores iniciales.
 
 Cada pago realizado tiene un botón **Ver**. Su detalle se muestra en la pestaña **Pendientes** con la fecha y hora de registro en el encabezado, documentos a la izquierda y forma de pago, importes, entidad, operación y descripción a la derecha. Desde ahí permite volver al historial, eliminarlo con clave de administrador o usar **Nuevo** para limpiar el formulario y regresar a los documentos pendientes.
+
+Al abrir la confirmación para eliminar un pago, el foco queda en la clave de administrador para poder escribirla de inmediato.
 
 En el detalle, las columnas **Total**, **Efectivo** y **Depósito** muestran respectivamente `monto`, `efectivo` y `deposito` de cada documento. El total general se toma de la cabecera del pago. La corrección del orden de estas columnas evita mostrar el efectivo cero como si fuera el total en pagos por depósito; no modifica importes guardados ni datos de SQL.
 

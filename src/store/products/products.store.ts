@@ -57,6 +57,7 @@ interface ProductsState {
 }
 
 type ProductSaveResult = { ok: true } | { ok: false; error: string };
+export const DUPLICATE_PRODUCT_CODE_ERROR = "El código de producto ya existe.";
 
 const toNumberValue = (value: unknown, fallback = 0) => {
   if (typeof value === "number") {
@@ -155,7 +156,7 @@ const productSaveError = (response: unknown, fallback: string): string | null =>
   const body = httpResponse?.data ?? response;
   if (hasExistsMessage(body)) {
     const detail = typeof body === "string" ? body : Object.values(body as Record<string, unknown>).join(" ");
-    if (/c[oó]digo/i.test(detail)) return "El código de producto ya existe.";
+    if (/c[oó]digo/i.test(detail)) return DUPLICATE_PRODUCT_CODE_ERROR;
     if (/nombre/i.test(detail)) return "Ya existe un producto con ese nombre.";
     return "Ya existe un producto con estos datos.";
   }

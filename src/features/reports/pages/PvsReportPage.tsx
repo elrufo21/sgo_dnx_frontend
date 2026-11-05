@@ -59,11 +59,11 @@ export default function PvsReportPage() {
     column.accessor("transaccion", { header: "Nro. transacción" }),
     column.accessor("codigo", { header: "Código" }),
     column.accessor("cliente", { header: "Cliente" }),
-    column.accessor("pv", { header: "PV", cell: (info) => formatAmount(info.getValue()) }),
-    column.accessor("sv", { header: "SV", cell: (info) => formatAmount(info.getValue()) }),
-    column.accessor("importe", { header: "Importe", cell: (info) => formatAmount(info.getValue()) }),
+    column.accessor("pv", { header: "PV", meta: { align: "right" }, cell: (info) => formatAmount(info.getValue()) }),
+    column.accessor("sv", { header: "SV", meta: { align: "right" }, cell: (info) => formatAmount(info.getValue()) }),
+    column.accessor("importe", { header: "Importe", meta: { align: "right" }, cell: (info) => formatAmount(info.getValue()) }),
   ] as unknown as ColumnDef<Row, unknown>[], []);
-  const totals = useMemo(() => rows.reduce((sum, row) => ({ pv: sum.pv + Math.round(row.pv * 100), sv: sum.sv + Math.round(row.sv * 100), importe: sum.importe + Math.round(row.importe * 100) }), { pv: 0, sv: 0, importe: 0 }), [rows]);
+  const totals = useMemo(() => rows.reduce((sum, row) => ({ pv: sum.pv + Math.round(row.pv * 100), importe: sum.importe + Math.round(row.importe * 100) }), { pv: 0, importe: 0 }), [rows]);
 
   const submit = async (values: Filters) => {
     if (searchInProgress.current) return;
@@ -124,7 +124,10 @@ export default function PvsReportPage() {
               }} />
           </div>
           <div className="w-44"><HookFormInput<Filters> name="fechaInicio" label="Fecha inicio" type="date" disabled={loading} onKeyDown={searchOnEnter} /></div>
-          <div className="w-44"><HookFormInput<Filters> name="fechaFin" label="Fecha fin" type="date" disabled={loading} onKeyDown={searchOnEnter} /></div>
+          <div className="w-44"><HookFormInput<Filters> name="fechaFin" label="Fecha fin" type="date" disabled={loading} onKeyDown={searchOnEnter} onChange={(event) => {
+            const values = { ...methods.getValues(), fechaFin: event.target.value };
+            if (values.clienteId && values.fechaInicio && values.fechaFin && values.fechaInicio <= values.fechaFin) void submit(values);
+          }} /></div>
           <button type="submit" disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"><Search size={17} /> Buscar</button>
         </div>
       </HookForm>
@@ -137,9 +140,8 @@ export default function PvsReportPage() {
             <span className="text-sm font-semibold text-slate-700">Registros: {rows.length}</span>
             <div className="w-full sm:min-w-0 sm:flex-1">
               <TotalsSummary items={[
-                { label: "PV", value: formatAmount(totals.pv / 100) },
-                { label: "SV", value: formatAmount(totals.sv / 100) },
-                { label: "Total", value: formatAmount(totals.importe / 100) },
+                { label: "PV", value: formatAmount(totals.pv / 100), className: "bg-purple-50" },
+                { label: "Total", value: formatAmount(totals.importe / 100), className: "bg-emerald-50" },
               ]} />
             </div>
           </div>

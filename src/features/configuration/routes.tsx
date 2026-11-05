@@ -74,12 +74,18 @@ export default [
   {
     path: "configuration/permissions",
     element: <PermissionGuard permission="CONFIGURACION.PERMISOS" fallback="/configuration" />,
-    children: [{ index: true, element: <PermissionsSettingsPage /> }],
+    children: [{ index: true, element: <PermissionsSettingsPage mode="area" /> }],
     handle: {
       breadcrumb: [
         { label: "Configuración", to: "/configuration" },
-        { label: "Permisos" },
+        { label: "Permisos por área" },
       ],
     },
+  },
+  {
+    path: "configuration/permissions-users",
+    element: <PermissionGuard permission="CONFIGURACION.PERMISOS" fallback="/configuration" />,
+    children: [{ index: true, element: <PermissionsSettingsPage mode="user" /> }],
+    handle: { breadcrumb: [{ label: "Configuración", to: "/configuration" }, { label: "Permisos por usuario" }] },
   },
 ];

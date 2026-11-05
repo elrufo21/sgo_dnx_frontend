@@ -1,6 +1,6 @@
 import { toast } from "@/shared/ui/toast";
 import ProductFormBase from "@/components/ProductFormBase";
-import { useProductsStore } from "@/store/products/products.store";
+import { DUPLICATE_PRODUCT_CODE_ERROR, useProductsStore } from "@/store/products/products.store";
 import type { Product } from "@/types/product";
 
 const ProductCreate = () => {
@@ -13,7 +13,9 @@ const ProductCreate = () => {
       return true;
     } else {
       toast.error(result.error);
-      return false;
+      return result.error === DUPLICATE_PRODUCT_CODE_ERROR
+        ? "duplicate-code" as const
+        : false;
     }
   };
 

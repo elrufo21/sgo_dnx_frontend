@@ -19,6 +19,7 @@ import LoginPage from "@/features/auth/LoginPage";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
 import { ModuleAccessGuard } from "@/shared/security/ModuleAccessGuard";
 import { AccessDeniedPage } from "./AccessDeniedPage";
+import WarehouseInventoryPage from "@/features/warehouse/pages/WarehouseInventoryPage";
 
 const router = createBrowserRouter([
   {
@@ -61,6 +62,7 @@ const router = createBrowserRouter([
           ...accountingRoutes,
           ...maintenanceRoutes,
           ...cashFlowRoutes,
+          { path: "warehouse", element: <WarehouseInventoryPage />, handle: { breadcrumb: [{ label: "Apertura y cierre de almacén" }] } },
           { path: "*", element: <h1>404 - Not Found</h1> },
         ],
       },
