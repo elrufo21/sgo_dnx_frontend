@@ -19,6 +19,8 @@ import {
   BarChart3,
   PackageSearch,
   ClipboardCheck,
+  Warehouse,
+  FileOutput,
 } from "lucide-react";
 import {
   useCallback,
@@ -119,7 +121,7 @@ export default function MainLayout() {
       "/depositos-centro",
     ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
     setOpenMenuGroup(
-      inCash ? "caja" : pathname.startsWith("/reports") && pathname !== "/reports/pvs" ? "reportes" : null,
+      inCash ? "caja" : pathname === "/warehouse" || pathname.startsWith("/logistica/") ? "logistica" : pathname.startsWith("/reports") && pathname !== "/reports/pvs" ? "reportes" : null,
     );
   }, [pathname]);
   const openDialog = useDialogStore((state) => state.openDialog);
@@ -701,6 +703,16 @@ export default function MainLayout() {
         },
       ],
     };
+    const logistica: NavGroupItem = {
+      label: "Logística",
+      id: "logistica",
+      icon: <Warehouse size={18} />,
+      children: [
+        { label: "Apertura y cierre de almacén", to: "/warehouse", icon: <StoreIcon size={18} /> },
+        { label: "Guía de salida", to: "/logistica/guia-salida", icon: <FileOutput size={18} /> },
+        { label: "Guía de ingreso", to: "/logistica/guia-ingreso", icon: <FileInput size={18} /> },
+      ],
+    };
     const items: NavItem[] = [
       /*  {
         label: "Ventas",
@@ -722,11 +734,7 @@ export default function MainLayout() {
       },
 
       caja,
-      {
-        label: "Apertura y cierre de almacén",
-        to: "/warehouse",
-        icon: <StoreIcon />,
-      },
+      logistica,
       {
         label: "Cliente",
         to: "/customers",
@@ -785,6 +793,8 @@ export default function MainLayout() {
       "/cash_flow_control": "CAJA.CONTROL",
       "/cash-final-report": "CAJA.INFORME_FINAL",
       "/warehouse": "MANTENIMIENTO.PRODUCTOS",
+      "/logistica/guia-salida": "MANTENIMIENTO.PRODUCTOS",
+      "/logistica/guia-ingreso": "MANTENIMIENTO.PRODUCTOS",
       "/petty-cash-movements": "CAJA.CHICA",
       "/depositos-centro": "CAJA.VER",
       "/shopping": "COMPRAS.GESTIONAR",

@@ -4,6 +4,7 @@ import { hasPermission } from "./permissions";
 
 const routePermissions: [string, string][] = [
   ["/warehouse", "MANTENIMIENTO.PRODUCTOS"],
+  ["/logistica", "MANTENIMIENTO.PRODUCTOS"],
   ["/reports", "VENTAS.VER"],
   ["/sales/pos/payment", "VENTAS.POS"],
   ["/sales/pos", "VENTAS.POS"],

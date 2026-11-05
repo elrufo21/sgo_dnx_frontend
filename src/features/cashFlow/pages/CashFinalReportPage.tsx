@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import DataTable from "@/components/DataTable";
 import { HookForm } from "@/components/forms/HookForm";
 import { HookFormInput } from "@/components/forms/HookFormInput";
@@ -735,7 +735,7 @@ export default function CashFinalReportPage() {
     const readyPdf = prefetchedPdf.current;
     if (readyPdf?.key === pdfSnapshotKey && readyPdf.url && readyPdf.blob && Date.now() - readyPdf.startedAt < 60_000) {
       const reportWindow = window.open(readyPdf.url, "_blank");
-      if (!reportWindow) await saveAgentFile(readyPdf.blob, `Informe_final_caja_${reportId}.pdf`);
+      if (!reportWindow) await downloadBrowserFile(readyPdf.blob, `Informe_final_caja_${reportId}.pdf`);
       return;
     }
     const reportWindow = window.open("", "_blank");
@@ -749,7 +749,7 @@ export default function CashFinalReportPage() {
       const url = URL.createObjectURL(blob);
       if (reportWindow) reportWindow.location.href = url;
       else {
-        await saveAgentFile(blob, `Informe_final_caja_${reportId}.pdf`);
+        await downloadBrowserFile(blob, `Informe_final_caja_${reportId}.pdf`);
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {

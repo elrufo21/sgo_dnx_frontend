@@ -1,6 +1,6 @@
 # Apertura y cierre de almacén
 
-La pantalla se muestra en el menú y su ruta está disponible tanto en desarrollo como en builds de producción para los usuarios con el permiso requerido.
+La pantalla se muestra dentro del menú **Logística** y su ruta está disponible tanto en desarrollo como en builds de producción para los usuarios con el permiso requerido.
 
 La opción **Apertura y cierre de almacén** usa la carga, búsqueda y filtro de productos inactivos de la tabla de Ventas. El buscador está integrado en la barra de la tabla y filtra por código o descripción. Muestra código, descripción, xMayor, UNIxCaja, Total x Mayor, UM, Despacho, Vitrina, Almacén total y Validación. Las cantidades xMayor, Despacho y Vitrina se ingresan como valores no negativos; Enter y flechas arriba/abajo navegan por la misma columna, como en Ventas.
 

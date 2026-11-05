@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { toast } from "@/shared/ui/toast";
@@ -658,7 +658,7 @@ export default function BoletasSummaryPage() {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      if (!await saveAgentFile(blob, `resumenes-enviados_${sentDateFrom}_${sentDateTo}.xlsx`)) return;
+      if (!await downloadBrowserFile(blob, `resumenes-enviados_${sentDateFrom}_${sentDateTo}.xlsx`)) return;
       toast.success("Excel generado correctamente.");
     } catch (error) {
       console.error("Error al exportar Excel de resúmenes enviados", error);
@@ -700,7 +700,7 @@ export default function BoletasSummaryPage() {
         fileName = `cdr_${safeSerie}_${safeTicket}.txt`;
       }
 
-      await saveAgentFile(blob, fileName);
+      await downloadBrowserFile(blob, fileName);
     },
     [],
   );

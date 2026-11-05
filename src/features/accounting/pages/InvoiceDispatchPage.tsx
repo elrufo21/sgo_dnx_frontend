@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import DataTable from "@/components/DataTable";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
@@ -197,7 +197,7 @@ export default function InvoiceDispatchPage() {
     rows.forEach((row) => worksheet.addRow(row));
 
     const buffer = await workbook.xlsx.writeBuffer();
-    if (!await saveAgentFile(new Blob([buffer], {
+    if (!await downloadBrowserFile(new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }), "pendientes-ose.xlsx")) return;
     toast.success("Excel generado correctamente.");

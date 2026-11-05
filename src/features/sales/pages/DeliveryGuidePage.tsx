@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import { pdf } from "@react-pdf/renderer";
 import JSZip from "jszip";
 import { Archive, Download, FileCode2, FilePlus2, Plus, Trash2 } from "lucide-react";
@@ -92,7 +92,7 @@ export default function DeliveryGuidePage() {
     };
   };
 
-  const descargar = saveAgentFile;
+  const descargar = downloadBrowserFile;
 
   const descargarXml = async (values: DeliveryGuideValues) => {
     const archivo = prepararXml(values);
@@ -149,7 +149,7 @@ export default function DeliveryGuidePage() {
       const url = URL.createObjectURL(blob);
       if (guideWindow) guideWindow.location.href = url;
       else {
-        await saveAgentFile(blob, `Guia_remision_${documentNumber}.pdf`);
+        await downloadBrowserFile(blob, `Guia_remision_${documentNumber}.pdf`);
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {

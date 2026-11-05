@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { HookForm } from "@/components/forms/HookForm";
@@ -123,7 +123,7 @@ export default function SireComprasPage() {
       fgColor: { argb: "FFB23636" },
     };
     const buffer = await workbook.xlsx.writeBuffer();
-    await saveAgentFile(new Blob([buffer], {
+    await downloadBrowserFile(new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }), `sire-compras-${methods.getValues("periodo").replace("-", "")}.xlsx`);
   };

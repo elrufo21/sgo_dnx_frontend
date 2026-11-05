@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import { pdf } from "@react-pdf/renderer";
 import {
   ArrowLeft,
@@ -2842,7 +2842,7 @@ export default function HtmlCaptureSalePage() {
       return;
     }
     const blob = await buildTicketBlob(documentNumber, noteId);
-    await saveAgentFile(blob, `${documentNumber || `TICKET_${Date.now()}`}.pdf`);
+    await downloadBrowserFile(blob, `${documentNumber || `TICKET_${Date.now()}`}.pdf`);
   };
 
   const printTicket = async (ticket = lastTicket) => {
@@ -2943,10 +2943,9 @@ export default function HtmlCaptureSalePage() {
         throw new Error("No se encontraron el XML y CDR del comprobante.");
       }
 
-      const blob =
-        isInvoice || form.docTypeCode === "03"
-          ? await buildDocumentBlob(documentNumber, noteId)
-          : await buildTicketBlob(documentNumber, noteId);
+      const blob = isInvoice
+        ? await buildDocumentBlob(documentNumber, noteId)
+        : await buildTicketBlob(documentNumber, noteId);
       const formData = new FormData();
       formData.append(
         "pdf",
@@ -2968,10 +2967,10 @@ export default function HtmlCaptureSalePage() {
         "tipoComprobante",
         isInvoice ? "Factura electrónica" : "Boleta electrónica",
       );
-      if (xmlUrl) {
+      if (isInvoice && xmlUrl) {
         formData.append("xmlUrl", xmlUrl);
       }
-      if (cdrUrl) {
+      if (isInvoice && cdrUrl) {
         formData.append("cdrUrl", cdrUrl);
       }
 

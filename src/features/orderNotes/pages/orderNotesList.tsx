@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import DataTable from "@/components/DataTable";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
@@ -542,7 +542,7 @@ const OrderNotesList = () => {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
 
-      if (!await saveAgentFile(blob, `notas-pedido_${fileFrom}_${fileTo}.xlsx`)) return;
+      if (!await downloadBrowserFile(blob, `notas-pedido_${fileFrom}_${fileTo}.xlsx`)) return;
       toast.success("Excel generado correctamente.");
     } catch (error) {
       console.error("Error al exportar Excel de notas de pedido", error);

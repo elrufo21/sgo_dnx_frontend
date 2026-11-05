@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Workbook } from "exceljs";
 import Checkbox from "@mui/material/Checkbox";
@@ -881,7 +881,7 @@ export default function SireVentasRegistrosPage() {
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    if (await saveAgentFile(blob, fileName)) toast.success(successMessage);
+    if (await downloadBrowserFile(blob, fileName)) toast.success(successMessage);
   };
 
   const buildSimpleWorkbook = <T,>(
@@ -1058,7 +1058,7 @@ export default function SireVentasRegistrosPage() {
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      if (!await saveAgentFile(blob, `sire-ventas-${toPeriodParam(period)}_${dateFrom}_${dateTo}.xlsx`)) return;
+      if (!await downloadBrowserFile(blob, `sire-ventas-${toPeriodParam(period)}_${dateFrom}_${dateTo}.xlsx`)) return;
       toast.success("Excel generado correctamente.");
     } catch (error) {
       console.error("Error exporting SIRE sales Excel", error);

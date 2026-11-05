@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
@@ -226,7 +226,7 @@ const downloadPdfDocument = async (
   fileName: string,
 ) => {
   const blob = await renderPdfBlob(pdfDocument);
-  await saveAgentFile(blob, `${normalizePdfFileName(fileName)}.pdf`);
+  await downloadBrowserFile(blob, `${normalizePdfFileName(fileName)}.pdf`);
 };
 
 const renderPdfBlob = async (pdfDocument: ReactElement) => {

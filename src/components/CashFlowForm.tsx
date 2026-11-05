@@ -1,4 +1,4 @@
-import { saveAgentFile } from "@/shared/helpers/saveAgentFile";
+import { downloadBrowserFile } from "@/shared/helpers/downloadBrowserFile";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Loader2, Lock, Mail, Printer, RefreshCw, Save, Trash2, Unlock } from "lucide-react";
 import { pdf, PDFViewer } from "@react-pdf/renderer";
@@ -591,7 +591,7 @@ export default function CashFlowForm({
     try {
       const blob = await generarPdfCaja(fechaCierre);
       if (!printAfterLoad && !reportWindow) {
-        await saveAgentFile(blob, `${nombreArchivoCaja(fechaCierre)}.pdf`);
+        await downloadBrowserFile(blob, `${nombreArchivoCaja(fechaCierre)}.pdf`);
         return;
       }
       const url = URL.createObjectURL(blob);
