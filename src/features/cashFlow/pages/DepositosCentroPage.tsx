@@ -11,7 +11,7 @@ import { useDialogStore } from "@/store/app/dialog.store";
 import { useAuthStore } from "@/store/auth/auth.store";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Eye, ImagePlus, Plus, Save, Search, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Deposito = {
   id: number;
@@ -102,6 +102,7 @@ export default function DepositosCentroPage() {
   const [rows, setRows] = useState<Deposito[]>([]);
   const [validation, setValidation] = useState<Validation | null>(null);
   const [loading, setLoading] = useState(false);
+  const latestLoad = useRef(0);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Deposito | null>(null);
   const [image, setImage] = useState<File | null>(null);
@@ -128,6 +129,7 @@ export default function DepositosCentroPage() {
 
   const load = useCallback(
     async (range = filters.getValues()) => {
+      const requestId = ++latestLoad.current;
       setLoading(true);
       try {
         const query = new URLSearchParams({
@@ -144,12 +146,13 @@ export default function DepositosCentroPage() {
             fallback: null as unknown as Validation,
           }),
         ]);
+        if (requestId !== latestLoad.current) return;
         setRows(Array.isArray(result) ? result : []);
         setValidation(
           check && typeof check.valida === "boolean" ? check : null,
         );
       } finally {
-        setLoading(false);
+        if (requestId === latestLoad.current) setLoading(false);
       }
     },
     [filters],
@@ -615,6 +618,10 @@ export default function DepositosCentroPage() {
                       name="hasta"
                       label="F. fin"
                       type="date"
+                      onChange={(event) => {
+                        const range = { ...filters.getValues(), hasta: event.target.value };
+                        if (range.desde && range.hasta && range.desde <= range.hasta) searchDates(range);
+                      }}
                     />
                   </div>
                   <button

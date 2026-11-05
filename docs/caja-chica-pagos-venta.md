@@ -39,7 +39,7 @@ La descripción del pago es un borrador del modal: se conserva al seleccionar do
 
 Cada pago realizado tiene un botón **Ver**. Su detalle se muestra en la pestaña **Pendientes** con la fecha y hora de registro en el encabezado, documentos a la izquierda y forma de pago, importes, entidad, operación y descripción a la derecha. Desde ahí permite volver al historial, eliminarlo con clave de administrador o usar **Nuevo** para limpiar el formulario y regresar a los documentos pendientes.
 
-Al abrir la confirmación para eliminar un pago, el foco queda en la clave de administrador para poder escribirla de inmediato.
+Al abrir la confirmación para eliminar un pago, el foco queda en la clave de administrador para poder escribirla de inmediato. Al pulsar Enter en la clave se ejecuta la misma confirmación que el botón **Eliminar**.
 
 En el detalle, las columnas **Total**, **Efectivo** y **Depósito** muestran respectivamente `monto`, `efectivo` y `deposito` de cada documento. El total general se toma de la cabecera del pago. La corrección del orden de estas columnas evita mostrar el efectivo cero como si fuera el total en pagos por depósito; no modifica importes guardados ni datos de SQL.
 

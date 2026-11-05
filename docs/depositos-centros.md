@@ -2,7 +2,7 @@
 
 El formulario registra depósitos y otros ingresos de los centros, incluyendo el importe, su descripción y el comprobante adjunto.
 
-El listado inicia con el rango desde el primer día del mes hasta hoy. Para consultar otro rango, se editan las fechas y se usa el botón de búsqueda; no hay un botón adicional de calendario.
+El listado inicia con el rango desde el primer día del mes hasta hoy. Al seleccionar una fecha fin y existir un rango válido, la consulta se ejecuta automáticamente; también se puede usar el botón de búsqueda. Si varias consultas coinciden, se muestran los resultados de la más reciente.
 
 Al elegir **DEPÓSITO** o **TARJETA**, el foco pasa al número de operación. Al elegir una entidad bancaria, también pasa al número de operación. Al elegir **EFECTIVO** o **YAPE**, pasa a descripción para evitar los campos que no aplican.
 

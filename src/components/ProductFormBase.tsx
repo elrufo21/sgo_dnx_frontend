@@ -926,6 +926,8 @@ export default function ProductFormBase({
     if (!isSubmitting && focusDuplicateCode.current) {
       focusDuplicateCode.current = false;
       setFocus("codigo");
+      const input = containerRef.current?.querySelector<HTMLInputElement>('[data-product-code]');
+      input?.setSelectionRange(input.value.length, input.value.length);
     }
   }, [isSubmitting, setFocus]);
 
@@ -959,7 +961,7 @@ export default function ProductFormBase({
       setFocus("nombre");
       const nameInput =
         containerRef.current?.querySelector<HTMLInputElement>(
-          'input[name="nombre"]',
+          '[data-focus-first]',
         ) ?? null;
       if (!nameInput) return false;
       nameInput.focus();
@@ -979,7 +981,8 @@ export default function ProductFormBase({
   }, [setFocus]);
 
   useEffect(() => {
-    focusCategoryField();
+    if (mode === "edit") focusFirstInput(containerRef.current);
+    else focusCategoryField();
   }, [mode, initialData, focusCategoryField]);
 
   useEffect(() => {
@@ -1863,6 +1866,7 @@ export default function ProductFormBase({
                   <div className="space-y-2 mt-3">
                     <HookFormInput<ProductFormValues>
                       name="codigo"
+                      data-product-code
                       label="Codigo del Producto"
                       placeholder="AUTO-GENERADO"
                       onKeyDown={(e) => {
@@ -1934,8 +1938,9 @@ export default function ProductFormBase({
                       <HookFormInput<ProductFormValues>
                         name="cantidad"
                         label="Cantidad en Stock"
-                        type="number"
-                        step="1"
+                        type="text"
+                        inputMode="numeric"
+                        integerOnly
                         disabled={isServiceProduct}
                         rules={{
                           valueAsNumber: true,

@@ -34,6 +34,7 @@ export default function SalesVsPurchasesPage() {
   const validYear = /^\d{4}$/.test(year) && Number(year) >= 1753 && Number(year) <= today.getFullYear();
   const report = useQuery({ queryKey: ["sales-vs-purchases", year, month], queryFn: () => fetchReport(Number(year), Number(month)), enabled: validYear && Number(month) >= 1 && Number(month) <= 12 });
   const rows = report.data?.rows ?? [];
+  const highestAmount = Math.max(0, ...rows.flatMap((row) => [row.sales, row.purchases]));
 
   return <div className="space-y-4 p-2 sm:p-4">
     <Paper variant="outlined" className="p-4">
@@ -49,7 +50,7 @@ export default function SalesVsPurchasesPage() {
       validYear && report.data ? <Paper variant="outlined" className="p-3 sm:p-5">
         <h2 className="text-center text-lg font-semibold text-slate-800">Ventas vs. Compras · {monthNames[Number(month) - 1]} {year}</h2>
         {rows.length === 0 ? <Alert severity="info" className="mt-4">El procedimiento no devolvió datos para tu compañía en el período seleccionado.</Alert> :
-          <BarChart dataset={rows} xAxis={[{ scaleType: "band", dataKey: "companyName" }]} yAxis={[{ width: 120, valueFormatter: (value: number) => currency.format(value) }]}
+          <BarChart dataset={rows} xAxis={[{ scaleType: "band", dataKey: "companyName", categoryGapRatio: 0.65 }]} yAxis={[{ width: 120, max: highestAmount > 0 ? highestAmount * 1.15 : undefined, valueFormatter: (value: number) => currency.format(value) }]}
             series={[
               { dataKey: "sales", label: "Monto Ventas", color: "#4085e3", barLabel: (item) => currency.format(Number(item.value ?? 0)), barLabelPlacement: "outside", valueFormatter: (value) => currency.format(value ?? 0) },
               { dataKey: "purchases", label: "Monto Compras", color: "#ffb43e", barLabel: (item) => currency.format(Number(item.value ?? 0)), barLabelPlacement: "outside", valueFormatter: (value) => currency.format(value ?? 0) },

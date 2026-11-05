@@ -2,7 +2,7 @@
 
 En **Resumen PVS**, opción independiente del menú disponible con el permiso `VENTAS.VER`, se busca un cliente por código, DNI o nombre y se consulta un intervalo de fechas. Se incluyen clientes activos e inactivos. Al abrir, el intervalo abarca el mes actual; seleccionar un cliente, pulsar Enter en el cliente o en las fechas, o pulsar Buscar ejecuta la consulta. Si la lista de clientes está abierta, Enter selecciona la opción resaltada y esa selección inicia la búsqueda. El detalle muestra fecha de pago, transacción, código, cliente, PV, SV e importe; la última fila muestra cantidad y totales del resultado completo, no solo de la página visible. Una consulta vacía o fallida borra los resultados anteriores.
 
-Los totales aparecen debajo de la tabla en dos cuadros: **PV** con fondo morado suave y **Total** (importe) con fondo verde suave, junto a la cantidad de registros. Usan el mismo componente visual que los totales del listado de notas de pedido y se adaptan a pantallas pequeñas. SV se conserva en el detalle de cada venta.
+Los totales aparecen debajo de la tabla en dos cuadros: **PV** con fondo morado suave y **Total** (importe en soles, con prefijo `S/`) con fondo verde suave, junto a la cantidad de registros. Usan el mismo componente visual que los totales del listado de notas de pedido y se adaptan a pantallas pequeñas. SV se conserva en el detalle de cada venta.
 
 Al seleccionar una fecha fin válida con un cliente seleccionado, el reporte se consulta automáticamente con el rango indicado. Las columnas **PV**, **SV** e **Importe** se alinean a la derecha, incluidos sus encabezados.
 

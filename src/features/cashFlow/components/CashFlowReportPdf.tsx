@@ -3,6 +3,7 @@ import type { CashFlowProductWeb } from "@/store/cashFlowProductsWeb/cashFlowPro
 import type { CashFlowMovementWeb } from "@/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store";
 import type { AttendanceReportRow } from "@/features/reports/api/attendanceReport";
 import type { UncapturedObsSale } from "@/features/cashFlow/api/uncapturedObsSales";
+import { parseDateLikeToLocalDate } from "@/shared/helpers/localDate";
 
 type CashCount = { cantidad: number | ""; denominacion: number };
 type CashReportMovement = Pick<CashFlowMovementWeb, "descripcion" | "importe">;
@@ -41,14 +42,14 @@ const money = (value: number) =>
 
 const dateOnly = (value: string) => {
   if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  const date = parseDateLikeToLocalDate(value);
+  if (!date) return value.slice(0, 10);
   return date.toLocaleDateString("en-GB");
 };
 
 const dateWithDay = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return dateOnly(value);
+  const date = parseDateLikeToLocalDate(value);
+  if (!date) return dateOnly(value);
   const day = date.toLocaleDateString("es-PE", { weekday: "long" });
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${dateOnly(value)}`;
 };

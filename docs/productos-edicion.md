@@ -10,11 +10,11 @@ La selección predeterminada se aplica cuando termina de cargar el catálogo y t
 
 El selector de sublínea sincroniza el texto de la opción seleccionada aunque el campo ya tenga el foco; esto permite ver el valor predeterminado cuando el catálogo llega después de abrir el formulario desde el listado.
 
-Al crear o editar, la respuesta `existe Codigo` se presenta como **«El código de producto ya existe»**, conserva los datos ingresados y sitúa el cursor en el código para corregirlo. Los errores de conexión o respuestas inválidas se muestran como fallos de guardado y no agregan un producto ficticio a la lista. Cuando la API devuelve un mensaje de validación HTTP 4xx, se muestra ese mensaje.
+Al crear o editar, la respuesta `existe Codigo` se presenta como **«El código de producto ya existe»**, conserva los datos ingresados y sitúa el cursor al final del código para corregirlo. Al abrir un producto para editar, el foco pasa a **Nombre del Producto**. Los errores de conexión o respuestas inválidas se muestran como fallos de guardado y no agregan un producto ficticio a la lista. Cuando la API devuelve un mensaje de validación HTTP 4xx, se muestra ese mensaje.
 
 ## Valores numéricos
 
-En productos inventariables, **Cantidad en Stock** es obligatoria y solo permite guardar números enteros. Si un producto existente tiene una cantidad decimal, debe corregirse antes de guardar. Los servicios mantienen la cantidad en cero.
+En productos inventariables, **Cantidad en Stock** es obligatoria y solo admite números enteros al escribir o pegar. La validación también impide guardar decimales. Si un producto existente tiene una cantidad decimal, debe corregirse antes de guardar. Los servicios mantienen la cantidad en cero.
 
 El frontend serializa el campo técnico `Data` con punto decimal (`79.00`). El backend lo interpreta con cultura invariable; por ello `79.00` se guarda como `79` incluso cuando el servidor usa configuración regional española, donde el punto normalmente representa miles. Los datos con coma decimal heredados (`79,00`) mantienen compatibilidad.
 

@@ -21,6 +21,7 @@ type HookFormInputProps<T extends FieldValues> = {
   rules?: RegisterOptions<T>;
   helperText?: string;
   endAdornment?: ReactNode;
+  integerOnly?: boolean;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "name">;
 
 export function HookFormInput<T extends FieldValues>({
@@ -36,6 +37,7 @@ export function HookFormInput<T extends FieldValues>({
   disabled,
   placeholder,
   endAdornment,
+  integerOnly = false,
   ...inputProps
 }: HookFormInputProps<T>) {
   const isComposingRef = useRef(false);
@@ -96,6 +98,7 @@ export function HookFormInput<T extends FieldValues>({
               : field.value;
 
           const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+            if (integerOnly && !/^-?\d*$/.test(event.target.value)) return;
             field.onChange(event.target.value);
             onChange?.(event);
           };
@@ -106,7 +109,7 @@ export function HookFormInput<T extends FieldValues>({
               field.value === null || field.value === undefined
                 ? ""
                 : String(field.value);
-            if (currentValue !== comparableFieldValue) {
+            if (currentValue !== comparableFieldValue && (!integerOnly || /^-?\d*$/.test(currentValue))) {
               field.onChange(currentValue);
             }
             field.onBlur();
@@ -190,7 +193,7 @@ export function HookFormInput<T extends FieldValues>({
               onCompositionEnd={(event) => {
                 isComposingRef.current = false;
                 const currentValue = event.currentTarget.value;
-                if (currentValue !== (field.value ?? "")) {
+                if (currentValue !== (field.value ?? "") && (!integerOnly || /^-?\d*$/.test(currentValue))) {
                   field.onChange(currentValue);
                 }
               }}

@@ -120,6 +120,12 @@ function PagoVariosDeleteDialogContent() {
         autoFocus
         rules={{ required: "Ingrese la clave de administrador." }}
         onChange={(event) => setDialogData({ clave: event.target.value })}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.nativeEvent.isComposing || event.repeat) return;
+          event.preventDefault();
+          event.currentTarget.closest('[role="dialog"]')
+            ?.querySelector<HTMLButtonElement>('[data-dialog-confirm]')?.click();
+        }}
       />
     </HookForm>
   );
