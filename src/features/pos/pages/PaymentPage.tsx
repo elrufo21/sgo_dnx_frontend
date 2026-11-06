@@ -5254,6 +5254,9 @@ const PaymentPage = () => {
       formData.append("rucEmisor", companyRucFromSession || "20601070155");
       formData.append("nroComprobante", documentNumber);
       formData.append("nombreCompania", companyNameFromSession || "Mi Empresa");
+      if (safeTrim(companyUbigeoNameFromSession)) {
+        formData.append("nombreSede", `DXN ${safeTrim(companyUbigeoNameFromSession).toUpperCase()}`);
+      }
       formData.append(
         "tipoComprobante",
         isFactura ? "Factura electrónica" : "Boleta electrónica",
