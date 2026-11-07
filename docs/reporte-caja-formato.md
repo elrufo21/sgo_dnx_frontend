@@ -22,6 +22,8 @@ El módulo independiente **Generar informe de caja final** aparece en el sidebar
 
 **TOTAL EFECTIVO** se calcula como Sistema OBS menos todas las salidas, incluidas las agregadas manualmente, con dos decimales. Si las salidas superan el OBS, el resultado es negativo; se usa también para el total de ingresos, el diferencial, el guardado y el PDF. El backend permite ese ingreso negativo únicamente cuando coincide con la resta indicada. Verificación sin SQL: `node scripts/verify-informe-final-efectivo.mjs`.
 
+Los ingresos adicionales procedentes de Caja Chica, incluidas las ventas libres, se muestran en **Ingresos** y se suman una vez al total esperado, al diferencial y al informe guardado. Los conceptos base se mantienen separados para evitar duplicarlos. Una venta libre con pago digital también conserva su salida correspondiente. Los informes ya guardados no incorporan automáticamente movimientos omitidos anteriormente.
+
 En el listado de informes finales, **Sistema OBS** y **Salidas** muestran separador de miles y dos decimales (por ejemplo, `10,000.00`).
 
 En el formulario del informe final, la columna **Monto** del conteo y los totales del conteo, ingresos, gastos, billetes y monedas, así como OBS, salidas y diferencial, se muestran con separador de miles y dos decimales. El formato solo cambia la presentación; los cálculos y los importes editables permanecen numéricos. El PDF ya utiliza el mismo formato.
@@ -29,6 +31,8 @@ En el formulario del informe final, la columna **Monto** del conteo y los totale
 El diferencial del formulario se muestra en azul si hay sobrante, rojo si hay faltante y negro si el importe mostrado es cero. El color se determina con el valor redondeado a dos decimales.
 
 Los importes mostrados como texto en las tablas de ingresos y gastos también usan separador de miles y dos decimales, incluido TOTAL EFECTIVO. Los movimientos manuales se mantienen como campos numéricos al editar y se muestran con el mismo formato en modo lectura.
+
+Las tablas de ingresos y gastos incluyen la columna **Fecha y hora**. En la preparación nueva, los gastos con correspondencia única en CajaDetalle muestran la fecha y hora del movimiento. Las filas sin fecha verificable muestran «—»: incluye conceptos consolidados, filas manuales, coincidencias ambiguas e informes guardados, cuyo detalle no conserva la referencia al movimiento original.
 
 La vista del informe final muestra el conteo, ingresos, gastos, OBS y diferencial, sin una tabla de productos vendidos. Al imprimir o enviar por correo un informe final, el PDF incluye los productos vendidos de la fecha en una página aparte cuando hay filas.
 

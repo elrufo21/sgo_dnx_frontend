@@ -12,7 +12,7 @@ import { fetchUncapturedObsSales } from "@/features/cashFlow/api/uncapturedObsSa
 import { fetchAttendanceReport } from "@/features/reports/api/attendanceReport";
 import { API_BASE_URL } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
-import { formatDate } from "@/shared/helpers/formatDate";
+import { formatDate, formatDateTime } from "@/shared/helpers/formatDate";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
@@ -49,6 +49,7 @@ type Movement = {
   estado?: string;
   clientId?: string;
   tipo?: "income" | "expense";
+  fechaMovimiento?: string | null;
 };
 type Coin = { denominacion: number; cantidad: number; id?: number };
 type Preparation = {
@@ -345,6 +346,7 @@ export default function CashFinalReportPage() {
     ];
     const incomes = [
       ...fixed,
+      ...incomeRows.filter((row) => !isBaseIncome(row)),
       ...manualRows.filter((row) => row.tipo === "income"),
     ];
     const expected = incomes.reduce(
@@ -1089,8 +1091,9 @@ export default function CashFinalReportPage() {
                     )}
                   </div>
                   <div className="mb-2 h-[min(40vh,282px)] min-h-[180px] overflow-y-auto overflow-x-auto rounded border border-gray-200">
-                    <div className="flex h-full min-w-[280px] flex-col text-xs">
-                      <div className="grid grid-cols-[minmax(0,1fr)_7rem_1.5rem] bg-slate-800 text-white">
+                    <div className="flex h-full min-w-[500px] flex-col text-xs">
+                      <div className="grid grid-cols-[9rem_minmax(0,1fr)_7rem_1.5rem] bg-slate-800 text-white">
+                        <div className="px-2 py-1">Fecha y hora</div>
                         <div className="px-2 py-1">Descripción</div>
                         <div className="border-l border-slate-500 px-2 py-1 text-right">
                           Importe
@@ -1100,9 +1103,10 @@ export default function CashFinalReportPage() {
                       <div className="flex-1">
                         {panelRows.map((row, index) => (
                           <div
-                            key={row.clientId ?? row.descripcion}
-                            className={`grid grid-cols-[minmax(0,1fr)_7rem_1.5rem] ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                            key={row.clientId ?? `${row.descripcion}-${index}`}
+                            className={`grid grid-cols-[9rem_minmax(0,1fr)_7rem_1.5rem] ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
                           >
+                            <div className="whitespace-nowrap px-2 py-1">{formatDateTime(row.fechaMovimiento) || "—"}</div>
                             <div className="break-words px-2 py-1">
                               {row.manual ? (
                                 <input
