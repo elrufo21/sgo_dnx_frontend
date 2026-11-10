@@ -11,6 +11,18 @@ export default function AccountingDashboard() {
   const items = useMemo(() => {
     const baseItems = [
       {
+        title: "Inventario permanente valorizado",
+        desc: "Consulta y exporta los movimientos de inventario por producto.",
+        icon: <FileSpreadsheet className="h-10 w-10 text-emerald-600" />,
+        route: "/accounting/inventario-valorizado",
+      },
+      {
+        title: "Notas de crédito",
+        desc: "Consulta las notas de crédito y sus detalles.",
+        icon: <ReceiptText className="h-10 w-10 text-blue-600" />,
+        route: "/accounting/credit-notes",
+      },
+      {
         title: "Envio de facturas",
         desc: "Lista facturas emitidas y abre el comprobante para reenviar al OSE.",
         icon: <Send className="h-10 w-10 text-blue-600" />,
@@ -51,6 +63,8 @@ export default function AccountingDashboard() {
       "/accounting/boletas_summary": "CONTABILIDAD.RESUMEN_BOLETAS",
       "/accounting/sire-ventas": "CONTABILIDAD.VER",
       "/accounting/sire-compras": "CONTABILIDAD.VER",
+      "/accounting/credit-notes": "CONTABILIDAD.VER",
+      "/accounting/inventario-valorizado": "CONTABILIDAD.VER",
     };
     return baseItems.filter((item) => hasPermission(user, permissionByRoute[item.route]));
   }, [user]);

@@ -121,7 +121,7 @@ export default function DepositosCentroPage() {
   const setFocus = form.setFocus;
   const entidadOptions = useMemo(
     () => [
-      { value: "", label: "(NO APLICA)" },
+      { value: "", label: "(SELECCIONE)" },
       ...ENTITIES.map((value) => ({ value, label: value })),
     ],
     [],

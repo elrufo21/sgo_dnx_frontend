@@ -152,6 +152,7 @@ export function SaleCaptureFormFields({
   }, [correlativeDisplay, currentCorrelative, emissionDate, setValue]);
 
   useEffect(() => {
+    if (disabled) return;
     if (isPagoVarios && paymentMethod !== "-") {
       setValue("paymentMethod", "-", { shouldDirty: true });
       return;
@@ -159,7 +160,7 @@ export function SaleCaptureFormFields({
     if (!isPagoVarios && paymentMethod === "-") {
       setValue("paymentMethod", "(SELECCIONE)", { shouldDirty: true });
     }
-  }, [isPagoVarios, paymentMethod, setValue]);
+  }, [disabled, isPagoVarios, paymentMethod, setValue]);
 
   useEffect(() => {
     if (disabled) return;
@@ -181,6 +182,7 @@ export function SaleCaptureFormFields({
   }, [automaticBank, bankEntity, disabled, isPagoVarios, paymentNeedsOperation, setValue]);
 
   useEffect(() => {
+    if (disabled) return;
     const total = Math.max(0, Number(totalAmount) || 0);
     const formatAmount = (value: number) =>
       value <= 0 ? "" : String(Number(value.toFixed(2)));
@@ -214,6 +216,7 @@ export function SaleCaptureFormFields({
     );
     setPaymentSplit(deposit, Math.max(total - deposit, 0));
   }, [
+    disabled,
     isMixedPayment,
     isPagoVarios,
     paymentMethod,
@@ -799,7 +802,7 @@ export function SaleCaptureFormFields({
                 { value: "YAPE/EFECTIVO", label: "YAPE/EFECTIVO" },
                 { value: "YAPE/DEPOSITO", label: "YAPE/DEPOSITO" },
                 { value: "TARJETA/DEPOSITO", label: "TARJETA/DEPOSITO" },
-                ...(isPagoVarios ? [{ value: "-", label: "-" }] : []),
+                ...(isPagoVarios || disabled ? [{ value: "-", label: "-" }] : []),
               ]}
             />
           </div>

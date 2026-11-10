@@ -1092,8 +1092,8 @@ export default function CashFinalReportPage() {
                   </div>
                   <div className="mb-2 h-[min(40vh,282px)] min-h-[180px] overflow-y-auto overflow-x-auto rounded border border-gray-200">
                     <div className="flex h-full min-w-[500px] flex-col text-xs">
-                      <div className="grid grid-cols-[9rem_minmax(0,1fr)_7rem_1.5rem] bg-slate-800 text-white">
-                        <div className="px-2 py-1">Fecha y hora</div>
+                      <div className={`grid ${tab === "expense" ? "grid-cols-[9rem_minmax(0,1fr)_7rem_1.5rem]" : "grid-cols-[minmax(0,1fr)_7rem_1.5rem]"} bg-slate-800 text-white`}>
+                        {tab === "expense" && <div className="px-2 py-1">Fecha y hora</div>}
                         <div className="px-2 py-1">Descripción</div>
                         <div className="border-l border-slate-500 px-2 py-1 text-right">
                           Importe
@@ -1104,9 +1104,9 @@ export default function CashFinalReportPage() {
                         {panelRows.map((row, index) => (
                           <div
                             key={row.clientId ?? `${row.descripcion}-${index}`}
-                            className={`grid grid-cols-[9rem_minmax(0,1fr)_7rem_1.5rem] ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                            className={`grid ${tab === "expense" ? "grid-cols-[9rem_minmax(0,1fr)_7rem_1.5rem]" : "grid-cols-[minmax(0,1fr)_7rem_1.5rem]"} ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
                           >
-                            <div className="whitespace-nowrap px-2 py-1">{formatDateTime(row.fechaMovimiento) || "—"}</div>
+                            {tab === "expense" && <div className="whitespace-nowrap px-2 py-1">{formatDateTime(row.fechaMovimiento) || "—"}</div>}
                             <div className="break-words px-2 py-1">
                               {row.manual ? (
                                 <input

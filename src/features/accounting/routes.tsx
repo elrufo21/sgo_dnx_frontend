@@ -4,6 +4,10 @@ import InvoiceDispatchPage from "./pages/InvoiceDispatchPage";
 import PdtCompanyPage from "./pages/PdtCompanyPage";
 import SireVentasPage from "./pages/SireVentasPage";
 import SireComprasPage from "./pages/SireComprasPage";
+import CreditNotesPage from "./pages/CreditNotesPage";
+import CreditNoteDetailPage from "./pages/CreditNoteDetailPage";
+import ValuedInventoryPage from "./pages/ValuedInventoryPage";
+import InventoryPreviewPage from "./pages/InventoryPreviewPage";
 
 export default [
   {
@@ -12,6 +16,26 @@ export default [
     handle: {
       breadcrumb: [{ label: "Contabilidad" }],
     },
+  },
+  {
+    path: "accounting/inventario-valorizado/vista-previa",
+    element: <InventoryPreviewPage />,
+    handle: { breadcrumb: [{ label: "Contabilidad", to: "/accounting" }, { label: "Inventario permanente valorizado", to: "/accounting/inventario-valorizado" }, { label: "Vista previa" }] },
+  },
+  {
+    path: "accounting/inventario-valorizado",
+    element: <ValuedInventoryPage />,
+    handle: { breadcrumb: [{ label: "Contabilidad", to: "/accounting" }, { label: "Inventario permanente valorizado" }] },
+  },
+  {
+    path: "accounting/credit-notes",
+    element: <CreditNotesPage />,
+    handle: { breadcrumb: [{ label: "Contabilidad", to: "/accounting" }, { label: "Notas de crédito" }] },
+  },
+  {
+    path: "accounting/credit-notes/:id",
+    element: <CreditNoteDetailPage />,
+    handle: { breadcrumb: [{ label: "Contabilidad", to: "/accounting" }, { label: "Notas de crédito", to: "/accounting/credit-notes" }, { label: "Detalle" }] },
   },
   {
     path: "accounting/pdt-company",

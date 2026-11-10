@@ -20,7 +20,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useForm } from "react-hook-form";
-import { useLocation, useNavigate, useOutletContext, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useOutletContext, useParams } from "react-router";
 import CustomerDialogContent from "@/components/CustomerDialogContent";
 import TicketDocument from "@/components/Ticket";
 import { BlockingSpinner } from "@/components/common/BlockingSpinner";
@@ -606,6 +606,9 @@ export default function HtmlCaptureSalePage() {
   const invoiceDispatch = (
     location.state as InvoiceDispatchNavigationState | null
   )?.invoiceDispatch;
+  const creditNoteNavigation = location.state as { creditNoteReturn?: string; creditNoteNumber?: string; relatedSaleNumber?: string } | null;
+  const creditNoteReturn = creditNoteNavigation?.creditNoteReturn;
+  const canReturnToCreditNote = isExistingRoute && /^\/accounting\/credit-notes\/\d+$/.test(creditNoteReturn ?? "");
   const isFromInvoiceDispatch = Boolean(invoiceDispatch && isExistingRoute);
   const { viewedOrderNoteId, setViewedOrderNoteId } = useOrderNoteStore();
   const isFromOrderNotesView =
@@ -917,11 +920,14 @@ export default function HtmlCaptureSalePage() {
               ? "POR ENTREGAR"
               : "INMEDIATA",
           emissionDate: safeTrim(nota.notaFecha ?? nota.NotaFecha).slice(0, 10),
-          paymentMethod: PAYMENT_METHOD_OPTIONS.includes(
-            paymentMethod as (typeof PAYMENT_METHOD_OPTIONS)[number],
-          )
-            ? (paymentMethod as SaleForm["paymentMethod"])
-            : defaultForm.paymentMethod,
+          paymentMethod:
+            !paymentMethod || ["-", "(SELECCIONE)"].includes(paymentMethod)
+              ? "-"
+              : PAYMENT_METHOD_OPTIONS.includes(
+                    paymentMethod as (typeof PAYMENT_METHOD_OPTIONS)[number],
+                  )
+                ? (paymentMethod as SaleForm["paymentMethod"])
+                : defaultForm.paymentMethod,
           bankEntity:
             safeTrim(nota.entidadBancaria ?? nota.EntidadBancaria) || "-",
           operationNumber: safeTrim(nota.nroOperacion ?? nota.NroOperacion),
@@ -3571,8 +3577,26 @@ export default function HtmlCaptureSalePage() {
                 : "Cargando datos de venta..."
         }
       />
+      {canReturnToCreditNote && (
+        <nav aria-label="Ruta de navegación" className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+          <Link to="/accounting/credit-notes" className="text-blue-700 hover:underline">Notas de crédito</Link>
+          <span aria-hidden="true">/</span>
+          <Link to={creditNoteReturn!} className="text-blue-700 hover:underline">{creditNoteNavigation?.creditNoteNumber || "Nota de crédito"}</Link>
+          <span aria-hidden="true">/</span>
+          <span className="font-medium text-slate-700" aria-current="page">Venta {creditNoteNavigation?.relatedSaleNumber || ""}</span>
+        </nav>
+      )}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        {isFromInvoiceDispatch ? (
+        {canReturnToCreditNote ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50" onClick={() => navigate(creditNoteReturn!)}>
+              <ArrowLeft className="h-4 w-4" /> Volver a la nota de crédito
+            </button>
+            <span className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
+              Fecha: {viewedEmissionDateTimeLabel} · Vendedor: {viewedSeller || "-"}
+            </span>
+          </div>
+        ) : isFromInvoiceDispatch ? (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
