@@ -14,7 +14,7 @@ import { toast } from "@/shared/ui/toast";
 import type { PreviewProduct } from "./inventoryPreviewExport";
 import { createKardexZip } from "./inventoryKardexExport";
 import { fetchInitialStocks, saveInitialStock as persistInitialStock } from "./inventoryInitialStock";
-import { firstMissingInitialStock, groupInventoryRows, mergeInventoryProducts, readInventoryProducts, type InventoryProduct, type InventoryProductGroup } from "./inventoryProductMapping";
+import { groupInventoryRows, mergeInventoryProducts, readInventoryProducts, type InventoryProduct, type InventoryProductGroup } from "./inventoryProductMapping";
 
 type Filters = { fechaInicio: string; fechaFin: string };
 
@@ -22,8 +22,9 @@ function InitialStockCell({ codigo, initial, disabled, onSave }: { codigo: strin
   const [value, setValue] = useState(initial == null ? "" : String(initial));
   const [saving, setSaving] = useState(false);
   const save = async () => {
-    const number = value.trim() === "" ? null : Number(value);
-    if (number === null || !Number.isFinite(number) || !Number.isSafeInteger(Math.round(number * 100)) || Math.abs(number * 100 - Math.round(number * 100)) > 0.000001) {
+    if (value.trim() === "" && initial == null) return;
+    const number = value.trim() === "" ? 0 : Number(value);
+    if (!Number.isFinite(number) || !Number.isSafeInteger(Math.round(number * 100)) || Math.abs(number * 100 - Math.round(number * 100)) > 0.000001) {
       toast.error("Ingrese una cantidad válida con hasta dos decimales.");
       setValue(initial == null ? "" : String(initial));
       return;
@@ -117,6 +118,8 @@ export default function ValuedInventoryPage() {
   const productRows = useMemo(() => mergeInventoryProducts(products, previewProducts), [products, previewProducts]);
   const displayRows = useMemo(() => groupInventoryRows(productRows), [productRows]);
   const selectedCodes = useMemo(() => new Set(selection), [selection]);
+  const selectableCodes = useMemo(() => [...new Set(displayRows.flatMap((row) => row.preview ? [row.preview.codigo] : []))], [displayRows]);
+  const selectedCount = selectableCodes.filter((code) => selectedCodes.has(code)).length;
 
   const productColumns = useMemo<ColumnDef<InventoryProductGroup, unknown>[]>(() => [
     { accessorKey: "codigo", header: "Código" },
@@ -130,13 +133,13 @@ export default function ValuedInventoryPage() {
       return <InitialStockCell key={`${periodKey}:${codigo}:${initial ?? ""}`} codigo={codigo} initial={initial} disabled={loading || !productsAvailable || !periodKey || balances.key !== periodKey || !!balances.error} onSave={saveInitialStock} />;
     }, meta: { align: "right" } },
     {
-      id: "exportar", header: "Seleccionar", meta: { align: "center" },
+      id: "exportar", header: () => <Checkbox size="small" checked={selectableCodes.length > 0 && selectedCount === selectableCodes.length} indeterminate={selectedCount > 0 && selectedCount < selectableCodes.length} disabled={loading || selectableCodes.length === 0} onChange={(_, checked) => setSelection(checked ? selectableCodes : [])} inputProps={{ "aria-label": "Seleccionar todos los productos para exportar" }} sx={{ color: "#B23636", "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#B23636" } }} />, meta: { align: "center" },
       cell: ({ row }) => <span title={row.original.preview ? `Códigos agrupados: ${row.original.preview.codigos.join(", ")}` : "Código vacío o con correspondencia ambigua"}><Checkbox size="small" checked={!!row.original.preview && selectedCodes.has(row.original.preview.codigo)} disabled={loading || !row.original.preview} onChange={(_, checked) => {
         const code = row.original.preview?.codigo;
         if (code) setSelection((current) => checked ? [...new Set([...current, code])] : current.filter((item) => item !== code));
       }} inputProps={{ "aria-label": `Seleccionar ${row.original.codigo} para exportar` }} sx={{ color: "#B23636", "&.Mui-checked": { color: "#B23636" } }} /></span>,
     },
-  ], [loading, productsAvailable, selectedCodes, balances, periodKey, saveInitialStock]);
+  ], [loading, productsAvailable, selectedCodes, selectableCodes, selectedCount, balances, periodKey, saveInitialStock]);
 
   const exportBatch = async () => {
     if (pendingSaves.current) { toast.error("Espere a que se guarde la cantidad inicial antes de exportar."); return; }
@@ -149,12 +152,13 @@ export default function ValuedInventoryPage() {
       toast.error("No se pudieron identificar todos los productos seleccionados."); return;
     }
     if (balances.key !== periodKey || balances.error) { toast.error("Espere a que se carguen los saldos del período."); return; }
-    const missing = firstMissingInitialStock(selected, balances.values);
-    if (missing) { toast.error(`Ingrese el saldo inicial de ${missing.codigo} antes de exportar.`); return; }
     setLoading(true);
     setExportNotice("");
     try {
-      const initialStocks = Object.fromEntries(selected.map((product) => [product.codigo, balances.values[product.codigo.toUpperCase()]]));
+      const initialStocks = Object.fromEntries(selected.map((product) => {
+        const key = product.codigo.toUpperCase();
+        return [product.codigo, Object.prototype.hasOwnProperty.call(balances.values, key) ? balances.values[key] : 0];
+      }));
       const { zip, notice } = await createKardexZip(selected, fechaInicio, fechaFin, setProgress, initialStocks);
       await downloadBrowserFile(zip, `kardex_${fechaInicio}_${fechaFin}.zip`);
       setExportNotice(notice);

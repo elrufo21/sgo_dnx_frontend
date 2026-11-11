@@ -32,7 +32,7 @@ El diferencial del formulario se muestra en azul si hay sobrante, rojo si hay fa
 
 Los importes mostrados como texto en las tablas de ingresos y gastos también usan separador de miles y dos decimales, incluido TOTAL EFECTIVO. Los movimientos manuales se mantienen como campos numéricos al editar y se muestran con el mismo formato en modo lectura.
 
-Las tablas de ingresos y gastos incluyen la columna **Fecha y hora**. En la preparación nueva, los gastos con correspondencia única en CajaDetalle muestran la fecha y hora del movimiento. Las filas sin fecha verificable muestran «—»: incluye conceptos consolidados, filas manuales, coincidencias ambiguas e informes guardados, cuyo detalle no conserva la referencia al movimiento original.
+En Gastos, la columna **Fecha y hora** muestra la fecha del movimiento cuando hay correspondencia única en CajaDetalle, también al abrir un informe guardado. Las filas sin fecha verificable muestran «—», incluidos conceptos consolidados, filas manuales y coincidencias ambiguas.
 
 La vista del informe final muestra el conteo, ingresos, gastos, OBS y diferencial, sin una tabla de productos vendidos. Al imprimir o enviar por correo un informe final, el PDF incluye los productos vendidos de la fecha en una página aparte cuando hay filas.
 

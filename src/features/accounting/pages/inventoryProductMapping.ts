@@ -4,10 +4,6 @@ export type InventoryProduct = { id: number | null; codigo: string; descripcion:
 export type InventoryProductRow = InventoryProduct & { preview: PreviewProduct | null };
 export type InventoryProductGroup = InventoryProductRow & { members: InventoryProductRow[]; codigosBusqueda: string };
 
-export function firstMissingInitialStock(products: PreviewProduct[], balances: Record<string, number>): PreviewProduct | undefined {
-  return products.find((product) => !Object.prototype.hasOwnProperty.call(balances, product.codigo.toUpperCase()));
-}
-
 function baseCode(code: string): string {
   return /^(191|201|211|221|231|241|251).+/i.test(code) ? code.slice(3) : code;
 }

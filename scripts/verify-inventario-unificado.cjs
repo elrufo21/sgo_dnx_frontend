@@ -11,7 +11,7 @@ const result = esbuild.buildSync({
 });
 const moduleObject = { exports: {} };
 vm.runInNewContext(result.outputFiles[0].text, { module: moduleObject, exports: moduleObject.exports });
-const { firstMissingInitialStock, mergeInventoryProducts, groupInventoryRows, readInventoryProducts } = moduleObject.exports;
+const { mergeInventoryProducts, groupInventoryRows, readInventoryProducts } = moduleObject.exports;
 
 const previousApi = [{ id: 1, codigo: "FB124", descripcion: "COCOZHI", stockActual: 8 }];
 assert.equal(readInventoryProducts(previousApi).products[0].stockActual, 8);
@@ -24,9 +24,6 @@ const preview = [
   { codigo: "FB124", descripcion: "COCOZHI", codigos: ["COMAS: FB124", "ICA: 251FB124"] },
   { codigo: "FB098", descripcion: "WHITE COFFE", codigos: ["ICA: 251FB098"] },
 ];
-assert.equal(firstMissingInitialStock(preview, { FB124: 0 }).codigo, "FB098");
-assert.equal(firstMissingInitialStock(preview, { FB124: 0, FB098: 3 }), undefined);
-assert.equal(firstMissingInitialStock([{ codigo: "constructor" }], {}).codigo, "constructor");
 const rows = mergeInventoryProducts([
   { id: 1, codigo: "FB124", descripcion: "COCOZHI", stockActual: 8, ultimoInv: 2.15 },
   { id: 2, codigo: "251FB124", descripcion: "COCOZHI", stockActual: 3, ultimoInv: 3.25 },
