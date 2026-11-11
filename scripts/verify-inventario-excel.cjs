@@ -42,6 +42,14 @@ async function main() {
   assert.equal(sheet.getCell("Q5").value.result, 1);
   assert.equal(batch.getWorksheet("Vista previa").getCell("R7").value, "No");
 
+  const withInitial = createInventoryPreviewWorkbook(product, "2026-01-01", "2026-01-31", rows, "lote", 10.5).getWorksheet("Kardex");
+  assert.equal(withInitial.getCell("X2").value, 10.5);
+  assert.equal(withInitial.getCell("T2").value.result, 12.5);
+  assert.equal(withInitial.getCell("T3").value.result, 11.5);
+  const noMovements = createInventoryPreviewWorkbook(product, "2026-01-01", "2026-01-31", [], "lote", 10.5).getWorksheet("Kardex");
+  assert.equal(noMovements.getCell("T2").value, 10.5);
+  assert.throws(() => createInventoryPreviewWorkbook(product, "2026-01-01", "2026-01-31", rows, "lote", 1.234), /cantidad inicial/);
+
   const individual = (await read("individual")).getWorksheet("Kardex");
   assert.equal(individual.getCell("T2").value, 0);
   assert.equal(individual.getCell("T3").value.result, -1);

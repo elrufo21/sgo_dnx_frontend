@@ -739,6 +739,7 @@ export default function ServiceInvoiceCreate() {
         invoice: viewInvoice,
         company: invoicePdfCompany,
         preGeneratedQrBase64: qrBase64,
+        montoPendiente: totals.total - montoDetraccion,
       });
       const blob = await renderPdfBlob(pdfDocument);
 
@@ -837,11 +838,14 @@ export default function ServiceInvoiceCreate() {
       invoice: viewInvoice,
       company: invoicePdfCompany,
       preGeneratedQrBase64: qrBase64,
+      montoPendiente: totals.total - montoDetraccion,
     });
   }, [
     debitNoteQrBase64,
     invoicePdfCompany,
+    montoDetraccion,
     serviceInvoiceQrBase64,
+    totals.total,
     viewInvoice,
   ]);
 

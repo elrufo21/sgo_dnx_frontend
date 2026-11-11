@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router";
 import { DUPLICATE_PRODUCT_CODE_ERROR, useProductsStore } from "@/store/products/products.store";
 import type { Product } from "@/types/product";
 import ProductFormBase from "@/components/ProductFormBase";
+import { buildApiUrl } from "@/config";
+import { apiRequest } from "@/shared/helpers/apiRequest";
 import { toast } from "@/shared/ui/toast";
 import { useDialogStore } from "@/store/app/dialog.store";
 
@@ -21,12 +23,19 @@ export default function ProductEdit() {
 
   useEffect(() => {
     const prod = products.find((p) => p.id === Number(id));
-    if (prod) {
-      setForm({ ...prod, images: prod.images || [] });
-    }
+    if (!prod) return;
+    let active = true;
+    void apiRequest<unknown>({ url: buildApiUrl(`/Productos/${encodeURIComponent(id ?? "")}`) }).then((response) => {
+      if (!active) return;
+      const detail = response && typeof response === "object" ? response as Record<string, unknown> : {};
+      const hasDate = "productoFecha" in detail || "ProductoFecha" in detail;
+      const date = detail.productoFecha ?? detail.ProductoFecha;
+      setForm({ ...prod, fechaRegistro: hasDate ? (typeof date === "string" ? date : "") : prod.fechaRegistro, images: prod.images || [] });
+    });
+    return () => { active = false; };
   }, [products, id]);
 
-  if (!form) return <div>Cargando producto...</div>;
+  if (!form || form.id !== Number(id)) return <div>Cargando producto...</div>;
 
   const handleSave = async (frm: Omit<Product, "id">) => {
     if (!id) return false;

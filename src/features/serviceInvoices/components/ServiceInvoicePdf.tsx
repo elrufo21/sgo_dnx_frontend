@@ -26,6 +26,7 @@ type ServiceInvoicePdfProps = {
     phone?: string;
   } | null;
   preGeneratedQrBase64?: string;
+  montoPendiente?: number;
 };
 
 const PAGE_WIDTH = 595.28;
@@ -417,6 +418,7 @@ export function ServiceInvoicePdfDocument({
   invoice,
   company,
   preGeneratedQrBase64,
+  montoPendiente,
 }: ServiceInvoicePdfProps) {
   const compra = invoice.compra;
   const subtotal = resolveSubtotal(invoice);
@@ -434,6 +436,17 @@ export function ServiceInvoicePdfDocument({
   const companyRuc = safeText(company?.ruc, "-");
   const companyAddress = safeText(company?.address, "-");
   const companyPhone = safeText(company?.phone);
+  const isServiceInvoice = montoPendiente != null;
+  const isCredit = [compra.condicion, compra.formaPago].some((value) =>
+    safeText(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase() === "CREDITO",
+  );
+  const termsHeaders = isServiceInvoice
+    ? [["Condicion", 86], ["Moneda", 70], ["N° Cuota", 76], ["Fec. Venc.", 86], ["Monto", 78], ["G.Remisión", 1]]
+    : [["Condicion", 68], ["Forma Pago", 76], ["Entidad Bancaria", 103], ["Moneda", 55], ["Nro Membresia", 88], ["Nro Transaccion", 100], ["G.Remisión", 1]];
+  const currency = safeText((compra as typeof compra & { moneda?: string }).moneda, "SOLES").toUpperCase();
+  const termsValues = isServiceInvoice
+    ? [[safeText(compra.condicion, compra.formaPago).toUpperCase(), 86], [currency, 70], [isCredit ? "1" : "-", 76], [isCredit ? formatDate(resolveDueDate(invoice)) : "-", 86], [isCredit ? money(montoPendiente) : "-", 78], ["", 1]]
+    : [[safeText(compra.condicion, "CONTADO").toUpperCase(), 68], [safeText(compra.formaPago, "-").toUpperCase(), 76], [safeText(compra.entidadBancaria, "-"), 103], [currency, 55], [safeText(compra.codigoCliente), 88], [safeText(compra.notaTransaccion, safeText(compra.nroOperacion)), 100], ["", 1]];
   const isBoleta =
     safeText(compra.tipoCodigo) === "03" ||
     safeText(compra.documento).toUpperCase().includes("BOLETA");
@@ -469,7 +482,7 @@ export function ServiceInvoicePdfDocument({
           <View style={styles.top}>
             <DxnLogo />
             <View style={styles.titleArea}>
-              <Text style={styles.title}>{safeText(company?.district) ? `DXN ${safeText(company?.district).toUpperCase()}` : companyName}</Text>
+              <Text style={styles.title}>{isServiceInvoice ? safeText(company?.commercialName, companyName).toUpperCase() : safeText(company?.district) ? `DXN ${safeText(company?.district).toUpperCase()}` : companyName}</Text>
               <Text style={styles.subtitle}>De: {companyName}</Text>
               <Text style={styles.address}>
                 {companyAddress}
@@ -499,32 +512,21 @@ export function ServiceInvoicePdfDocument({
               </Text>
             </View>
             <View style={styles.clientRight}>
-              <Text style={styles.smallLine}>
-                Fecha Emision: {formatDateTime(compra.fechaRegistro)}
-              </Text>
-              <Text style={styles.smallLine}>
-                Fecha Venc: {formatDate(resolveDueDate(invoice))}
-              </Text>
-              <Text style={styles.smallLine}>
-                Hora Emision: {formatDateTime(compra.fechaRegistro)
-                  .split(" ")
-                  .slice(1)
-                  .join(" ")}
-              </Text>
+              {isServiceInvoice ? <>
+                <Text style={styles.smallLine}>Fecha Emision: {formatDate(compra.fechaEmision)}</Text>
+                {isCredit && <Text style={styles.smallLine}>Cuotas: 1</Text>}
+                <Text style={styles.smallLine}>M.Pen Pago : {money(montoPendiente)}</Text>
+              </> : <>
+                <Text style={styles.smallLine}>Fecha Emision: {formatDateTime(compra.fechaRegistro)}</Text>
+                <Text style={styles.smallLine}>Fecha Venc: {formatDate(resolveDueDate(invoice))}</Text>
+                <Text style={styles.smallLine}>Hora Emision: {formatDateTime(compra.fechaRegistro).split(" ").slice(1).join(" ")}</Text>
+              </>}
             </View>
           </View>
 
           <View style={styles.termsBox}>
             <View style={styles.termsHeaderRow}>
-              {[
-                ["Condicion", 68],
-                ["Forma Pago", 76],
-                ["Entidad Bancaria", 103],
-                ["Moneda", 55],
-                ["Nro Membresia", 88],
-                ["Nro Transaccion", 100],
-                ["G.Remisión", 1],
-              ].map(([label, width], index) => (
+              {termsHeaders.map(([label, width], index) => (
                 <View
                   key={String(label)}
                   style={[
@@ -533,7 +535,7 @@ export function ServiceInvoicePdfDocument({
                       width: width === 1 ? undefined : Number(width),
                       flex: width === 1 ? 1 : undefined,
                     },
-                    ...(index === 6 ? [{ borderRightWidth: 0 }] : []),
+                    ...(index === termsHeaders.length - 1 ? [{ borderRightWidth: 0 }] : []),
                   ]}
                 >
                   <Text style={styles.termsHeaderText}>{label}</Text>
@@ -541,24 +543,7 @@ export function ServiceInvoicePdfDocument({
               ))}
             </View>
             <View style={styles.termsValueRow}>
-              {[
-                [safeText(compra.condicion, "CONTADO").toUpperCase(), 68],
-                [safeText(compra.formaPago, "-").toUpperCase(), 76],
-                [safeText(compra.entidadBancaria, "-"), 103],
-                [
-                  safeText(
-                    (compra as typeof compra & { moneda?: string }).moneda,
-                    "SOLES",
-                  ).toUpperCase(),
-                  55,
-                ],
-                [safeText(compra.codigoCliente), 88],
-                [
-                  safeText(compra.notaTransaccion, safeText(compra.nroOperacion)),
-                  100,
-                ],
-                ["", 1],
-              ].map(([value, width], index) => (
+              {termsValues.map(([value, width], index) => (
                 <View
                   key={`${value}-${index}`}
                   style={[
@@ -567,7 +552,7 @@ export function ServiceInvoicePdfDocument({
                       width: width === 1 ? undefined : Number(width),
                       flex: width === 1 ? 1 : undefined,
                     },
-                    ...(index === 6 ? [{ borderRightWidth: 0 }] : []),
+                    ...(index === termsValues.length - 1 ? [{ borderRightWidth: 0 }] : []),
                   ]}
                 >
                   <Text style={styles.termsValue}>{value}</Text>

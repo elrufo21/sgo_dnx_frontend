@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import type { ColumnDef } from "@tanstack/react-table";
 import Checkbox from "@mui/material/Checkbox";
-import JSZip from "jszip";
 import { ArrowLeft, Download } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
@@ -18,6 +17,7 @@ import {
   type PreviewMovement,
   type PreviewProduct,
 } from "./inventoryPreviewExport";
+import { createPreviewZip, fetchPreviewMovements } from "./inventoryPreviewData";
 
 type Filters = { codigo: string; fechaInicio: string; fechaFin: string };
 const productSearchKeys: (keyof PreviewProduct & string)[] = [
@@ -44,21 +44,6 @@ const number = (value: number | null) =>
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
-
-async function fetchMovements(
-  codigo: string,
-  fechaInicio: string,
-  fechaFin: string,
-): Promise<PreviewMovement[]> {
-  const query = new URLSearchParams({ codigo, fechaInicio, fechaFin });
-  const response = await apiRequest<unknown>({
-    url: buildApiUrl(`/InventarioVistaPrevia?${query}`),
-    config: { timeout: 120000 },
-  });
-  if (!Array.isArray(response))
-    throw new Error("No se pudieron consultar ambas sedes.");
-  return response as PreviewMovement[];
-}
 
 export default function InventoryPreviewPage() {
   const today = getLocalDateISO();
@@ -124,7 +109,7 @@ export default function InventoryPreviewPage() {
       }
       setLoading(true);
       try {
-        const data = await fetchMovements(
+        const data = await fetchPreviewMovements(
           product.codigo,
           filters.fechaInicio,
           filters.fechaFin,
@@ -248,35 +233,8 @@ export default function InventoryPreviewPage() {
     const selected = products.filter((p) => selection.includes(p.codigo));
     setLoading(true);
     try {
-      const zip = new JSZip();
-      for (const [index, product] of selected.entries()) {
-        setProgress(
-          `Preparando ${index + 1} de ${selected.length}: ${product.codigo}`,
-        );
-        const data = await fetchMovements(
-          product.codigo,
-          range.fechaInicio,
-          range.fechaFin,
-        );
-        const buffer = await createInventoryPreviewWorkbook(
-          product,
-          range.fechaInicio,
-          range.fechaFin,
-          data,
-          "lote",
-        ).xlsx.writeBuffer();
-        const filename =
-          `${product.codigo}_${product.descripcion}`
-            .replace(/[\\/:*?"<>|]/g, "")
-            .slice(0, 100) || "producto";
-        zip.file(
-          `${String(index + 1).padStart(4, "0")}_${filename}.xlsx`,
-          buffer,
-        );
-      }
-      setProgress("Preparando archivo ZIP...");
       await downloadBrowserFile(
-        await zip.generateAsync({ type: "blob", compression: "DEFLATE" }),
+        await createPreviewZip(selected, range.fechaInicio, range.fechaFin, setProgress),
         `vista-previa-kardex_${range.fechaInicio}_${range.fechaFin}.zip`,
       );
     } catch (error) {

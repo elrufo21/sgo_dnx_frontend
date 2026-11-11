@@ -23,7 +23,10 @@ function lineTotal(quantity: number, cost: number): number {
   return Math.sign(quantity) * Math.sign(cost) * Math.floor((product + 50) / 100) / 100;
 }
 
-export function createInventoryPreviewWorkbook(product: PreviewProduct, from: string, to: string, rows: PreviewMovement[], mode: "individual" | "lote") {
+export function createInventoryPreviewWorkbook(product: PreviewProduct, from: string, to: string, rows: PreviewMovement[], mode: "individual" | "lote", initialStock = 0) {
+  const initialCents = Math.round(initialStock * 100);
+  if (!Number.isFinite(initialStock) || !Number.isSafeInteger(initialCents) || Math.abs(initialStock * 100 - initialCents) > 0.000001)
+    throw new Error("La cantidad inicial debe tener hasta dos decimales y estar dentro del rango admitido.");
   if (rows.some((row) => typeof row.incluidoConsolidado !== "boolean"))
     throw new Error("Actualiza la API antes de generar el Excel.");
   const included = rows.filter((row) => row.incluidoConsolidado);
@@ -33,7 +36,13 @@ export function createInventoryPreviewWorkbook(product: PreviewProduct, from: st
   workbook.calcProperties.fullCalcOnLoad = true;
   const kardex = addInventoryDesktopSheet(workbook);
   kardex.getCell("A1").note = "Vista previa calculada según los scripts de escritorio. Saldo inicial y costos pendientes de validación contable.";
-  let stockCents = 0;
+  if (mode === "lote") kardex.getCell("X2").value = initialStock;
+  if (!included.length) {
+    kardex.getCell("S2").value = "SALDO INICIAL";
+    kardex.getCell("T2").value = initialStock;
+    kardex.getCell("T2").numFmt = "#,##0.00";
+  }
+  let stockCents = initialCents;
   included.forEach((row, index) => {
     const quantity = row.cantidad!;
     const cost = sourceCost(row.precio!);
@@ -48,9 +57,9 @@ export function createInventoryPreviewWorkbook(product: PreviewProduct, from: st
     const formattedDate = row.fecha.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1");
     const line = kardex.getRow(rowNumber);
     line.values = [row.anexo, 1, "01", 502017, "", formattedDate, row.tipoCodigo, row.serie, row.numero, isEntry ? "02" : "01", row.descripcion, "UNIDADES", 2, entrada, isEntry ? cost : 0, lineTotal(entrada, cost), salida, isEntry ? 0 : cost, lineTotal(salida, cost), 0, cost, 0];
-    if (index === 0 && mode === "lote") line.getCell(24).value = 0;
+    if (index === 0 && mode === "lote") line.getCell(24).value = initialStock;
     line.getCell(20).value = index === 0
-      ? mode === "lote" ? { formula: "(X2+N2)-Q2", result: stockCents / 100 } : 0
+      ? mode === "lote" ? { formula: "(X2+N2)-Q2", result: stockCents / 100 } : initialStock
       : { formula: `T${rowNumber - 1}+N${rowNumber}-Q${rowNumber}`, result: stockCents / 100 };
     line.getCell(22).value = { formula: `T${rowNumber}*U${rowNumber}`, result: (stockCents / 100) * cost };
     for (let col = 14; col <= 22; col++) line.getCell(col).numFmt = "#,##0.00";
@@ -66,7 +75,7 @@ export function createInventoryPreviewWorkbook(product: PreviewProduct, from: st
   }
   const sheet = workbook.addWorksheet("Vista previa", { views: [{ state: "frozen", ySplit: 4 }] });
   sheet.addRow([`VISTA PREVIA — ${product.codigo} ${product.descripcion}`]);
-  sheet.addRow([`Periodo: ${from} al ${to}. La hoja Kardex reproduce el cálculo del escritorio; requiere validación contable.`]);
+  sheet.addRow([`Periodo: ${from} al ${to}. Cantidad inicial: ${initialStock}. La hoja Kardex requiere validación contable.`]);
   sheet.addRow([`Códigos agrupados: ${product.codigos.join(", ")}`]);
   sheet.addRow(["Sede", "Anexo", "Fecha", "Origen", "Operación", "Tipo", "Serie", "Número", "Código", "Producto", "Cantidad", "Precio de origen", "Estado", "Estado SUNAT", "Cumple filtro carga inicial", "ID documento", "ID detalle", "Incluido en Kardex"]);
   sheet.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };

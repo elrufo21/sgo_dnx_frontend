@@ -23,6 +23,7 @@ import { HookFormSelect } from "@/components/forms/HookFormSelect";
 import { HookFormAutocomplete } from "./forms/HookFormAutocomplete";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 import { getLocalDateISO } from "@/shared/helpers/localDate";
+import { formatDate, formatDateTime } from "@/shared/helpers/formatDate";
 import CategoriaForm from "./maintenance/CategoriaForm";
 import type { Category } from "@/types/maintenance";
 
@@ -72,6 +73,14 @@ const toDateInputValue = (value: unknown) => {
   return first <= 12 && second > 12
     ? `${dateMatch[3]}-${dateMatch[1]}-${dateMatch[2]}`
     : `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+};
+
+const formatProductRegistration = (value: unknown) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const date = toDateInputValue(raw);
+  const time = raw.match(/[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return time ? formatDateTime(`${date}T${time[1].padStart(2, "0")}:${time[2]}:${time[3] ?? "00"}`) : formatDate(date);
 };
 
 const deriveInitialUnitsPerPackage = (
@@ -871,7 +880,7 @@ export default function ProductFormBase({
           : "S",
       cantidad: initialData?.cantidad ?? null,
       usuario: initialData?.usuario ?? fallbackUser,
-      fechaRegistro: toDateInputValue(initialData?.fechaRegistro),
+      fechaRegistro: mode === "edit" ? formatProductRegistration(initialData?.fechaRegistro) : getLocalDateISO(),
       estado: initialData?.estado ?? "ACTIVO",
       images: initialData?.images ?? [],
       imageFile: null,
@@ -2000,7 +2009,7 @@ export default function ProductFormBase({
                       <HookFormInput<ProductFormValues>
                         name="fechaRegistro"
                         label="Fecha Registro"
-                        type="date"
+                        type={mode === "edit" ? "text" : "date"}
                         disabled
                       />
                       <HookFormInput<ProductFormValues>

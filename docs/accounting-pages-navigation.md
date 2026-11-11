@@ -18,13 +18,21 @@ Cuando se identifica la venta original de la misma compañía, **Nro. asociado**
 
 ## Inventario permanente valorizado
 
-En **Contabilidad → Inventario permanente valorizado** se seleccionan un producto y un rango de fechas para consultar sus movimientos de Kardex existentes y exportarlos a Excel. La pantalla es de solo lectura. El Excel contiene las 22 columnas del escritorio, sus códigos fijos y las fórmulas de saldo de la exportación individual: el primer saldo usa el stock de la primera fila y los siguientes suman entradas y restan salidas. La tabla muestra el stock guardado en cada movimiento. No reconstruye Kardex ni ejecuta la actualización de inventario del escritorio.
+En **Contabilidad → Inventario permanente valorizado** se listan los productos de la base configurada y los grupos de ICA y COMAS sin correspondencia local, con búsqueda por código o descripción y stock actual local cuando está disponible. La tabla permite seleccionar productos, editar su saldo inicial y exportar el lote.
 
-Desde esa pantalla, **Vista previa ICA y COMAS** muestra documentos de ambas sedes antes de un posible reproceso, con sus estados, precios de origen y códigos agrupados. Permite descargar un Excel por producto o un ZIP del lote seleccionado. Cada Excel contiene una hoja **Kardex** con las 22 columnas y los cálculos del escritorio y otra con los documentos de origen. Los cálculos son preliminares y no modifican datos; los filtros y la diferencia entre saldo inicial individual y masivo se detallan en la documentación del backend.
+La lista agrupa los códigos base y sus variantes con prefijos `191`, `201`, `211`, `221`, `231`, `241` y `251` en una fila; `181` permanece separado. **Stock vigente** muestra el stock del registro local sin prefijo cuando existe y un guion cuando no está disponible; no suma existencias históricas ni otras sedes. También se puede buscar por el código de una variante. La lista del escritorio conserva las filas separadas: la agrupación visual es una mejora web basada en las equivalencias de su consulta de movimientos.
 
-La vista presenta una sola tabla con búsqueda, acciones y fechas en la barra superior. En productos, las casillas marcan los Excel que se exportarán; **Marcar resultados** y **Desmarcar resultados** actúan sobre todas las coincidencias, incluso las de otras páginas. La búsqueda no elimina selecciones ocultas. **Ver movimientos** abre la tabla de detalle y la flecha regresa conservando búsqueda, fechas y selección. En el detalle, **Actualizar consulta** aplica fechas nuevas; el botón de descarga se deshabilita hasta actualizar el rango modificado. La tabla no presenta costo o stock consolidados: esas cantidades requieren validación por sede.
+Marca o desmarca los productos mediante sus casillas. **Exportar seleccionados** reconstruye el Kardex del reporte a partir de ventas y compras de ICA y COMAS y descarga un ZIP con un Excel por producto con movimientos. Las variantes equivalentes comparten selección y los productos sin código o con correspondencia ambigua no pueden seleccionarse. Cada Excel contiene la hoja **Kardex** con las 22 columnas del escritorio, los costos según el reproceso y el saldo calculado a partir de Último INV. La vista avisa si el rango rebasa las fechas disponibles en alguna sede o si se omitieron productos sin movimientos.
 
-En la consulta individual de Kardex, el selector de producto permite buscar por código o descripción mediante el autocompletado compartido.
+La búsqueda conserva las selecciones ocultas. El stock de la tabla corresponde a la base principal. La ruta de vista previa de documentos sigue disponible para revisar las ventas y compras que entrarían en un reproceso.
+
+Si falla la consulta principal o la consulta de saldos del período, se muestra un aviso y no se permite exportar.
+
+**Último INV** es un único campo numérico por producto agrupado y fecha de inicio. Se guarda al salir de la celda o pulsar Enter, admite hasta dos decimales y requiere `MANTENIMIENTO.PRODUCTOS`. Cambiar la fecha final conserva el mismo saldo; cambiar la fecha de inicio consulta el saldo correspondiente a esa fecha. Se registra aparte, sin sumar ni modificar los valores históricos `Producto.UltimoINV`. La exportación exige ingresar un saldo para cada producto seleccionado, incluido cero cuando corresponda. No existe todavía una función que obtenga automáticamente un cierre anterior validado.
+
+La exportación envía los códigos seleccionados en una sola solicitud y consulta cada sede una vez; el ZIP conserva un Excel por grupo. La descripción prioriza el registro local con código sin prefijo cuando existe. Para almacenar saldos se necesita aplicar previamente el script `20261110_inventario_saldo_inicial.sql` en la base principal; la aplicación no lo ejecuta automáticamente.
+
+Si la entrada numérica queda incompleta o el guardado falla, se restaura el último valor cargado y se muestra un aviso. Durante un guardado pendiente no se puede iniciar la exportación.
 
 ## PDT Empresa
 
