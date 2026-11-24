@@ -1,6 +1,7 @@
 import { createContext, useContext, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { CellContext, ColumnDef } from "@tanstack/react-table";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import DataTable from "@/components/DataTable";
 import NavigableNumberInput from "@/components/inputs/NavigableNumberInput";
 import { indexProductCatalog, searchProductCatalog } from "@/features/sales/helpers/productCatalogSearch";
@@ -8,10 +9,13 @@ import { calculateWarehouseCount, type WarehouseCount } from "@/features/warehou
 import { buildApiUrl } from "@/config";
 import { apiRequest } from "@/shared/helpers/apiRequest";
 import { useProductsStore } from "@/store/products/products.store";
+import { useDialogStore } from "@/store/app/dialog.store";
+import { toast } from "@/shared/ui/toast";
 import type { Product } from "@/types/product";
 
 type CountField = keyof WarehouseCount;
 type BoxRow = { productId: number; unitsPerBox: number | null };
+type Opening = { id: number; fecha: string | null; usuario: string };
 type CountContextValue = { counts: Record<number, WarehouseCount>; boxes: Map<number, number | null>; setCount: (id: number, field: CountField, value: string) => void };
 const CountContext = createContext<CountContextValue | null>(null);
 const emptyCount: WarehouseCount = { wholesale: "", dispatch: "", display: "" };
@@ -65,15 +69,33 @@ export default function WarehouseInventoryPage() {
   const [counts, setCounts] = useState<Record<number, WarehouseCount>>({});
   const [boxRows, setBoxRows] = useState<BoxRow[]>([]);
   const [boxError, setBoxError] = useState(false);
+  const [opening, setOpening] = useState<Opening | null>(null);
+  const [openingReady, setOpeningReady] = useState(false);
+  const openDialog = useDialogStore((state) => state.openDialog);
   const deferredSearch = useDeferredValue(search);
   const index = useMemo(() => indexProductCatalog(products), [products]);
   const filtered = useMemo(() => searchProductCatalog(index, deferredSearch), [index, deferredSearch]);
   const boxes = useMemo(() => new Map(boxRows.map((item) => [item.productId, item.unitsPerBox])), [boxRows]);
   const context = useMemo<CountContextValue>(() => ({ counts, boxes, setCount: (id, field, value) => setCounts((current) => ({ ...current, [id]: { ...(current[id] ?? emptyCount), [field]: value } })) }), [counts, boxes]);
 
+  const loadOpening = async () => {
+    setOpeningReady(false);
+    const response = await apiRequest<{ opening: Opening | null }>({ url: buildApiUrl("/warehouse/opening") });
+    if (response && typeof response === "object" && "opening" in response) {
+      const value = response.opening as Opening | null;
+      if (value === null || (typeof value === "object" && Number.isFinite(value.id) && value.id > 0)) {
+        setOpening(value);
+        setOpeningReady(true);
+        return;
+      }
+    }
+    toast.error("No se pudo consultar el estado del almacén.");
+  };
+
   useEffect(() => {
     let active = true;
     void fetchProducts("");
+    void loadOpening();
     void apiRequest<BoxRow[]>({ url: buildApiUrl("/warehouse/units-per-box") }).then((result) => {
       if (!active) return;
       if (Array.isArray(result) && result.every((item) => item && Number.isFinite(item.productId) && (item.unitsPerBox === null || Number.isFinite(item.unitsPerBox)))) setBoxRows(result);
@@ -82,9 +104,40 @@ export default function WarehouseInventoryPage() {
     return () => { active = false; };
   }, [fetchProducts]);
 
+  const confirmSave = () => {
+    const entries = Object.entries(counts).filter(([, count]) => Object.values(count).some((value) => value !== ""));
+    if (!entries.length) return toast.error("Ingrese cantidades para al menos un producto.");
+    if (entries.some(([, count]) => Object.values(count).some((value) => value !== "" && (!/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 99999999))))
+      return toast.error("Las cantidades deben tener hasta dos decimales.");
+    const items = entries.map(([id, count]) => ({ productId: Number(id), wholesale: Number(count.wholesale || 0), dispatch: Number(count.dispatch || 0), display: Number(count.display || 0) }));
+    const action = opening ? "cerrar" : "abrir";
+    openDialog({
+      title: opening ? "Cerrar almacén" : "Abrir almacén",
+      content: <p>Se registrarán {items.length} productos con cantidades ingresadas. ¿Desea {action} el almacén?</p>,
+      confirmText: opening ? "Cerrar almacén" : "Abrir almacén",
+      onConfirm: async () => {
+        const url = opening ? `/warehouse/opening/${opening.id}/close` : "/warehouse/opening";
+        const result = await apiRequest<{ ok: boolean }>({ url: buildApiUrl(url), method: "POST", data: { items } });
+        if (!result || typeof result !== "object" || !("ok" in result) || result.ok !== true) {
+          const error = result as { response?: { data?: { mensaje?: string } } };
+          toast.error(error?.response?.data?.mensaje || "No se pudo registrar la operación.");
+          return false;
+        }
+        setCounts({});
+        toast.success(opening ? "Cierre registrado." : "Apertura registrada.");
+        await loadOpening();
+        return true;
+      },
+    });
+  };
+
   return (
     <div className="space-y-4 p-2 sm:p-4">
       {boxError && <Alert severity="error">No se pudieron cargar las unidades por caja. El conteo por mayor no está disponible.</Alert>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm text-slate-600">{openingReady ? opening ? `Almacén abierto por ${opening.usuario}` : "Almacén sin apertura pendiente" : "Consultando estado del almacén..."}</span>
+        <Button variant="contained" color="primary" disabled={!openingReady || boxError || loading} onClick={confirmSave}>{opening ? "Cerrar almacén" : "Abrir almacén"}</Button>
+      </div>
       <CountContext.Provider value={context}>
         <DataTable columns={columns} data={filtered} manualFiltering isLoading={loading} initialPageSize={100} persistPageSize={false} tableMaxHeight="60vh" stickyHeader searchPlaceholder="Buscar producto por código o nombre" globalFilterValue={search} onGlobalFilterValueChange={setSearch} emptyMessage={deferredSearch.trim() ? "No hay productos que coincidan con la búsqueda." : "No hay productos disponibles."} footerContent={<span className="text-sm font-semibold text-slate-700">Productos: {filtered.length}</span>} />
       </CountContext.Provider>
