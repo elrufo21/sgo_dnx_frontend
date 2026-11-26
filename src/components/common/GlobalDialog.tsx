@@ -11,7 +11,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { Save, X } from "lucide-react";
-import { useDialogStore } from "@/store/app/dialog.store";
+import { useDialogStore } from "@/app/store/dialog.store";
 
 export function GlobalDialog() {
   const theme = useTheme();

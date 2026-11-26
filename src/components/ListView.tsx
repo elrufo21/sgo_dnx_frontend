@@ -4,7 +4,7 @@ import DataTable from "@/components/DataTable";
 import { Pencil, PlusIcon, Trash2 } from "lucide-react";
 import { toast } from "@/shared/ui/toast";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
-import { useDialogStore } from "@/store/app/dialog.store";
+import { useDialogStore } from "@/app/store/dialog.store";
 import { BackArrowButton } from "@/components/common/BackArrowButton";
 
 export interface ColumnConfig<T> {
@@ -13,22 +13,6 @@ export interface ColumnConfig<T> {
   id?: string;
   render?: (row: T) => ReactNode;
   tdClassName?: string | ((row: T) => string | undefined);
-}
-
-export interface CrudListConfig<T> {
-  basePath: string;
-  columns: ColumnConfig<T>[];
-  idKey?: keyof T & string;
-  createLabel?: string;
-  deleteMessage?: string;
-  filterKeys?: (keyof T & string)[];
-  renderFilters?: React.ReactNode;
-  footerContent?: React.ReactNode;
-  onFilteredDataChange?: (rows: T[]) => void;
-  toolbarActions?: ReactNode;
-  onCreate?: () => void;
-  onEdit?: (row: T, id: number) => void;
-  showBackButton?: boolean;
 }
 
 interface CrudListProps<T> {

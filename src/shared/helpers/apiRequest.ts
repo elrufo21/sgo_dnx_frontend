@@ -1,5 +1,5 @@
 import axios, { type AxiosRequestConfig, type Method } from "axios";
-import { API_BASE_URL } from "@/config";
+import { API_BASE_URL } from "@/shared/config/api";
 
 interface ApiRequestParams<TBody = unknown, TFallback = unknown> {
   url: string;

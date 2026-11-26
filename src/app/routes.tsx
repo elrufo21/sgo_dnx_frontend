@@ -1,25 +1,25 @@
 import { Navigate, RouterProvider, createBrowserRouter } from "react-router";
-import cashFlowRoutes from "@/features/cashFlow/routes";
-import maintenanceRoutes from "@/features/maintenance/routes";
-import productRoutes from "@/features/products/routes";
-import customerRoutes from "../features/customers/routes";
-import salesRoutes from "../features/sales/routes";
-import reportsRoutes from "../features/reports/routes";
-import posRoutes from "../features/pos/routes";
-import purchansesRoutes from "../features/purchanses/routes";
-import shoppingRoutes from "../features/shopping/routes";
-import sendNoteRoutes from "../features/sendNote/routes";
-import serviceInvoiceRoutes from "../features/serviceInvoices/routes";
-import boletasSummaryRoutes from "../features/boletasSummary/routes";
-import configurationRoutes from "../features/configuration/routes";
-import accountingRoutes from "../features/accounting/routes";
-import MainLayout from "./layouts/MainLayout";
+import cashFlowRoutes from "./cashFlow/routes";
+import maintenanceRoutes from "./maintenance/routes";
+import productRoutes from "./products/routes";
+import customerRoutes from "./customers/routes";
+import salesRoutes from "./sales/routes";
+import reportsRoutes from "./reports/routes";
+import posRoutes from "./pos/routes";
+import purchasesRoutes from "./purchases/routes";
+import shoppingRoutes from "./shopping/routes";
+import sendNoteRoutes from "./sendNote/routes";
+import serviceInvoiceRoutes from "./serviceInvoices/routes";
+import boletasSummaryRoutes from "./boletasSummary/routes";
+import configurationRoutes from "./configuration/routes";
+import accountingRoutes from "./accounting/routes";
+import MainLayout from "./layout/MainLayout";
 import { RedirectIfAuthenticated, RequireAuth } from "./guards/AuthGuard";
-import LoginPage from "@/features/auth/LoginPage";
+import LoginPage from "./auth/pages/LoginPage";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
-import { ModuleAccessGuard } from "@/shared/security/ModuleAccessGuard";
+import { ModuleAccessGuard } from "./guards/ModuleAccessGuard";
 import { AccessDeniedPage } from "./AccessDeniedPage";
-import WarehouseInventoryPage from "@/features/warehouse/pages/WarehouseInventoryPage";
+import warehouseRoutes from "./warehouse/routes";
 
 const router = createBrowserRouter([
   {
@@ -53,7 +53,7 @@ const router = createBrowserRouter([
           ...salesRoutes,
           ...reportsRoutes,
           ...posRoutes, // legacy direct routes (kept for compatibility if needed)
-          ...purchansesRoutes, // legacy direct routes
+          ...purchasesRoutes, // legacy direct routes
           ...shoppingRoutes, // legacy direct routes
           ...sendNoteRoutes, // legacy direct routes
           ...serviceInvoiceRoutes,
@@ -62,9 +62,7 @@ const router = createBrowserRouter([
           ...accountingRoutes,
           ...maintenanceRoutes,
           ...cashFlowRoutes,
-          { path: "warehouse", element: <WarehouseInventoryPage />, handle: { breadcrumb: [{ label: "Apertura y cierre de almacén" }] } },
-          { path: "logistica/guia-salida", element: <></>, handle: { breadcrumb: [{ label: "Guía de salida" }] } },
-          { path: "logistica/guia-ingreso", element: <></>, handle: { breadcrumb: [{ label: "Guía de ingreso" }] } },
+          ...warehouseRoutes,
           { path: "*", element: <h1>404 - Not Found</h1> },
         ],
       },

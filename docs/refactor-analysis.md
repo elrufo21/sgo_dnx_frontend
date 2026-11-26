@@ -14,11 +14,11 @@ Cada módulo (empleados, áreas, categorías, computadoras, etc.) expone un arch
 - **Textos**: mensajes de toast y confirmaciones (`labels.successCreate`, `confirmDeleteMessage`, etc.).
 - **Hooks opcionales**: `onAfterSave`, `onError`, flags (`supportsCreate`, `supportsDelete`).
 
-### Ejemplo (borrador) `src/features/maintenance/employees/employee.config.ts`
+### Ejemplo (borrador) `src/app/maintenance/employees/employee.config.ts`
 
 ```ts
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Personal } from "@/types/employees";
+import type { Personal } from "@/app/maintenance/employees/types/employees";
 import { isEmail, isDni } from "@/shared/validators";
 
 export const employeeConfig = {
@@ -93,7 +93,7 @@ export const employeeConfig = {
 
 ## Infraestructura de soporte
 
-- `src/config.ts`: API base/global; per-módulo configs viven junto a cada feature.
+- `src/shared/config/api.ts`: API base/global; per-módulo configs viven junto a cada feature.
 - `src/shared/api/client.ts`: `request(path, options) => ApiResult`; acepta path relativo y usa `API_BASE_URL`. Devuelve `{ ok, data, status, message }`.
 - `src/shared/validators.ts`: `isEmail`, `isDni`, `required`, `minLength`, etc.
 - `src/shared/normalizers.ts`: helpers genéricos si aplica; la mayoría van en cada config.
@@ -103,7 +103,7 @@ export const employeeConfig = {
 
 ## Refactor propuesto (pasos)
 
-1. **Infra mínima**: añadir `src/config.ts` (API base), `shared/api/client.ts`, `shared/validators.ts`, `shared/ui/toast.ts`, `shared/ui/confirmDelete.tsx`.
+1. **Infra mínima**: añadir `src/shared/config/api.ts` (API base), `shared/api/client.ts`, `shared/validators.ts`, `shared/ui/toast.ts`, `shared/ui/confirmDelete.tsx`.
 2. **Config de listados**: definir configs por módulo (ej. `employee.list.config.ts`, `category.list.config.ts`, `area.list.config.ts`) y usar `CrudList` consumiendo esos objetos para columnas, rutas y textos.
 3. **Config por módulo (formularios y API)**: crear `employee.config.ts` (normalizadores, endpoints) y ajustar stores a usar `api.client` + normalizadores del config.
 4. **Extender a áreas/categorías/computadoras**: crear sus configs y adaptar stores a consumirlos (payloads/normalización/labels).

@@ -7,8 +7,8 @@ const ExcelJS = require("exceljs");
 const JSZip = require("jszip");
 
 async function main() {
-  const filename = path.resolve("src/features/accounting/pages/inventoryKardexExport.ts");
-  const modules = ["@/config", "@/shared/helpers/apiRequest"];
+  const filename = path.resolve("src/app/accounting/helpers/inventoryKardexExport.ts");
+  const modules = ["@/shared/config/api", "@/shared/helpers/apiRequest"];
   const result = await esbuild.build({
     entryPoints: [filename], bundle: true, platform: "node", format: "cjs", packages: "external",
     external: modules, write: false,

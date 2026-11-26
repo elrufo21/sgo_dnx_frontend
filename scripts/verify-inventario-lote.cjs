@@ -6,16 +6,16 @@ const JSZip = require("jszip");
 const ExcelJS = require("exceljs");
 
 async function main() {
-  const filename = path.resolve("src/features/accounting/pages/inventoryPreviewData.ts");
+  const filename = path.resolve("src/app/accounting/services/inventoryPreviewData.ts");
   const result = await esbuild.build({
     entryPoints: [filename], bundle: true, platform: "node", format: "cjs", packages: "external",
-    external: ["@/config", "@/shared/helpers/apiRequest"], write: false,
+    external: ["@/shared/config/api", "@/shared/helpers/apiRequest"], write: false,
   });
   let failCode = "";
   const requested = [];
   const originalLoad = Module._load;
   Module._load = function (name, ...args) {
-    if (name === "@/config") return { buildApiUrl: (url) => url };
+    if (name === "@/shared/config/api") return { buildApiUrl: (url) => url };
     if (name === "@/shared/helpers/apiRequest") return {
       apiRequest: async ({ url, method, data }) => {
         assert.equal(url, "/InventarioVistaPrevia/lote");

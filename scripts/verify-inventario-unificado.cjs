@@ -3,7 +3,7 @@ const esbuild = require("esbuild");
 const vm = require("node:vm");
 
 const result = esbuild.buildSync({
-  entryPoints: ["src/features/accounting/pages/inventoryProductMapping.ts"],
+  entryPoints: ["src/app/accounting/helpers/inventoryProductMapping.ts"],
   bundle: true,
   platform: "node",
   format: "cjs",

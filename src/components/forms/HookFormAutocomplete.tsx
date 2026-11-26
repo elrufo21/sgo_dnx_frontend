@@ -31,6 +31,7 @@ type BaseOption = {
 } & Record<string, unknown>;
 
 type CreateOption = BaseOption & { inputValue?: string };
+const emptyOptions: never[] = [];
 type MuiKeyboardEvent = KeyboardEvent<HTMLInputElement> & {
   defaultMuiPrevented?: boolean;
 };
@@ -41,7 +42,8 @@ interface HookFormAutocompleteProps<
 > {
   name: Path<T>;
   label: string;
-  options: TOption[];
+  options?: TOption[];
+  getSuggestions?: (inputValue: string) => TOption[];
   rules?: RegisterOptions<T>;
   placeholder?: string;
   getOptionLabel?: (option: TOption) => string;
@@ -86,7 +88,8 @@ export function HookFormAutocomplete<
 >({
   name,
   label,
-  options,
+  options: providedOptions = emptyOptions,
+  getSuggestions,
   rules,
   placeholder = "Seleccionar...",
   getOptionLabel,
@@ -120,6 +123,11 @@ export function HookFormAutocomplete<
   const ctrl = control ?? methods.control;
   const watchedValue = useWatch({ control: ctrl, name });
   const [inputValue, setInputValue] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const options = useMemo(
+    () => getSuggestions && isOpen ? getSuggestions(inputValue) : providedOptions,
+    [getSuggestions, inputValue, isOpen, providedOptions],
+  );
   const inputElementRef = useRef<HTMLInputElement | null>(null);
   const skipNextBlurRef = useRef(false);
   const blurTimerRef = useRef<number | null>(null);
@@ -173,6 +181,7 @@ export function HookFormAutocomplete<
     opts: (TOption & { inputValue?: string })[],
     params: FilterOptionsState<TOption & { inputValue?: string }>,
   ) => {
+    if (getSuggestions) return opts;
     const effectiveInputValue = String(inputValue || params.inputValue || "");
     const normalizedState = {
       ...params,
@@ -224,12 +233,17 @@ export function HookFormAutocomplete<
       resolvedWatchedValue === null || resolvedWatchedValue === undefined
         ? ""
         : String(resolvedWatchedValue);
+    if (getSuggestions) {
+      // Clearing a previous selection must leave the in-progress search visible.
+      if (watchedText || !isInputFocused) setInputValue(watchedText);
+      return;
+    }
     if (isInputFocused && syncInputToValue && watchedText === "") {
       setInputValue("");
       return;
     }
     const selectedOption =
-      options.find((opt) => defaultIsEqual(opt, watchedValue)) ?? null;
+      providedOptions.find((opt) => defaultIsEqual(opt, watchedValue)) ?? null;
 
     if (isInputFocused && !(syncSelectedWhileFocused && selectedOption)) return;
 
@@ -256,7 +270,8 @@ export function HookFormAutocomplete<
     allowCreate,
     defaultGetOptionLabel,
     defaultIsEqual,
-    options,
+    getSuggestions,
+    providedOptions,
     watchedValue,
     syncInputToValue,
     syncSelectedWhileFocused,
@@ -340,6 +355,8 @@ export function HookFormAutocomplete<
               fullWidth
               size="small"
               options={options}
+              onOpen={getSuggestions ? () => setIsOpen(true) : undefined}
+              onClose={getSuggestions ? () => setIsOpen(false) : undefined}
               value={normalizedValue}
               inputValue={inputValue}
               freeSolo={allowCreate}
@@ -363,7 +380,7 @@ export function HookFormAutocomplete<
                   inputElementRef.current?.value ?? inputValue;
                 field.onBlur();
                 if (blurTimerRef.current) window.clearTimeout(blurTimerRef.current);
-                blurTimerRef.current = window.setTimeout(() => {
+                const finishBlur = () => {
                   blurTimerRef.current = null;
                   if (skipNextBlurRef.current) {
                     skipNextBlurRef.current = false;
@@ -376,7 +393,12 @@ export function HookFormAutocomplete<
                     selectedOption,
                     value: field.value,
                   });
-                }, 0);
+                  if (getSuggestions) {
+                    setInputValue(String(methods.getValues(name) ?? ""));
+                  }
+                };
+                if (getSuggestions) finishBlur();
+                else blurTimerRef.current = window.setTimeout(finishBlur, 0);
               }}
               onInputChange={(_, newInputValue, reason) => {
                 if (reason === "clear") {
@@ -386,8 +408,8 @@ export function HookFormAutocomplete<
                   return;
                 }
 
-                if (reason === "reset") {
-                  setInputValue(newInputValue);
+                if (reason === "reset" || (getSuggestions && reason !== "input")) {
+                  if (!getSuggestions) setInputValue(newInputValue);
                   return;
                 }
 
@@ -402,7 +424,7 @@ export function HookFormAutocomplete<
                   return;
                 }
 
-                if (reason === "input" && selectedOption) {
+                if (reason === "input" && selectedOption && !getSuggestions) {
                   const selectedLabel = defaultGetOptionLabel(selectedOption);
                   if (nextInputValue !== selectedLabel) {
                     field.onChange(null);
@@ -412,6 +434,7 @@ export function HookFormAutocomplete<
                 if (reason === "input") onInputValueChange?.(nextInputValue);
               }}
               onChange={(event, option) => {
+                if (getSuggestions && typeof option === "string") return;
                 const moveToNext = () => {
                   const source = event.target as HTMLElement;
                   const moved = focusNextInput(source);

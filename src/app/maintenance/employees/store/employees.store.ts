@@ -1,0 +1,265 @@
+import { create } from "zustand";
+
+import { apiRequest } from "@/shared/helpers/apiRequest";
+import { buildApiUrl } from "@/shared/config/api";
+import { queryClient } from "@/shared/queryClient";
+import type { Employee, Personal } from "@/app/maintenance/employees/types/employees";
+
+export const employeesQueryKey = ["employees"] as const;
+export const maintenanceEmployeesQueryKey = ["employees", "maintenance"] as const;
+
+interface EmployeesState {
+  employees: Employee[];
+  loading: boolean;
+
+  fetchEmployees: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
+  fetchMaintenanceEmployees: (estado?: "ACTIVO" | "INACTIVO" | "") => Promise<void>;
+  addMaintenanceEmployee: (
+    employee: Omit<Employee, "personalId"> & {
+      imageFile?: File | null;
+      imageRemoved?: boolean;
+    }
+  ) => Promise<boolean>;
+  updateMaintenanceEmployee: (
+    id: number,
+    data: Partial<Employee> & {
+      imageFile?: File | null;
+      imageRemoved?: boolean;
+    }
+  ) => Promise<boolean>;
+  deleteMaintenanceEmployee: (id: number) => Promise<boolean>;
+}
+
+const mapApiToEmployee = (item: any): Personal => ({
+  personalId: item?.personalId ?? item?.id ?? item?.PersonalId ?? 0,
+  personalNombres:
+    item?.personalNombres ?? item?.PersonalNombres ?? item?.nombres ?? "",
+  personalApellidos:
+    item?.personalApellidos ?? item?.PersonalApellidos ?? item?.apellidos ?? "",
+  areaId: item?.areaId ?? item?.AreaId ?? null,
+  personalCodigo:
+    item?.personalCodigo ?? item?.PersonalCodigo ?? item?.codigo ?? "",
+  personalNacimiento:
+    item?.personalNacimiento ?? item?.PersonalNacimiento ?? null,
+  personalIngreso: item?.personalIngreso ?? item?.PersonalIngreso ?? null,
+  personalDni:
+    item?.personalDni ??
+    item?.personalDNI ??
+    item?.PersonalDNI ??
+    item?.dni ??
+    "",
+  personalDireccion:
+    item?.personalDireccion ?? item?.PersonalDireccion ?? item?.direccion ?? "",
+  personalTelefono:
+    item?.personalTelefono ?? item?.PersonalTelefono ?? item?.telefono ?? "",
+  personalTelefonoAsi:
+    item?.personalTelefonoAsi ?? item?.PersonalTelefonoAsi ?? item?.telefonoAsi ?? "",
+  personalEmail:
+    item?.personalEmail ?? item?.PersonalEmail ?? item?.correo ?? "",
+  personalSueldo: item?.personalSueldo ?? item?.PersonalSueldo ?? null,
+  personalEstado:
+    item?.personalEstado ?? item?.PersonalEstado ?? item?.estado ?? "ACTIVO",
+  personalBajaFecha: item?.personalBajaFecha ?? item?.PersonalBajaFecha ?? "",
+  personalRuc: item?.personalRuc ?? item?.PersonalRuc ?? "",
+  personalImagen:
+    item?.personalImagen ?? item?.PersonalImagen ?? item?.foto ?? null,
+  companiaId: item?.companiaId ?? item?.CompaniaId ?? null,
+  huellaRegistrada:
+    item?.huellaRegistrada ?? item?.HuellaRegistrada ?? null,
+});
+
+const buildPersonalFormData = (
+  data: Partial<Employee> & { imageFile?: File | null; imageRemoved?: boolean },
+  idOverride?: number
+) => {
+  const payload = {
+    personalId: idOverride ?? data.personalId ?? 0,
+    personalNombres: data.personalNombres ?? "",
+    personalApellidos: data.personalApellidos ?? "",
+    areaId: data.areaId ?? 0,
+    personalCodigo:
+      (data.personalCodigo ?? "").toString().trim().toUpperCase() ?? "",
+    personalNacimiento: data.personalNacimiento ?? "",
+    personalIngreso: data.personalIngreso ?? "",
+    personalDNI: data.personalDni ?? "",
+    personalDireccion: data.personalDireccion ?? "",
+    personalTelefono: data.personalTelefono ?? "",
+    personalTelefonoAsi: data.personalTelefonoAsi ?? "",
+    personalEmail: data.personalEmail ?? "",
+    personalSueldo: data.personalSueldo ?? "",
+    personalEstado: data.personalEstado ?? "ACTIVO",
+    personalBajaFecha: data.personalBajaFecha ?? "",
+    personalRuc: data.personalRuc ?? "",
+    personalImagen: data.personalImagen ?? "",
+    companiaId: data.companiaId ?? 1,
+  };
+
+  const formData = new FormData();
+  Object.entries(payload).forEach(([key, value]) => {
+    formData.append(
+      key,
+      value === null || value === undefined ? "" : String(value)
+    );
+  });
+
+  if (data.imageFile instanceof File) {
+    formData.append("imagen", data.imageFile);
+  }
+  if (data.imageRemoved) {
+    formData.append("eliminarImagen", "true");
+  }
+
+  return { formData, payload };
+};
+
+const isMaintenanceSuccess = (response: unknown) =>
+  typeof response === "string" && response.trim().toUpperCase().startsWith("OK|");
+
+const getMaintenanceId = (response: unknown, fallback: number) => {
+  if (typeof response !== "string") return fallback;
+  const value = Number(response.split("|")[1]?.trim());
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
+export const useEmployeesStore = create<EmployeesState>((set) => ({
+  employees: [],
+  loading: false,
+
+  fetchEmployees: async (estado = "ACTIVO") => {
+    set({ loading: true });
+    try {
+      const response = await queryClient.fetchQuery({
+        queryKey: employeesQueryKey,
+        queryFn: async () => {
+          const query =
+            estado && estado.trim() !== ""
+              ? `?estado=${encodeURIComponent(estado)}`
+              : "";
+          const data = await apiRequest<Personal[]>({
+            url: `${buildApiUrl("/Personal/list")}${query}`,
+            method: "GET",
+            fallback: [],
+          });
+          return data ?? [];
+        },
+      });
+      set({
+        employees: (response ?? []).map(mapApiToEmployee),
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Error loading employees", error);
+      set({ loading: false });
+    }
+  },
+
+  fetchMaintenanceEmployees: async (estado = "ACTIVO") => {
+    set({ loading: true });
+    try {
+      const response = await queryClient.fetchQuery({
+        queryKey: [...maintenanceEmployeesQueryKey, estado],
+        queryFn: async () => {
+          const query = estado && estado.trim() !== ""
+            ? `?estado=${encodeURIComponent(estado)}`
+            : "";
+          return await apiRequest<Personal[]>({
+            url: `${buildApiUrl("/Personal/maintenance/list")}${query}`,
+            method: "GET",
+            fallback: [],
+          });
+        },
+      });
+      set({ employees: (response ?? []).map(mapApiToEmployee), loading: false });
+    } catch (error) {
+      console.error("Error loading maintenance employees", error);
+      set({ loading: false });
+    }
+  },
+
+  addMaintenanceEmployee: async (employee) => {
+    const { formData, payload } = buildPersonalFormData(employee, 0);
+    const response = await apiRequest<string | null>({
+      url: buildApiUrl("/Personal/maintenance/registerpersonal"),
+      method: "POST",
+      data: formData,
+      fallback: null,
+    });
+    if (!isMaintenanceSuccess(response)) return false;
+
+    set((state) => ({
+      employees: [
+        ...state.employees,
+        mapApiToEmployee({ ...payload, personalId: getMaintenanceId(response, Date.now()) }),
+      ],
+    }));
+    await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    return true;
+  },
+
+  updateMaintenanceEmployee: async (id, data) => {
+    const { formData, payload } = buildPersonalFormData(data, id);
+    const response = await apiRequest<string | null>({
+      url: buildApiUrl("/Personal/maintenance/registerpersonal"),
+      method: "POST",
+      data: formData,
+      fallback: null,
+    });
+    if (!isMaintenanceSuccess(response)) return false;
+
+    set((state) => ({
+      employees: state.employees.map((employee) =>
+        String(employee.personalId) === String(id)
+          ? mapApiToEmployee({ ...payload, personalId: id })
+          : employee,
+      ),
+    }));
+    await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    return true;
+  },
+
+  deleteMaintenanceEmployee: async (id) => {
+    const response = await apiRequest<boolean | string | null>({
+      url: buildApiUrl(`/Personal/maintenance/${id}`),
+      method: "DELETE",
+      config: { headers: { Accept: "*/*" } },
+      fallback: null,
+    });
+    if (response !== true && !isMaintenanceSuccess(response)) return false;
+
+    set((state) => ({
+      employees: state.employees.filter(
+        (employee) => String(employee.personalId) !== String(id),
+      ),
+    }));
+    try {
+      await queryClient.invalidateQueries({ queryKey: maintenanceEmployeesQueryKey });
+    } catch (error) {
+      console.error("No se pudo actualizar la caché de personal", error);
+    }
+    return true;
+  },
+}));
+
+export interface User {
+  UsuarioID: number;
+  PersonalId: number;
+  UsuarioAlias: string;
+  UsuarioClave: string;
+  UsuarioFechaReg: string;
+  UsuarioEstado: string;
+  Nombre?: string;
+  UsuarioSerie: string;
+  EnviaBoleta: number;
+  EnviarFactura: number;
+  EnviaNC: number;
+  EnviaND: number;
+  Administrador: number;
+  area?: string;
+  UserRuta?: string;
+  UserRutaOBS?: string;
+  RutaVentaOBS?: string;
+  RutaIOC?: string;
+  RutaApertura?: string;
+  FechaVencimientoClave?: string;
+  ClaveConfigurada?: boolean;
+}

@@ -58,6 +58,7 @@ npm run build:vercel
 
 ## Notas de arquitectura
 
-- El endpoint de backend se centraliza en `src/config.ts`.
+- La aplicación agrupa pantallas, formularios, servicios, stores y tipos por módulo en `src/app`. Consulta [Arquitectura modular del frontend](docs/frontend-architecture.md).
+- El endpoint de backend se centraliza en `src/shared/config/api.ts`.
 - Para construir endpoints se usa `buildApiUrl(path)`.
 - Evita hardcodes de host en componentes/stores para mantener escalabilidad por entorno.

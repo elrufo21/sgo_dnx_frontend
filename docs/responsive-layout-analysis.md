@@ -11,7 +11,7 @@ El análisis inicial se basó en el código y la captura entregada por el usuari
 | Área | Regla actual | Efecto |
 | --- | --- | --- |
 | Tailwind | `xl` = 80 rem, normalmente 1280 px; `2xl` = 96 rem, normalmente 1536 px | No existe un umbral compartido de escritorio en 1200 px. |
-| Estructura global | `src/App.css`: ajustes a 1536 px y entre 1024 y 1366 px | Cambian espacios, altura del encabezado y ancho del sidebar. No es la regla que apila por sí sola los paneles de Ventas. |
+| Estructura global | `src/shared/styles/app.css`: ajustes a 1536 px y entre 1024 y 1366 px | Cambian espacios, altura del encabezado y ancho del sidebar. No es la regla que apila por sí sola los paneles de Ventas. |
 | Ventas HTML | `HtmlCaptureSalePage.tsx`: dos columnas desde `xl`, formulario lateral de 420 px y 440 px desde `2xl` | Por debajo de 1280 px el formulario pasa debajo de los productos. |
 | Tabla de Ventas | Mínimo de 760 px desde `sm`, dentro de un contenedor con desplazamiento horizontal | Adelantar las dos columnas a 1200 px puede aumentar el desplazamiento si no se ajustan los anchos. |
 | Listados compartidos | `DataTable.tsx`: barra en fila desde `xl`; buscador de 26 rem desde `lg` y 34 rem desde `xl` | Buscador, filtros y acciones compiten por ancho. También pueden pasar de fila por `flex-wrap`, independientemente del breakpoint. |
@@ -46,7 +46,7 @@ Con la fuente raíz normal de 16 px, el sidebar abierto ocupa 220 px entre 1024 
 
 ## Implementación realizada
 
-- `src/App.css` define `--breakpoint-desktop: 75rem` (1200 px con tamaño inicial de fuente normal) mediante el tema de Tailwind 4. Se conserva `xl` para ampliar espaciado o buscadores; los cambios estructurales usan `desktop:`. `2xl` conserva mejoras de espacio para pantallas amplias, sin retirar operaciones del escritorio compacto.
+- `src/shared/styles/app.css` define `--breakpoint-desktop: 75rem` (1200 px con tamaño inicial de fuente normal) mediante el tema de Tailwind 4. Se conserva `xl` para ampliar espaciado o buscadores; los cambios estructurales usan `desktop:`. `2xl` conserva mejoras de espacio para pantallas amplias, sin retirar operaciones del escritorio compacto.
 - Estructura global: `MainLayout` permite encoger el contenido con `min-w-0`, mantiene la altura del encabezado con `shrink-0` y limita nombres de usuario largos con elipsis. El canal de scroll reserva un solo espacio vertical en lugar de ambos bordes. El menú mantiene su comportamiento móvil a 768 px y se puede contraer manualmente; sus botones tienen etiquetas accesibles.
 - El sidebar de escritorio se contrae automáticamente al entrar en un viewport menor a 1300 px y se expande al llegar a 1300 px. El botón manual sigue permitiendo cambiarlo hasta cruzar de nuevo ese umbral; el menú móvil bajo 768 px conserva su panel superpuesto.
 - `DataTable` mantiene sus tarjetas móviles a 768 px y limita sus bloques al ancho disponible. Los listados con buscador y rango de fechas usan `filters-inline`: hasta 1200 px conservan ambos controles en una sola fila, con campos de fecha compactos y desplazamiento horizontal solo si el ancho no alcanza. `SearchInput` conserva su tamaño preferido en tablas regulares.

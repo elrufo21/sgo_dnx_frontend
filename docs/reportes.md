@@ -18,9 +18,9 @@ En **Reporte de ventas**, vaciar el año, dejarlo incompleto o escribir un valor
 
 ## Implementación web
 
-- `src/features/reports/routes.tsx` registra las dos páginas y conserva `/reports` como redirección al reporte anual.
-- `src/store/products/products.store.ts` entrega el catálogo activo usado por el selector.
-- `src/store/reports/productSalesReport.store.ts` carga y conserva la consulta por producto y año.
+- `src/app/reports/routes.tsx` registra las dos páginas y conserva `/reports` como redirección al reporte anual.
+- `src/app/products/store/products.store.ts` entrega el catálogo activo usado por el selector.
+- `src/app/reports/store/productSalesReport.store.ts` carga y conserva la consulta por producto y año.
 - `GET /api/v1/SalesReport/products/monthly?year=YYYY&productId=ID` obtiene los totales mensuales con parámetros SQL y el permiso `VENTAS.VER`.
 
 El reporte de productos no depende de los procedimientos históricos `uspResumenDetalle` o `uspResumenDetalleZ`; esos objetos no están conectados en el flujo de procedimientos desplegados por la web.

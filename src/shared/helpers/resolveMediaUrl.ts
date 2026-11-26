@@ -1,4 +1,4 @@
-import { buildRootApiUrl } from "@/config";
+import { buildRootApiUrl } from "@/shared/config/api";
 
 export const resolveMediaUrl = (value?: string | null) => {
   const url = String(value ?? "").trim();

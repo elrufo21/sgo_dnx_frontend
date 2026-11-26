@@ -28,7 +28,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import SearchInput from "@/components/inputs/SearchInput";
-import { useDialogStore } from "@/store/app/dialog.store";
+import { useDialogStore } from "@/app/store/dialog.store";
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -113,6 +113,9 @@ const alignmentClass: Record<"left" | "center" | "right", string> = {
 
 const resolveAlignmentClass = (align?: "left" | "center" | "right") =>
   alignmentClass[align ?? "left"];
+
+const getColumnAlignment = (meta?: { align?: "left" | "center" | "right"; tdClassName?: unknown }) =>
+  meta?.align ?? (typeof meta?.tdClassName === "string" && /(?:^|\s)text-right(?:\s|$)/.test(meta.tdClassName) ? "right" : undefined);
 
 const resolveHeaderLabel = (header: unknown, fallback: string) => {
   if (typeof header === "string") return header;
@@ -642,7 +645,7 @@ export default function DataTable<T extends RowData>({
                       typeof tdClassName === "function"
                         ? (tdClassName(cell) ?? "")
                         : (tdClassName ?? "");
-                    const align = cell.column.columnDef.meta?.align;
+                    const align = getColumnAlignment(cell.column.columnDef.meta);
                     const label = resolveHeaderLabel(
                       cell.column.columnDef.header,
                       String(cell.column.id ?? "Campo"),
@@ -693,7 +696,7 @@ export default function DataTable<T extends RowData>({
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} className="border-b border-slate-200">
                 {hg.headers.map((header) => {
-                  const align = header.column.columnDef.meta?.align;
+                  const align = getColumnAlignment(header.column.columnDef.meta);
                   const thClass =
                     header.column.columnDef.meta?.thClassName ?? "";
 
@@ -717,7 +720,7 @@ export default function DataTable<T extends RowData>({
             {renderHeaderFilterCell ? (
               <tr className="border-b border-slate-200 bg-white normal-case tracking-normal text-slate-700">
                 {table.getVisibleLeafColumns().map((column) => {
-                  const align = column.columnDef.meta?.align;
+                  const align = getColumnAlignment(column.columnDef.meta);
                   const thClass = column.columnDef.meta?.thClassName ?? "";
 
                   return (
@@ -779,7 +782,7 @@ export default function DataTable<T extends RowData>({
                         typeof tdClassName === "function"
                           ? (tdClassName(cell) ?? "")
                           : (tdClassName ?? "");
-                      const align = cell.column.columnDef.meta?.align;
+                      const align = getColumnAlignment(cell.column.columnDef.meta);
 
                       return (
                         <td

@@ -9,12 +9,12 @@ let response;
 const context = vm.createContext({ console, URLSearchParams });
 const dependencies = {
   "zustand": { create },
-  "@/config": { API_BASE_URL: "http://test/api/v1" },
+  "@/shared/config/api": { API_BASE_URL: "http://test/api/v1" },
   "@/shared/helpers/apiRequest": { apiRequest: async () => response },
   "@/shared/helpers/localDate": { getLocalDateISO: () => "2026-10-26" },
 };
 const code = ts.transpileModule(
-  fs.readFileSync(new URL("../src/store/orderNote/orderNote.store.ts", import.meta.url), "utf8"),
+  fs.readFileSync(new URL("../src/app/orderNotes/store/orderNote.store.ts", import.meta.url), "utf8"),
   { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } },
 ).outputText;
 const module = new vm.SourceTextModule(code, { context });

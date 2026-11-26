@@ -5,7 +5,7 @@ const esbuild = require("esbuild");
 const ExcelJS = require("exceljs");
 
 async function main() {
-  const filename = path.resolve("src/features/accounting/pages/inventoryPreviewExport.ts");
+  const filename = path.resolve("src/app/accounting/helpers/inventoryPreviewExport.ts");
   const result = await esbuild.build({ entryPoints: [filename], bundle: true, platform: "node", format: "cjs", packages: "external", write: false });
   const loaded = new Module(filename, module);
   loaded.filename = filename;

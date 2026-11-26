@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
-import { indexProductCatalog, searchProductCatalog } from "../src/features/sales/helpers/productCatalogSearch.ts";
+import { indexProductCatalog, searchProductCatalog } from "../src/app/sales/helpers/productCatalogSearch.ts";
 
 const products = [
   { codigo: "25IAP027", nombre: "DXN KIMONO - TALLA M", estado: "ACTIVO" },

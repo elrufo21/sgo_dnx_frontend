@@ -6,13 +6,17 @@ Conservar una captura de venta recibida desde la extensión DXN cuando el usuari
 
 ## Funcionamiento
 
+Al registrar una boleta o una factura aceptada, si el cliente tiene correo registrado, se muestra un diálogo con la dirección. **Aceptar** envía el comprobante y **Ignorar** cierra el aviso. Las ventas pendientes de Pago Varios esperan su confirmación y los comprobantes rechazados o pendientes de aceptación conservan su flujo actual.
+
 1. Al recibir el mensaje `SGO_DXN_CAPTURE`, la pantalla de captura guarda los datos en `sessionStorage` y continúa aplicándolos al formulario como antes.
 2. Al volver a `/sales/html_capture/new` en la misma pestaña, la captura se recupera y se aplica de nuevo.
 3. El borrador se elimina cuando el usuario pulsa **Limpiar**, inicia un **Nuevo registro**, quita el último producto, confirma una venta correctamente, cierra la pestaña o pasan dos horas.
 4. Al confirmar una venta, la pantalla también indica a la extensión que descarte la captura pendiente. Así no se vuelve a cargar al regresar al formulario.
 5. Desde la confirmación hasta abrir un nuevo registro, la pantalla bloquea cualquier guardado automático o mensaje tardío de la extensión para que una venta ya emitida no vuelva a convertirse en borrador.
 6. Al abrir una venta desde Lista de ventas, sus datos se mantienen solo en consulta; al volver a Ventas se descarta esa vista y nunca se guarda ni se restaura como borrador. Los borradores manuales se identifican como creados desde el formulario `/new`; los datos antiguos con una correlativa de una venta registrada también se descartan.
-7. Al editar el RUC, se desvinculan los datos del cliente previamente seleccionado. El autocomplete consulta solo `ClienteRuc` mediante `rucOnly=true`; no usa la búsqueda general por DNI, nombre o código. La selección automática requiere los 11 dígitos y una única coincidencia exacta. Si no hay coincidencia, el RUC escrito se conserva. Al reconciliar los valores del formulario, el cliente se resuelve por código, RUC y nombre antes de usar el DNI, porque puede haber fichas distintas con DNI duplicado.
+7. Código, Cliente y RUC buscan en un índice del catálogo completo en memoria. Código filtra exclusivamente por el código del cliente. El menú muestra hasta 15 coincidencias, con prioridad para coincidencias exactas y luego por prefijo. El índice se actualiza cuando cambia el catálogo y el texto parcial se mantiene en el campo de búsqueda. El DNI está bloqueado.
+8. Al editar el RUC, se desvinculan los datos del cliente previamente seleccionado. Las sugerencias se buscan solo por RUC y la selección automática requiere 11 dígitos y una única coincidencia en el catálogo. Si no hay una selección válida, se conserva el RUC escrito al salir del campo.
+9. Los campos DNI y RUC comparten la misma alineación vertical cuando aparecen en la misma fila.
 
 ## Alcance y seguridad
 

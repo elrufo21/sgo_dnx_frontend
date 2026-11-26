@@ -4,12 +4,12 @@ const path = require("node:path");
 const esbuild = require("esbuild");
 
 async function main() {
-  const filename = path.resolve("src/features/accounting/pages/inventoryInitialStock.ts");
-  const result = await esbuild.build({ entryPoints: [filename], bundle: true, platform: "node", format: "cjs", external: ["@/config", "@/shared/helpers/apiRequest"], write: false });
+  const filename = path.resolve("src/app/accounting/services/inventoryInitialStock.ts");
+  const result = await esbuild.build({ entryPoints: [filename], bundle: true, platform: "node", format: "cjs", external: ["@/shared/config/api", "@/shared/helpers/apiRequest"], write: false });
   const calls = [];
   const originalLoad = Module._load;
   Module._load = function (name, ...args) {
-    if (name === "@/config") return { buildApiUrl: (url) => url };
+    if (name === "@/shared/config/api") return { buildApiUrl: (url) => url };
     if (name === "@/shared/helpers/apiRequest") return { apiRequest: async (request) => { calls.push(request); return []; } };
     return originalLoad.call(this, name, ...args);
   };

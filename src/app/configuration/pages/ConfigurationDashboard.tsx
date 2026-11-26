@@ -1,0 +1,114 @@
+import { ArrowRight, FileBadge2, KeyRound, Layers3, Mail, ShieldCheck, Send, CalendarClock, Percent } from "lucide-react";
+import { useNavigate } from "react-router";
+import { useAuthStore } from "@/app/auth/store/auth.store";
+import { hasPermission } from "@/shared/security/permissions";
+
+export default function ConfigurationDashboard() {
+  const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+
+  const items = [
+    {
+      title: "Facturación",
+      desc: "Configura certificado digital y credenciales SOL.",
+      icon: <FileBadge2 className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/billing",
+      permission: "CONFIGURACION.FACTURACION",
+    },
+    {
+      title: "Credenciales SUNAT",
+      desc: "Configura las claves API para SIRE y validación de comprobantes.",
+      icon: <KeyRound className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/sunat",
+      permission: "CONFIGURACION.FACTURACION",
+    },
+    {
+      title: "Ventas y boletas",
+      desc: "Configura envío de boletas, captura y vista de productos.",
+      icon: <Layers3 className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/boleta-batch",
+      permission: "CONFIGURACION.VENTAS_BOLETAS",
+    },
+    {
+      title: "Caja",
+      desc: "Configura el envío por correo del cierre de caja.",
+      icon: <Mail className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/caja",
+      permission: "CONFIGURACION.CAJA",
+    },
+    {
+      title: "Permisos por área",
+      desc: "Define el perfil de acceso de cada área.",
+      icon: <ShieldCheck className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/permissions",
+      permission: "CONFIGURACION.PERMISOS",
+    },
+    {
+      title: "Permisos por usuario",
+      desc: "Define permisos individuales sobre el perfil de su área.",
+      icon: <ShieldCheck className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/permissions-users",
+      permission: "CONFIGURACION.PERMISOS",
+    },
+    {
+      title: "Correo emisor",
+      desc: "Configura la cuenta Gmail que envía los correos del sistema.",
+      icon: <Send className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/email-sender",
+      permission: "CONFIGURACION.PERMISOS",
+    },
+    {
+      title: "Anulaciones y descuentos",
+      desc: "Configura plazos de anulación y descuento máximo.",
+      icon: <Percent className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/ventas-operativas",
+      permission: "CONFIGURACION.VENTAS_BOLETAS",
+    },
+    {
+      title: "Renovaciones",
+      desc: "Actualiza las fechas de renovación de OSE, firma y SOME.",
+      icon: <CalendarClock className="w-10 h-10 text-[#B23636]" />,
+      route: "/configuration/renovaciones",
+      permission: "CONFIGURACION.FACTURACION",
+    },
+  ].filter((item) => hasPermission(user, item.permission));
+
+  return (
+    <div className="space-y-4 px-2 py-2 sm:px-1">
+      <section className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5">
+        <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
+          Configuración
+        </h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Ajusta parametros clave de operacion y facturacion electronica.
+        </p>
+      </section>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:gap-4 desktop:grid-cols-3">
+        {items.map((item) => (
+          <button
+            type="button"
+            key={item.title}
+            onClick={() => navigate(item.route)}
+            className="group rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#B23636]/35 hover:shadow-md sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="shrink-0 rounded-xl bg-slate-50 p-2.5">
+                  {item.icon}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
+                    {item.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">{item.desc}</p>
+                </div>
+              </div>
+              <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-[#B23636]" />
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

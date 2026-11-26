@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 
-const source = readFileSync(new URL("../src/App.css", import.meta.url), "utf8");
+const source = readFileSync(new URL("../src/shared/styles/app.css", import.meta.url), "utf8");
 assert.match(source, /--breakpoint-desktop:\s*75rem\s*;/);
 const assets = new URL("../dist/assets/", import.meta.url);
 const css = readdirSync(assets).filter(name => name.endsWith(".css")).map(name => readFileSync(new URL(name, assets), "utf8")).join("\n");
@@ -9,7 +9,7 @@ assert.ok(/@media\s*\(\s*(?:width\s*>=\s*75rem|min-width\s*:\s*75rem)\s*\)/.test
 for (const rule of ["desktop\\:grid", "desktop\\:hidden", "desktop\\:flex-row"]) {
   assert.ok(css.includes(rule), `Falta la utilidad compilada ${rule}`);
 }
-const payment = readFileSync(new URL("../src/features/pos/pages/PaymentPage.tsx", import.meta.url), "utf8");
+const payment = readFileSync(new URL("../src/app/pos/pages/PaymentPage.tsx", import.meta.url), "utf8");
 assert.ok(!payment.includes("1405px"), "Pago POS debe usar el mismo umbral desktop.");
 assert.match(payment, /desktop:hidden/);
 assert.match(payment, /desktop:grid/);

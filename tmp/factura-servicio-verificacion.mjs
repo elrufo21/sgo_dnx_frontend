@@ -2,7 +2,7 @@
 import { pdf } from "@react-pdf/renderer";
 import { writeFile } from "node:fs/promises";
 
-// src/features/serviceInvoices/components/ServiceInvoicePdf.tsx
+// src/app/serviceInvoices/components/ServiceInvoicePdf.tsx
 import {
   Document,
   Page,
@@ -110,7 +110,7 @@ var numberToWords = (amount, currencyLabel = "SOLES") => {
   return `${parts.join(" ").trim()} CON ${cents}/100 ${currencyLabel}`.toUpperCase();
 };
 
-// src/features/serviceInvoices/components/ServiceInvoicePdf.tsx
+// src/app/serviceInvoices/components/ServiceInvoicePdf.tsx
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 var PAGE_WIDTH = 595.28;
 var PAGE_HEIGHT = 841.89;

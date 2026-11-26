@@ -5,12 +5,12 @@ import { createRequire } from "node:module";
 const mocks = {
   zustand: `export const create = (init) => { let state; const set = (update) => { state = { ...state, ...(typeof update === "function" ? update(state) : update) }; }; state = init(set); return { getState: () => state, setState: set }; };`,
   "@/shared/helpers/apiRequest": `export const apiRequest = async () => globalThis.__employeeDeleteResponse;`,
-  "@/config": `export const buildApiUrl = (path) => path;`,
+  "@/shared/config/api": `export const buildApiUrl = (path) => path;`,
   "@/shared/queryClient": `export const queryClient = { invalidateQueries: async () => { globalThis.__employeeDeleteInvalidations++; if (globalThis.__employeeDeleteCacheError) throw new Error("cache"); } };`,
 };
 
 const output = await build({
-  entryPoints: ["src/store/employees/employees.store.ts"],
+  entryPoints: ["src/app/maintenance/employees/store/employees.store.ts"],
   bundle: true,
   platform: "node",
   format: "cjs",
@@ -18,7 +18,7 @@ const output = await build({
   plugins: [{
     name: "mocks",
     setup(builder) {
-      builder.onResolve({ filter: /^(zustand|@\/shared\/helpers\/apiRequest|@\/config|@\/shared\/queryClient)$/ }, (args) => ({ path: args.path, namespace: "mock" }));
+      builder.onResolve({ filter: /^(zustand|@\/shared\/helpers\/apiRequest|@\/shared\/config\/api|@\/shared\/queryClient)$/ }, (args) => ({ path: args.path, namespace: "mock" }));
       builder.onLoad({ filter: /.*/, namespace: "mock" }, (args) => ({ contents: mocks[args.path], loader: "js" }));
     },
   }],

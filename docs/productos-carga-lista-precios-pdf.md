@@ -181,7 +181,7 @@ La definición consultada en `DXN_ICA2909REG` es la referencia para el comportam
 
 ## Archivos de referencia
 
-- UI y vista previa: `sgo_dnx_frontend/src/features/products/pages/ProductList.tsx`.
+- UI y vista previa: `sgo_dnx_frontend/src/app/products/pages/ProductList.tsx`.
 - Extracción PDF y excepción Lista 13: `sgo_dnx_backend/src/Infrastructure/Pdf/ProductoPdfService.cs`.
 - Endpoints, validación y mapeo: `sgo_dnx_backend/src/Api/Controllers/ProductosController.cs`.
 - Serialización XML y llamada SQL: `sgo_dnx_backend/src/Infrastructure/Repositories/ProductoRepository.cs`.

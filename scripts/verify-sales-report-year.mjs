@@ -6,7 +6,7 @@ import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import ts from "typescript";
 
 // Run the real page and query cache with deferred local responses; no API or SQL.
-const source = readFileSync(new URL("../src/features/reports/pages/SalesReportPage.tsx", import.meta.url), "utf8");
+const source = readFileSync(new URL("../src/app/reports/pages/SalesReportPage.tsx", import.meta.url), "utf8");
 const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText;
@@ -38,7 +38,7 @@ runInNewContext(code, {
       } else observer.setOptions(options);
       return observer.getCurrentResult();
     } };
-    if (name === "@/config") return { buildApiUrl: (path) => `http://fixture${path}` };
+    if (name === "@/shared/config/api") return { buildApiUrl: (path) => `http://fixture${path}` };
     if (name === "@/shared/helpers/apiRequest") return {
       apiRequest: ({ url }) => new Promise((resolve, reject) => requests.push({ url, resolve, reject })),
     };

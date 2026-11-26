@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { createElement } from "react";
 import ts from "typescript";
-import { productToRow, setSaleProductQuantity } from "../src/features/sales/helpers/saleRows.ts";
+import { productToRow, setSaleProductQuantity } from "../src/app/sales/helpers/saleRows.ts";
 
 const kimono = { id: 27, codigo: "25IAP027", nombre: "DXN KIMONO", preVenta: 168, preCosto: 100, cantidad: 4, pv: 5, sv: 8 };
 const kit = { ...kimono, id: 28, codigo: "PEKIT13", nombre: "KIT PREMIUM", preVenta: 125 };
@@ -42,7 +42,7 @@ assert.equal(rows.length, 0);
 assert.equal(productToRow(kimono, 2, false).matched, false);
 
 // Exercise the detail's real change/blur callbacks without an API or a saved sale.
-const page = ts.createSourceFile("capture.tsx", readFileSync(new URL("../src/features/sales/pages/HtmlCaptureSalePage.tsx", import.meta.url), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const page = ts.createSourceFile("capture.tsx", readFileSync(new URL("../src/app/sales/pages/HtmlCaptureSalePage.tsx", import.meta.url), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 let quantityInput;
 const handlers = [];
 function visit(node) {

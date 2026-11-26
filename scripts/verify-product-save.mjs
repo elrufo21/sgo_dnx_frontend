@@ -8,7 +8,7 @@ let response;
 const context = vm.createContext({ console, FormData, File });
 const modules = {
   "zustand": { create },
-  "@/config": { API_BASE_URL: "http://test/api/v1" },
+  "@/shared/config/api": { API_BASE_URL: "http://test/api/v1" },
   "@/shared/helpers/apiRequest": {
     apiRequest: async (request) => {
       assert.equal("fallback" in request, false, "No convertir fallos en productos guardados");
@@ -16,7 +16,7 @@ const modules = {
     },
   },
 };
-const source = ts.transpileModule(fs.readFileSync(new URL("../src/store/products/products.store.ts", import.meta.url), "utf8"), {
+const source = ts.transpileModule(fs.readFileSync(new URL("../src/app/products/store/products.store.ts", import.meta.url), "utf8"), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText;
 const module = new vm.SourceTextModule(source, { context });

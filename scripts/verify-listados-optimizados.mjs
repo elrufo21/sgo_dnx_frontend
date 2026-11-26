@@ -23,14 +23,14 @@ const synthetic = (key, exports) => {
   return modules.get(key);
 };
 const link = async (specifier) => {
-  if (specifier === "@/config") return synthetic(specifier, {
+  if (specifier === "@/shared/config/api") return synthetic(specifier, {
     API_BASE_URL: "http://test/api/v1", buildApiUrl: (route) => `http://test/api/v1${route}`,
   });
   if (specifier === "@/shared/helpers/apiRequest") return synthetic(specifier, {
     apiRequest: (request) => new Promise((resolve) => calls.push({ request, resolve })),
   });
   if (specifier === "zustand") return synthetic(specifier, { create });
-  if (specifier === "@/store/app/dialog.store") return synthetic(specifier, {
+  if (specifier === "@/app/store/dialog.store") return synthetic(specifier, {
     useDialogStore: (selector) => selector({ open: false }),
   });
   if (specifier.startsWith("@/")) return load(path.join(root, "src", specifier.slice(2)));
@@ -49,8 +49,8 @@ const load = async (file) => {
   return mod;
 };
 const tick = () => new Promise((resolve) => setImmediate(resolve));
-const cashModule = await load(path.join(root, "src/store/cashFlow/cashFlow.store.ts"));
-const invoiceModule = await load(path.join(root, "src/store/serviceInvoices/serviceInvoices.store.ts"));
+const cashModule = await load(path.join(root, "src/app/cashFlow/store/cashFlow.store.ts"));
+const invoiceModule = await load(path.join(root, "src/app/serviceInvoices/store/serviceInvoices.store.ts"));
 const cash = cashModule.namespace.useCashFlowStore;
 const invoices = invoiceModule.namespace.useServiceInvoicesStore;
 
@@ -131,3 +131,23 @@ const isolated = renderToStaticMarkup(React.createElement(MemoryRouter, null,
 ));
 assert.ok(isolated.includes('value="123 arbol"') && isolated.includes("Árbol Rojo"), "El buscador aislado conserva la búsqueda inicial y los resultados");
 console.log("DataTable: búsqueda remota y compatibilidad de búsqueda local OK");
+
+const aligned = renderToStaticMarkup(React.createElement(MemoryRouter, null,
+  React.createElement(Table, {
+    columns: [
+      { accessorKey: "name", header: "Nombre" },
+      { accessorKey: "amount", header: "Importe", meta: { align: "right" } },
+      { accessorKey: "quantity", header: "Cantidad", meta: { tdClassName: "text-right" } },
+      { accessorKey: "center", header: "Centro", meta: { align: "center", tdClassName: "text-right" } },
+    ],
+    data: [{ name: "Cliente", amount: -12.5, quantity: 3, center: "X" }],
+    persistPageSize: false,
+  }),
+));
+for (const title of ["Importe", "Cantidad"]) {
+  assert.match(aligned, new RegExp(`<th[^>]*class="[^"]*text-right[^"]*"[^>]*>${title}</th>`));
+}
+assert.match(aligned, /<th[^>]*class="[^"]*text-center[^"]*"[^>]*>Centro<\/th>/);
+assert.match(aligned, /<th[^>]*class="[^"]*text-left[^"]*"[^>]*>Nombre<\/th>/);
+assert.match(aligned, /<td[^>]*class="[^"]*text-right[^"]*"[^>]*>-12\.5<\/td>/);
+console.log("DataTable: alineación de encabezados y valores numéricos OK");

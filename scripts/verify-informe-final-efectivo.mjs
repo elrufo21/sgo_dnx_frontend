@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 
-const source = readFileSync(new URL("../src/features/cashFlow/pages/CashFinalReportPage.tsx", import.meta.url), "utf8");
+const source = readFileSync(new URL("../src/app/cashFlow/pages/CashFinalReportPage.tsx", import.meta.url), "utf8");
 const file = ts.createSourceFile("CashFinalReportPage.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 let callback;
 const helpers = [];

@@ -4,7 +4,7 @@ import {
   crearXmlGreRemitente,
   greXmlFileName,
   greZipFileName,
-} from "../src/features/sales/components/greRemitenteXml.ts";
+} from "../src/app/sales/components/greRemitenteXml.ts";
 
 const xml = crearXmlGreRemitente({
   serie: "T001",

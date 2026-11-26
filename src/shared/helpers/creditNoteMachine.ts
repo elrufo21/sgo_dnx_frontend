@@ -1,4 +1,4 @@
-import { PRINT_AGENT_BASE_URL } from "@/config";
+import { PRINT_AGENT_BASE_URL } from "@/shared/config/api";
 
 export async function getCreditNoteMachineName(): Promise<string> {
   try {

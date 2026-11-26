@@ -1,6 +1,6 @@
 import { GlobalDialog } from "@/components/common/GlobalDialog";
 import { InputHistoryGuard } from "./InputHistoryGuard";
-import "../App.css";
+import "../shared/styles/app.css";
 import Router from "./routes";
 
 function App() {

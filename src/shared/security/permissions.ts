@@ -1,4 +1,4 @@
-import type { AuthUser } from "@/store/auth/auth.store";
+import type { AuthUser } from "@/app/auth/store/auth.store";
 
 export const permissionGroups = [
   {

@@ -18,6 +18,8 @@ Cuando se identifica la venta original de la misma compañía, **Nro. asociado**
 
 ## Inventario permanente valorizado
 
+El botón con ícono de Excel exporta los productos seleccionados en un archivo ZIP.
+
 En **Contabilidad → Inventario permanente valorizado** se listan los productos de la base configurada y los grupos de ICA y COMAS sin correspondencia local, con búsqueda por código o descripción y stock actual local cuando está disponible. La tabla permite seleccionar productos, editar su saldo inicial y exportar el lote.
 
 La lista agrupa los códigos base y sus variantes con prefijos `191`, `201`, `211`, `221`, `231`, `241` y `251` en una fila; `181` permanece separado. **Stock vigente** muestra el stock del registro local sin prefijo cuando existe y un guion cuando no está disponible; no suma existencias históricas ni otras sedes. También se puede buscar por el código de una variante. La lista del escritorio conserva las filas separadas: la agrupación visual es una mejora web basada en las equivalencias de su consulta de movimientos.

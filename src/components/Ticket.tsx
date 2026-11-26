@@ -8,7 +8,7 @@ import {
 } from "@react-pdf/renderer";
 
 import { useEffect, useMemo, useState } from "react";
-import type { PosCartItem, PosTotals } from "@/types/pos";
+import type { PosCartItem, PosTotals } from "@/app/pos/types/pos";
 import { generateTicketQrBase64 } from "@/components/ticketQr";
 
 type TicketDocumentProps = {
